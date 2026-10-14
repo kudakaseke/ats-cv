@@ -94,9 +94,11 @@ class WorkspaceTest extends TestCase
             $this->get('/'.$page)->assertOk();
         }
         $this->actingAs(User::factory()->create());
-        foreach (['checker', 'revamp', 'builder', 'resumes', 'history'] as $module) {
+        foreach (['checker', 'revamp', 'history'] as $module) {
             $this->get('/workspace/'.$module)->assertOk()->assertSee('under development');
         }
+        $this->get('/workspace/builder')->assertRedirect(route('builder.start', ['new' => 1]));
+        $this->get('/workspace/resumes')->assertOk()->assertSee('My CVs');
         $this->get('/workspace/unknown')->assertNotFound();
     }
 }

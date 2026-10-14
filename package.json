@@ -5,7 +5,8 @@
     "scripts": {
         "build": "vite build",
         "dev": "vite",
-        "test:browser": "node scripts/browser-smoke.mjs"
+        "test:browser": "node scripts/browser-smoke.mjs",
+        "test:builder": "node scripts/builder-smoke.mjs"
     },
     "devDependencies": {
         "@playwright/test": "^1.64.0",

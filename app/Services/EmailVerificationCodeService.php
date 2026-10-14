@@ -88,6 +88,7 @@ class EmailVerificationCodeService
             return $account;
         });
         if ($result instanceof User) {
+            $user->refresh();
             event(new Verified($result));
         } elseif ($result !== 'verified') {
             throw ValidationException::withMessages(['code' => $result]);

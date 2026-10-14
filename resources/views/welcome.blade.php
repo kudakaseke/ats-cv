@@ -4,7 +4,7 @@
             <h1>Make Your CV <span>Stand Out with AI</span></h1>
             <p>Check your CV against a job, improve it with AI,<br class="desktop-break"> and build a professional resume for your next move.</p>
             <div class="reference-hero-actions">
-                <a class="reference-start" href="{{ route('register') }}">Get Started Free <span><x-icon name="arrow-up-right" /></span></a>
+                <a class="reference-start" href="{{ route('builder.start') }}">Get Started Free <span><x-icon name="arrow-up-right" /></span></a>
                 <a class="reference-explore" href="#features">Explore Features <x-icon name="arrow-down-right" /></a>
                 <a class="reference-check" href="{{ auth()->check() ? route('workspace.module', 'checker') : route('login') }}"><x-icon name="upload" /> Check My CV</a>
             </div>
@@ -39,11 +39,11 @@
                     <h3>Your next CV.<br>Built around you.</h3>
                     <div class="feature-meta"><span><x-icon name="file-pen-line" /> Step-by-step guidance</span><span><x-icon name="layout-template" /> ATS-friendly templates</span></div>
                     <p class="feature-highlight">From a fresh start to a finished CV</p>
-                    <ul class="feature-details"><li>Personal details, experience, and education</li><li>Skills, certifications, projects, and references</li><li>Saved drafts and tailored CV versions</li><li>PDF and editable Word downloads</li></ul>
-                    <div class="feature-card-footer"><a href="{{ auth()->check() ? route('workspace.module', 'builder') : route('login') }}">Explore <span><x-icon name="chevron-right" /></span></a><p>Designed for<br><span>Your next chapter</span></p></div>
+                    <ul class="feature-details"><li>20 templates with a live CV preview</li><li>Experience, education, skills, and achievements</li><li>Start before signing in; save to your account</li><li>Import PDF or Word; print or save as PDF</li></ul>
+                    <div class="feature-card-footer"><a href="{{ route('builder.start') }}">Explore <span><x-icon name="chevron-right" /></span></a><p>Designed for<br><span>Your next chapter</span></p></div>
                 </article>
             </div>
-            <p class="reference-release-note">Early access: accounts and your dashboard are available. CV analysis, revamping, building, and downloads are coming in later releases.</p>
+            <p class="reference-release-note">Available now: accounts, your dashboard, and the CV Builder with 20 templates. AI analysis, revamping, and Word exports are coming in later releases.</p>
         </div>
     </section>
 
@@ -80,7 +80,7 @@
                         <h3>{{ $plan->name }}</h3>
                         <p class="reference-price">${{ number_format($plan->price_cents / 100, 0) }}<span>/ month</span></p>
                         <ul>@foreach ($plan->features as $feature)<li><x-icon name="check" /> {{ $feature }}</li>@endforeach</ul>
-                        <a class="reference-plan-link" href="{{ $plan->price_cents === 0 ? route('register') : route('contact') }}">{{ $plan->price_cents === 0 ? 'Get Started Free' : 'Enquire about '.$plan->name }} <span><x-icon name="chevron-right" /></span></a>
+                        <a class="reference-plan-link" href="{{ $plan->price_cents === 0 ? route('builder.start') : route('contact') }}">{{ $plan->price_cents === 0 ? 'Get Started Free' : 'Enquire about '.$plan->name }} <span><x-icon name="chevron-right" /></span></a>
                         <small>{{ $plan->price_cents > 0 ? 'Planned pricing. Paid upgrades are not active.' : 'No credit card required.' }}</small>
                     </article>
                 @endforeach
@@ -100,5 +100,5 @@
         </div>
     </section>
 
-    <section class="reference-final-cta"><div class="reference-container"><h2>Your next chapter.<br><span>A better introduction.</span></h2><a class="reference-plan-link" href="{{ route('register') }}">Get Started Free <span><x-icon name="arrow-up-right" /></span></a></div></section>
+    <section class="reference-final-cta"><div class="reference-container"><h2>Your next chapter.<br><span>A better introduction.</span></h2><a class="reference-plan-link" href="{{ route('builder.start') }}">Get Started Free <span><x-icon name="arrow-up-right" /></span></a></div></section>
 </x-public-layout>

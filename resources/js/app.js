@@ -1,6 +1,7 @@
 import './bootstrap';
 
 import Alpine from 'alpinejs';
+import './cv-builder';
 import {
     createIcons, Asterisk, ArrowUpRight, ArrowRight, ArrowLeft, ShieldCheck,
     Sparkles, FileText, Check, FileCheck2, Download, Upload, Text,

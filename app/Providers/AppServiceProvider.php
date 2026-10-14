@@ -14,6 +14,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        RateLimiter::for('builder-save', fn (Request $request) => [
+            Limit::perMinute(90)->by('session:'.$request->session()->getId()),
+            Limit::perMinute(180)->by('ip:'.$request->ip()),
+        ]);
+        RateLimiter::for('builder-import', fn (Request $request) => [
+            Limit::perMinute(3)->by('ip:'.$request->ip()),
+            Limit::perHour(10)->by('ip:'.$request->ip()),
+        ]);
         RateLimiter::for('auth-login', function (Request $request) {
             $email = hash('sha256', strtolower(trim((string) $request->input('email'))));
 

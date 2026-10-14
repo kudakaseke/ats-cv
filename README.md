@@ -1,6 +1,16 @@
 # ATS CV
 
-Laravel 12 / PHP 8.2+, MySQL, Livewire 4, Blade, Tailwind CSS 4, Alpine, and Lucide. Phase 1 is implemented and runnable; the remaining phases are documented below.
+Laravel 12 / PHP 8.2+, MySQL, Livewire 4, Blade, Tailwind CSS 4, Alpine, and Lucide. The application foundation and guest-first CV builder are implemented; remaining features are documented below.
+
+## CV builder
+
+Homepage **Get Started Free** opens `/get-started`: existing CV question, target role, template gallery, then the editor. There are 20 template styles across five layout families with role-based suggestions and category filters. Users can enter personal details, summary, experience, education, skills, achievements, courses, and languages; repeatable entries support adding, removing, and reordering. The preview updates while typing, and changing templates preserves the content.
+
+Guests can edit before creating an account. Debounced draft saving uses the private Laravel session rather than browser local storage. Guest drafts last for the session, not indefinitely; signing in and verifying email attaches the draft to the account. **Done — save my CV** sends guests to login, with a registration option, and returns to the editor afterward. Saved CVs can be reopened under **My CVs**. Account ownership is checked on reads and updates.
+
+PDF/DOCX imports extract reference text and an email address; users review and transfer the text to the appropriate fields. Imports do not infer qualifications or automatically map every section. Scanned PDFs need OCR and cannot be imported yet. Files are limited to 5 MB; extracted text and DOCX XML have size bounds, PDF decoding has limits, and import requests are throttled. Originals are not retained. Uploaded DOCX content is never executed, and XML entity declarations are rejected.
+
+Verified account holders can use **Print / PDF** to open the browser print dialog and save as PDF. Editable Word export and AI rewriting remain future features. Run `npm.cmd run test:builder` for Chrome checks covering onboarding, templates, editing, mobile widths, escaping, draft reload, login handoff, saved CVs, and PDF import.
 
 ## Phase 1 features
 
@@ -12,7 +22,7 @@ Laravel 12 / PHP 8.2+, MySQL, Livewire 4, Blade, Tailwind CSS 4, Alpine, and Luc
 - Configurable database-backed Free ($0), Basic ($3), and Pro ($7) plans. Active subscription dates are checked; pending and expired subscriptions never grant paid access. No live checkout or payment activation.
 - Dedicated `ats_cv` MySQL database, migrations, idempotent plan seeder, models, relationships, indexes, cascading account-record deletion, and reusable plan/usage service.
 - Privacy, terms, and contact pages. Operator contact and final legal text require review before public launch.
-- CV tools have explicit upcoming-release screens. The public page labels upcoming features clearly; no invented score or company performance metrics are displayed.
+- The CV Builder and saved CV library are available. AI analysis and revamping have explicit upcoming-release screens; no invented score or company performance metrics are displayed.
 
 ## Local installation (PowerShell / XAMPP)
 
