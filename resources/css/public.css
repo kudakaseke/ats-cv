@@ -1,0 +1,430 @@
+/* Public website: Sander reference proportions, with ATS CV content.
+   Desktop type scales with the viewport, as on the reference site.
+   The blue hero is the only full-width coloured section. */
+.public-site {
+    --reference-blue: #346de1;
+    --reference-ink: #0c272f;
+    --reference-border: #c4ddff;
+    background: #fff;
+    color: #000;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: clamp(18px, 1.1875vw, 24px);
+    font-weight: 300;
+}
+html:has(.public-site) { scroll-padding-top: clamp(96px, 8.8vw, 169px); }
+.public-site .reference-container {
+    width: 84%;
+    max-width: 1800px;
+    margin-inline: auto;
+}
+.public-site .reference-header {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background: #fff;
+    color: var(--reference-ink);
+}
+.public-site .reference-header.blue-header { background: var(--reference-blue); color: #fff; }
+.public-site .reference-nav {
+    min-height: clamp(110px, 8.8vw, 169px);
+    padding: 30px 4.33%;
+    display: flex;
+    align-items: center;
+    gap: clamp(24px, 2.4vw, 46px);
+}
+.public-site .reference-wordmark {
+    font-size: clamp(34px, 2.7vw, 52px);
+    font-weight: 300;
+    letter-spacing: -.04em;
+    line-height: 1;
+    white-space: nowrap;
+}
+.public-site .reference-desktop-nav,
+.public-site .reference-account-nav {
+    display: flex;
+    align-items: center;
+    gap: clamp(20px, 2.2vw, 42px);
+    font-size: clamp(17px, 1.35vw, 26px);
+    font-weight: 400;
+}
+.public-site .reference-desktop-nav { margin-left: auto; }
+.public-site .reference-account-nav { margin-left: clamp(10px, 2.5vw, 48px); }
+.public-site .reference-signup { border-bottom: 1px solid currentColor; padding-bottom: 4px; }
+.public-site .reference-desktop-nav a:hover,
+.public-site .reference-account-nav a:hover { opacity: .75; }
+.public-site .reference-menu-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 24px;
+    font-size: clamp(18px, 1.35vw, 26px);
+    font-weight: 400;
+    margin-left: 18px;
+    padding: 12px 0 12px 12px;
+}
+.public-site .reference-menu-lines { width: 56px; display: grid; gap: 10px; }
+.public-site .reference-menu-lines span { height: 1px; background: currentColor; display: block; }
+.public-site .reference-menu-lines span:not(:first-child) { width: 28px; }
+.public-site .reference-expanded-nav {
+    position: absolute;
+    right: 4.33%;
+    top: 100%;
+    width: min(420px, 91.34vw);
+    background: #fff;
+    color: var(--reference-blue);
+    border: 1px solid var(--reference-border);
+    padding: 18px 30px;
+}
+.public-site .reference-expanded-nav a {
+    display: block;
+    font-size: 22px;
+    font-weight: 400;
+    padding: 15px 0;
+    border-bottom: 1px solid var(--reference-border);
+}
+.public-site .reference-expanded-nav a:last-child { border-bottom: 0; }
+.public-site .reference-hero { background: var(--reference-blue); color: #fff; }
+.public-site .reference-hero-content {
+    margin-left: 12%;
+    margin-right: 8.5%;
+    padding-top: clamp(64px, 6.3vw, 121px);
+    padding-bottom: clamp(80px, 5.27vw, 101px);
+}
+.public-site .reference-hero h1 {
+    font-size: clamp(56px, 5.54vw, 106.4px);
+    font-weight: 300;
+    letter-spacing: -.025em;
+    line-height: 1.05;
+    margin: 0;
+    color: #fff;
+}
+.public-site .reference-hero h1 span { color: #000; }
+.public-site .reference-hero-content > p {
+    font-size: clamp(24px, 1.875vw, 36px);
+    font-weight: 400;
+    letter-spacing: 0;
+    line-height: 1.25;
+    max-width: 1060px;
+    margin: clamp(44px, 3.1vw, 59.5px) 0 0;
+}
+.public-site .reference-hero-actions {
+    display: flex;
+    align-items: center;
+    gap: 36px;
+    margin-top: clamp(64px, 3.875vw, 74.4px);
+    font-size: clamp(20px, 1.35vw, 26px);
+    line-height: 1.4;
+    font-weight: 400;
+}
+.public-site .reference-start {
+    min-height: 74px;
+    width: clamp(300px, 21.7vw, 417px);
+    padding: 6px 9px 6px 36px;
+    border: 1px solid #fff;
+    border-radius: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+}
+.public-site .reference-start > span {
+    display: grid;
+    place-items: center;
+    background: #cbe5ff;
+    color: var(--reference-ink);
+    width: 57px;
+    height: 57px;
+    border-radius: 50%;
+}
+.public-site .reference-start .icon { width: 30px; height: 30px; stroke-width: 1; }
+.public-site .reference-start:hover { background: #ffffff15; }
+.public-site .reference-explore { display: inline-flex; gap: 12px; align-items: center; font-size: .85em; }
+.public-site .reference-explore:hover { text-decoration: underline; text-underline-offset: 7px; }
+.public-site .reference-explore .icon { width: 24px; height: 24px; stroke-width: 1; }
+.public-site .reference-check {
+    margin-left: auto;
+    background: #fff;
+    color: var(--reference-blue);
+    border-radius: 100px;
+    display: inline-flex;
+    align-items: center;
+    gap: 22px;
+    padding: 22px 35px;
+    min-height: 76px;
+    white-space: nowrap;
+}
+.public-site .reference-check .icon { width: 25px; height: 25px; stroke-width: 1.2; }
+.public-site .reference-check:hover { background: #eaf3ff; }
+.public-site .reference-features,
+.public-site .reference-process,
+.public-site .reference-pricing,
+.public-site .reference-faq { padding-block: clamp(80px, 6.25vw, 120px); background: #fff; }
+.public-site .reference-eyebrow {
+    display: block;
+    font-size: clamp(12px, .9375vw, 18px);
+    font-weight: 600;
+    letter-spacing: .22em;
+    line-height: 1.6;
+    color: var(--reference-blue);
+}
+.public-site h2 {
+    font-size: clamp(48px, 4.62vw, 88.7px);
+    font-weight: 300;
+    letter-spacing: -.025em;
+    line-height: 1.08;
+    margin: 32px 0 0;
+    color: #000;
+}
+.public-site h2 span { color: var(--reference-blue); }
+.public-site .reference-section-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 45px;
+    margin-bottom: 70px;
+}
+.public-site .reference-section-heading > p { line-height: 1.85; font-size: clamp(18px, 1.25vw, 24px); margin-bottom: 6px; }
+.public-site .reference-feature-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2.85vw; }
+.public-site .reference-feature-card {
+    --feature-accent: #346de1;
+    --feature-tint: #cbe5ff;
+    border: 1px solid var(--reference-border);
+    border-radius: 0 clamp(60px, 5.2vw, 100px) 0 clamp(60px, 5.2vw, 100px);
+    padding: clamp(26px, 2.08vw, 40px);
+    background: #fff;
+    min-height: clamp(600px, 40.8vw, 784px);
+    display: flex;
+    flex-direction: column;
+    box-shadow: none;
+}
+.public-site .feature-checker { --feature-accent: #fa9600; --feature-tint: #f8f7f4; }
+.public-site .feature-revamp { --feature-accent: #4bbfaf; --feature-tint: #effaf7; }
+.public-site .feature-category {
+    font-size: clamp(17px, 1.2vw, 23px);
+    font-weight: 400;
+    line-height: 1.45;
+    align-self: flex-start;
+    color: var(--reference-ink);
+    background: var(--feature-tint);
+    padding: 0 12px;
+}
+.public-site .reference-feature-card h3 {
+    font-size: clamp(28px, 2.08vw, 40px);
+    line-height: 1.18;
+    font-weight: 400;
+    letter-spacing: -.025em;
+    color: var(--reference-ink);
+    margin: 36px 0;
+    min-height: 2.36em;
+}
+.public-site .feature-meta { display: grid; gap: 10px; color: var(--reference-blue); font-size: clamp(17px, 1.2vw, 23px); font-weight: 400; line-height: 1.5; }
+.public-site .feature-meta > span { display: flex; align-items: flex-start; gap: 18px; }
+.public-site .feature-meta .icon { width: 25px; height: 28px; margin-top: 3px; color: var(--feature-accent); }
+.public-site .feature-highlight { color: var(--reference-blue); font-weight: 400; font-size: clamp(17px, 1.2vw, 23px); line-height: 1.65; margin-top: 32px; }
+.public-site .feature-details { list-style: none; padding: 0; margin: 35px 0 40px; font-size: clamp(17px, 1.1875vw, 22.8px); font-weight: 300; line-height: 1.92; }
+.public-site .feature-details li { margin: 0; }
+.public-site .feature-card-footer { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.public-site .feature-card-footer > a,
+.public-site .reference-plan-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: clamp(22px, 1.4vw, 27px);
+    font-weight: 400;
+    color: var(--reference-blue);
+}
+.public-site .feature-card-footer > a > span,
+.public-site .reference-plan-link > span { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--reference-border); border-radius: 50%; }
+.public-site .feature-card-footer .icon,
+.public-site .reference-plan-link .icon { width: 19px; height: 19px; stroke-width: 1.3; }
+.public-site .feature-card-footer > a:hover > span,
+.public-site .reference-plan-link:hover > span { background: #eaf3ff; }
+.public-site .feature-card-footer > p { font-size: clamp(13px, .83vw, 16px); font-weight: 300; line-height: 1.9; text-align: right; }
+.public-site .reference-release-note { font-size: clamp(14px, .83vw, 16px); line-height: 1.8; color: #52636a; margin-top: 32px; }
+.public-site .reference-process { padding-top: 30px; }
+.public-site .reference-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 36px; padding: 0; list-style: none; margin-top: 70px; }
+.public-site .reference-steps li { border-top: 1px solid var(--reference-border); padding-top: 25px; }
+.public-site .reference-step-number { font-size: 36px; color: var(--reference-blue); font-weight: 300; }
+.public-site .reference-steps h3 { font-size: clamp(22px, 1.46vw, 28px); font-weight: 400; line-height: 1.4; margin: 24px 0 15px; color: var(--reference-ink); }
+.public-site .reference-steps p { font-size: clamp(17px, 1.04vw, 20px); line-height: 1.9; }
+.public-site .reference-about {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 24.8vw);
+    gap: 16.5vw;
+    padding: 60px 1.2% 100px 12.3%;
+    background: #fff;
+    align-items: start;
+}
+.public-site .reference-about-copy h2 { font-size: clamp(48px, 4.62vw, 88.7px); margin-top: 65px; letter-spacing: -.025em; line-height: 1.08; }
+.public-site .reference-about-copy > p { font-size: clamp(19px, 1.25vw, 24px); font-weight: 400; line-height: 1.83; margin-top: 55px; }
+.public-site .reference-about-stats { display: grid; }
+.public-site .reference-about-stat { background: #f8f7f5; color: var(--reference-ink); min-height: 24.8vw; padding: 50px 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 56px; text-align: center; }
+.public-site .reference-about-stat strong { font-size: clamp(60px, 4.17vw, 80px); font-weight: 300; letter-spacing: -.04em; line-height: 1; }
+.public-site .reference-about-stat > span { font-size: clamp(26px, 2.08vw, 40px); font-weight: 400; line-height: 1.3; letter-spacing: -.025em; }
+.public-site .reference-about-stat.stat-blue { background: var(--reference-blue); color: #fff; }
+.public-site .reference-plan-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 55px; }
+.public-site .reference-plan { border-top: 1px solid var(--reference-border); display: flex; flex-direction: column; padding-top: 28px; }
+.public-site .reference-plan h3 { color: var(--reference-ink); font-size: 32px; font-weight: 400; }
+.public-site .reference-price { font-size: clamp(55px, 4.17vw, 80px); font-weight: 300; line-height: 1.25; margin-top: 25px; letter-spacing: -.04em; }
+.public-site .reference-price > span { font-size: 20px; letter-spacing: 0; margin-left: 12px; }
+.public-site .reference-plan ul { display: grid; gap: 14px; font-size: clamp(17px, 1.04vw, 20px); line-height: 1.6; padding: 0; list-style: none; margin: 30px 0 45px; flex: 1; }
+.public-site .reference-plan li { display: flex; gap: 12px; align-items: flex-start; }
+.public-site .reference-plan li .icon { color: var(--reference-blue); width: 20px; height: 20px; margin-top: 6px; }
+.public-site .reference-plan > small { font-size: 14px; line-height: 1.8; margin-top: 20px; color: #52636a; }
+.public-site .reference-faq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8vw; }
+.public-site .reference-faq h2 { font-size: clamp(42px, 3.9vw, 75px); }
+.public-site .reference-inline-link { color: var(--reference-blue); font-size: 20px; display: inline-flex; align-items: center; gap: 16px; margin-top: 40px; }
+.public-site .reference-faq-list details { border-bottom: 1px solid var(--reference-border); }
+.public-site .reference-faq-list details:first-child { border-top: 1px solid var(--reference-border); }
+.public-site .reference-faq-list summary { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 25px 0; font-size: clamp(18px, 1.2vw, 23px); font-weight: 400; line-height: 1.6; cursor: pointer; list-style: none; }
+.public-site .reference-faq-list summary::-webkit-details-marker { display: none; }
+.public-site .reference-faq-list .icon { color: var(--reference-blue); width: 22px; height: 22px; }
+.public-site .reference-faq-list details[open] .icon { transform: rotate(45deg); }
+.public-site .reference-faq-list p { font-size: 18px; line-height: 1.9; padding-bottom: 25px; }
+.public-site .reference-final-cta { padding-block: 45px 120px; background: #fff; }
+.public-site .reference-final-cta .reference-container { display: flex; align-items: center; justify-content: space-between; gap: 35px; border-top: 1px solid var(--reference-border); padding-top: 65px; }
+.public-site .reference-final-cta h2 { margin: 0; font-size: clamp(42px, 3.9vw, 75px); }
+.public-site .reference-footer { background: #fff; border-top: 1px solid var(--reference-border); padding-top: 60px; color: var(--reference-ink); }
+.public-site .reference-footer-top { display: flex; justify-content: space-between; gap: 40px; padding-bottom: 55px; }
+.public-site .reference-footer-top p { font-size: 20px; line-height: 1.7; margin-top: 30px; }
+.public-site .reference-footer-top nav { display: flex; flex-wrap: wrap; gap: 35px; font-size: 20px; font-weight: 400; }
+.public-site .reference-footer-bottom { border-top: 1px solid var(--reference-border); padding: 25px 0; display: flex; justify-content: space-between; gap: 25px; font-size: 15px; line-height: 1.7; }
+.public-site .reference-footer-bottom > div { display: flex; gap: 28px; }
+.public-site .blue-header a:focus-visible,
+.public-site .blue-header button:focus-visible,
+.public-site .reference-hero a:focus-visible { outline-color: #fff; }
+.public-site .reference-expanded-nav a:focus-visible { outline-color: var(--reference-blue); }
+.public-site .legal-content { max-width: 1000px; }
+.public-site .legal-content h1 { font-weight: 300; font-size: 64px; }
+.public-site .legal-content h2 { font-size: 32px; margin-top: 40px; }
+.public-site .legal-content p { font-size: 19px; line-height: 1.9; }
+/* Account surfaces also stay white, with colour reserved for controls. */
+body .workspace-shell, body .auth-story, body .dashboard-banner,
+body .dashboard-bottom, body .sidebar-tip { background: #fff; }
+
+@media (min-width: 2100px) {
+    .public-site .reference-hero-content { max-width: 1700px; margin-inline: auto; }
+}
+@media (max-width: 1200px) {
+    .public-site .reference-nav { gap: 25px; padding-inline: 5%; }
+    .public-site .reference-desktop-nav { gap: 22px; }
+    .public-site .reference-account-nav { margin-left: 0; gap: 20px; }
+    .public-site .reference-menu-button { margin-left: 0; gap: 12px; }
+    .public-site .reference-menu-lines { width: 35px; gap: 7px; }
+    .public-site .reference-menu-lines span:not(:first-child) { width: 20px; }
+    .public-site .reference-hero-content { margin-inline: 8%; }
+    .public-site .reference-hero-actions { gap: 25px; flex-wrap: wrap; }
+    .public-site .reference-start { min-height: 64px; padding-left: 26px; }
+    .public-site .reference-start > span { width: 48px; height: 48px; }
+    .public-site .reference-check { min-height: 66px; padding: 18px 26px; gap: 15px; }
+    .public-site .reference-feature-grid { gap: 24px; }
+    .public-site .reference-feature-card { padding: 26px; }
+    .public-site .feature-category { font-size: 16px; padding-inline: 8px; }
+    .public-site .feature-meta { font-size: 16px; }
+    .public-site .feature-meta > span { gap: 10px; }
+    .public-site .feature-highlight, .public-site .feature-details { font-size: 17px; }
+    .public-site .feature-card-footer { flex-wrap: wrap; }
+    .public-site .feature-card-footer > p { text-align: left; font-size: 13px; }
+    .public-site .reference-about { padding-left: 8%; padding-right: 4%; gap: 8vw; grid-template-columns: minmax(0, 1fr) 28vw; }
+    .public-site .reference-about-stat { min-height: 30vw; gap: 35px; }
+    .public-site .reference-about-copy h2 { margin-top: 45px; }
+    .public-site .reference-about-copy > p { margin-top: 40px; }
+    .public-site .reference-plan-grid { gap: 35px; }
+    .public-site .reference-footer-top nav { gap: 22px; }
+}
+@media (max-width: 900px) {
+    .public-site .reference-desktop-nav { display: none; }
+    .public-site .reference-account-nav { margin-left: auto; }
+    .public-site .reference-hero h1 { font-size: 64px; }
+    .public-site .reference-hero-content > p { max-width: 700px; }
+    .public-site .reference-explore { order: 3; width: 100%; }
+    .public-site .reference-check { margin-left: auto; }
+    .public-site .reference-section-heading { align-items: flex-start; flex-direction: column; gap: 30px; margin-bottom: 50px; }
+    .public-site .reference-feature-grid { grid-template-columns: 1fr; gap: 35px; }
+    .public-site .reference-feature-card { min-height: 0; border-radius: 0 80px 0 80px; padding: 36px; }
+    .public-site .reference-feature-card h3 { font-size: 36px; margin-block: 30px; }
+    .public-site .feature-category { font-size: 20px; }
+    .public-site .feature-meta, .public-site .feature-highlight { font-size: 20px; }
+    .public-site .feature-details { font-size: 19px; margin-block: 25px 35px; }
+    .public-site .feature-card-footer > p { text-align: right; }
+    .public-site .reference-steps { grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 50px; }
+    .public-site .reference-about { grid-template-columns: 1fr; gap: 50px; padding: 50px 8% 80px; }
+    .public-site .reference-about-copy h2 { font-size: 64px; }
+    .public-site .reference-about-stats { grid-template-columns: 1fr 1fr; }
+    .public-site .reference-about-stat { min-height: 300px; padding: 35px 20px; }
+    .public-site .reference-about-stat > span { font-size: 26px; }
+    .public-site .reference-plan-grid { gap: 25px; }
+    .public-site .reference-plan h3 { font-size: 28px; }
+    .public-site .reference-price > span { display: block; margin-left: 0; font-size: 17px; }
+    .public-site .reference-plan-link { font-size: 21px; }
+    .public-site .reference-plan > small { font-size: 13px; }
+    .public-site .reference-faq-grid { grid-template-columns: 1fr; gap: 45px; }
+    .public-site .reference-final-cta .reference-container { align-items: flex-start; flex-direction: column; }
+    .public-site .reference-footer-top { flex-direction: column; }
+}
+@media (max-width: 600px) {
+    .public-site { font-size: 18px; }
+    .public-site .reference-container { width: calc(100% - 44px); }
+    .public-site .reference-nav { min-height: 96px; padding: 22px; gap: 18px; justify-content: space-between; }
+    .public-site .reference-wordmark { font-size: 32px; }
+    .public-site .reference-account-nav { display: none; }
+    .public-site .reference-menu-button { font-size: 18px; gap: 14px; padding-left: 0; }
+    .public-site .reference-menu-lines { width: 34px; gap: 8px; }
+    .public-site .reference-expanded-nav { left: 22px; right: 22px; width: auto; padding-inline: 25px; }
+    .public-site .reference-expanded-nav a { font-size: 20px; }
+    .public-site .reference-hero-content { margin-inline: 22px; padding-top: 52px; padding-bottom: 64px; }
+    .public-site .reference-hero h1 { font-size: clamp(43px, 11.8vw, 62px); letter-spacing: -.045em; line-height: 1.1; }
+    .public-site .reference-hero-content > p { font-size: 22px; line-height: 1.5; margin-top: 32px; }
+    .public-site .desktop-break { display: none; }
+    .public-site .reference-hero-actions { margin-top: 40px; flex-direction: column; align-items: flex-start; gap: 23px; font-size: 20px; }
+    .public-site .reference-start { width: 100%; min-height: 64px; padding-left: 25px; }
+    .public-site .reference-check { margin-left: 0; padding: 17px 25px; min-height: 62px; }
+    .public-site .reference-explore { order: 3; font-size: 18px; }
+    .public-site h2 { font-size: 43px; line-height: 1.13; margin-top: 22px; letter-spacing: -.04em; }
+    .public-site .reference-eyebrow { font-size: 11px; letter-spacing: .18em; }
+    .public-site .reference-features, .public-site .reference-pricing, .public-site .reference-faq { padding-block: 64px; }
+    .public-site .reference-section-heading { gap: 24px; margin-bottom: 36px; }
+    .public-site .reference-section-heading > p { font-size: 18px; line-height: 1.8; }
+    .public-site .reference-feature-card { border-radius: 0 65px 0 65px; padding: 28px; }
+    .public-site .feature-category { font-size: 17px; }
+    .public-site .reference-feature-card h3 { font-size: 32px; line-height: 1.25; margin-block: 28px; }
+    .public-site .feature-meta, .public-site .feature-highlight { font-size: 17px; line-height: 1.6; }
+    .public-site .feature-meta > span { gap: 12px; }
+    .public-site .feature-meta .icon { width: 21px; height: 24px; }
+    .public-site .feature-highlight { margin-top: 27px; }
+    .public-site .feature-details { font-size: 17px; line-height: 1.85; margin-block: 26px 32px; }
+    .public-site .feature-card-footer > a { font-size: 23px; }
+    .public-site .feature-card-footer > p { font-size: 12px; }
+    .public-site .reference-release-note { font-size: 13px; line-height: 1.9; margin-top: 25px; }
+    .public-site .reference-process { padding-block: 20px 64px; }
+    .public-site .reference-steps { grid-template-columns: 1fr; gap: 32px; margin-top: 40px; }
+    .public-site .reference-steps h3 { font-size: 23px; margin-top: 18px; }
+    .public-site .reference-steps p { font-size: 17px; }
+    .public-site .reference-about { padding: 30px 22px 60px; gap: 40px; }
+    .public-site .reference-about-copy h2 { font-size: clamp(28px, 8.9vw, 50px); margin-top: 34px; line-height: 1.16; letter-spacing: -.025em; }
+    .public-site .reference-about-copy > p { font-size: 18px; line-height: 1.9; margin-top: 30px; }
+    .public-site .reference-about-stats { grid-template-columns: 1fr; }
+    .public-site .reference-about-stat { min-height: 280px; gap: 35px; }
+    .public-site .reference-about-stat strong { font-size: 70px; }
+    .public-site .reference-about-stat > span { font-size: 30px; }
+    .public-site .reference-plan-grid { grid-template-columns: 1fr; gap: 45px; }
+    .public-site .reference-plan h3 { font-size: 30px; }
+    .public-site .reference-price { font-size: 64px; }
+    .public-site .reference-price > span { display: inline; margin-left: 12px; font-size: 18px; }
+    .public-site .reference-plan ul { font-size: 18px; margin-bottom: 30px; }
+    .public-site .reference-plan-link { font-size: 23px; }
+    .public-site .reference-faq h2, .public-site .reference-final-cta h2 { font-size: 41px; }
+    .public-site .reference-faq-list summary { font-size: 18px; padding-block: 22px; }
+    .public-site .reference-faq-list p { font-size: 17px; }
+    .public-site .reference-inline-link { font-size: 18px; margin-top: 30px; }
+    .public-site .reference-final-cta { padding-block: 15px 65px; }
+    .public-site .reference-final-cta .reference-container { padding-top: 40px; }
+    .public-site .reference-footer { padding-top: 45px; }
+    .public-site .reference-footer-top { padding-bottom: 35px; }
+    .public-site .reference-footer-top p, .public-site .reference-footer-top nav { font-size: 18px; }
+    .public-site .reference-footer-top nav { gap: 20px 28px; }
+    .public-site .reference-footer-bottom { flex-direction: column; font-size: 13px; gap: 15px; }
+    .public-site .reference-footer-bottom > div { gap: 20px; flex-wrap: wrap; }
+    .public-site .legal-content h1 { font-size: 44px; }
+    .public-site .legal-content h2 { font-size: 28px; }
+    .public-site .legal-content p { font-size: 18px; }
+}

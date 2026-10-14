@@ -1,0 +1,1 @@
+<a href="{{ route('home') }}" {{ $attributes->merge(['class' => 'brand']) }} aria-label="ATS CV home"><span class="brand-symbol"><x-icon name="asterisk" /></span><span>ats<span class="brand-light">cv</span><span class="brand-period">.</span></span></a>
