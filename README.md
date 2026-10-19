@@ -4,13 +4,44 @@ Laravel 12 / PHP 8.2+, MySQL, Livewire 4, Blade, Tailwind CSS 4, Alpine, and Luc
 
 ## CV builder
 
-Homepage **Get Started Free** opens `/get-started`: existing CV question, target role, template gallery, then the editor. There are 20 template styles across five layout families with role-based suggestions and category filters. Users can enter personal details, summary, experience, education, skills, achievements, courses, and languages; repeatable entries support adding, removing, and reordering. The preview updates while typing, and changing templates preserves the content.
+Homepage **Get Started Free** opens `/get-started`: existing CV question, target role, template gallery, then the editor. There are 22 templates grouped under Modern, Simple, Traditional, Creative, and ATS Pass. Changing templates preserves the CV content. Expand the editor for more room, then use **Done editing - Review CV** to see the finished document. The header provides **Change template** and **Dashboard** buttons.
 
-Guests can edit before creating an account. Debounced draft saving uses the private Laravel session rather than browser local storage. Guest drafts last for the session, not indefinitely; signing in and verifying email attaches the draft to the account. **Done — save my CV** sends guests to login, with a registration option, and returns to the editor afterward. Saved CVs can be reopened under **My CVs**. Account ownership is checked on reads and updates.
+Guests can edit and download before creating an account. Debounced draft saving uses the private Laravel session. **Save my CV** sends guests to login and then attaches the draft to their verified account. Saved CVs reopen in review mode under **My CVs**. Account ownership is checked on reads and updates.
 
-PDF/DOCX imports extract reference text and an email address; users review and transfer the text to the appropriate fields. Imports do not infer qualifications or automatically map every section. Scanned PDFs need OCR and cannot be imported yet. Files are limited to 5 MB; extracted text and DOCX XML have size bounds, PDF decoding has limits, and import requests are throttled. Originals are not retained. Uploaded DOCX content is never executed, and XML entity declarations are rejected.
+PDF/DOCX imports detect contact details and CV sections, including experience, education, skills, core strengths, competencies, references, and additional sections. Users should review the detected content. Scanned PDFs require OCR and cannot be imported yet. Files are limited to 5 MB; text and XML sizes are bounded. Originals are not retained, DOCX content is never executed, and XML entity declarations are rejected.
 
-Verified account holders can use **Print / PDF** to open the browser print dialog and save as PDF. Editable Word export and AI rewriting remain future features. Run `npm.cmd run test:builder` for Chrome checks covering onboarding, templates, editing, mobile widths, escaping, draft reload, login handoff, saved CVs, and PDF import.
+After reviewing, **Download** offers **PDF** and editable **Word (.docx)** files. PDFs use the same renderer and one-page fitting as the preview. Word documents translate the design into editable paragraphs and tables; fonts and pagination can vary between Word editors. Exports use temporary private files, which are deleted after sending.
+
+Export generation requires Node.js, the installed Playwright dependency, Google Chrome, and built Vite assets. `CV_NODE_BINARY` can override the Node executable (the Windows default is `C:/Program Files/nodejs/node.exe`). `CV_BROWSER_CHANNEL` defaults to `chrome`; use `npx.cmd playwright install chrome` if Chrome is unavailable. The export browser blocks network requests and renders the CV locally.
+
+Run `npm.cmd run test:builder` for the main browser flow, `npm.cmd run test:downloads` for expansion/review and both file formats, and `npm.cmd run test:template-parity` to check all templates across gallery, editor, mobile, and print. Browser checks use `APP_TEST_URL` or default to `http://127.0.0.1:8000`.
+
+## ATS CV Checker
+
+Verified users paste a job description, upload a PDF/DOCX/TXT resume or paste its text, then run **ATS Scan**. The popup shows **TF-IDF cosine similarity** on a 0-100 scale. Results separately show keyword coverage, matched/missing terms, and suggestions. When a Requirements section is present, it supplies keyword requirements; the full job description is used for similarity. The technical-term tokenizer preserves C#, C++, .NET and common aliases.
+
+The scorer implements raw term frequency, smoothed IDF (`log((1+n)/(1+df)) + 1` for the two-document corpus), L2 normalisation and cosine similarity in PHP. Its scores are independently checked against scikit-learn using identical tokens. It is an estimate of document similarity, not an employer ATS score, and no score increase is forced. Unrelated content, term frequencies and unsupported requirements can keep similarity low even with high keyword coverage.
+
+PDF uploads in the checker use PyMuPDF in a private Python environment, with a 20-second timeout, 100-page limit, 20,000-character limit and no OCR. Password-protected, blank/scanned and malformed PDFs are rejected with a paste-text alternative. DOCX extraction continues through the existing bounded importer.
+
+Set up the Python dependencies from the project directory:
+
+```powershell
+python -m venv .venv-ats
+.venv-ats\Scripts\python.exe -m pip install -r requirements-ats.txt
+.venv-ats\Scripts\python.exe scripts/verify-tfidf.py
+.venv-ats\Scripts\python.exe scripts/verify-pdf-extraction.py
+```
+
+`CV_PYTHON_BINARY` can override the private environment's Python executable; Linux defaults to `.venv-ats/bin/python`. The private environment is ignored by Git. PyMuPDF is distributed under [AGPL or a commercial license](https://pymupdf.io/licensing); deployment/distribution must use the appropriate license. Scikit-learn is used by the verification script, not by live scoring requests.
+
+**Fix Resume** supplies Gemini with the CV, advert, matched/missing requirement keywords and specific suggestions. AI constructs an ATS Professional CV using supported terminology and existing facts. Gemini returns a validated object with separate contact, summary, skills, experience, education and reference fields. The builder maps those fields directly rather than inferring placement from text headings; canonical text is generated separately for scoring. A single private session snapshot supports handoff from already-open checker pages. It must not invent qualifications, jobs, achievements or unsupported skills. The generated review shows before/after similarity and coverage, newly matched keywords, remaining gaps, an edit summary and original/revised text. Identical or lower scores are shown honestly. Users review, edit and download PDF or Word. Scan history persistence is still planned.
+
+Configure `GEMINI_API_KEY` and `GEMINI_MODEL` in `.env` and clear cached configuration (`php artisan config:clear`). The key stays server-side. Only Fix Resume sends text to Google; scoring runs locally. AI calls require a verified account and are rate-limited. Provider failures keep the source CV unchanged.
+
+The reference [ATS-Resume-Analyzer](https://github.com/iamshrihari/ATS-Resume-Analyzer), inspected from the downloaded ZIP, uses scikit-learn TF-IDF/cosine similarity and PyMuPDF. We implemented the scoring math in PHP and retained technology-aware keyword parsing rather than copying its alphabetic-only extractor. See [scikit-learn weighting](https://scikit-learn.org/stable/modules/feature_extraction.html#tfidf-term-weighting) and [Gemini generateContent](https://ai.google.dev/api/generate-content).
+
+Run `npm.cmd run test:ats-analysis` for the independent scikit-learn comparison and PDF extraction cases. Run `npm.cmd run test:checker-pdf` for a real PDF upload, popup, retry, generated review, visible edit summary, original/revised comparison, mobile layout and PDF download using simulated AI output. `test:checker-ai` covers the same flow with pasted/text input. `CvAiRewriteTest` checks real request construction and response validation through HTTP fakes without spending API quota.
 
 ## Phase 1 features
 

@@ -1,4 +1,8 @@
 <x-guest-layout>
+    @if(str_contains(session('url.intended', ''), '/get-started/'))
+        <p class="mb-4 text-sm text-gray-600" role="status">Sign in or create an account to continue with your CV. Your draft and selected template will carry over.</p>
+    @endif
+    <x-google-auth-button />
     <!-- Session Status -->
     <x-auth-session-status class="mb-4" :status="session('status')" />
 
@@ -40,7 +44,7 @@
             @endif
 
             <x-primary-button class="ms-3">
-                {{ __('Log in') }}
+                {{ __('Sign in') }}
             </x-primary-button>
         </div>
     </form>

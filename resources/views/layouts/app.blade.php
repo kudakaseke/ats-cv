@@ -1,6 +1,56 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="csrf-token" content="{{ csrf_token() }}"><title>{{ config('app.name') }} · Workspace</title><link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml"><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">@vite(['resources/css/app.css', 'resources/js/app.js'])@livewireStyles</head><body data-workspace><a class="skip-link" href="#main">Skip to content</a><div class="workspace-shell" x-data="{ sidebar: false }"><div class="sidebar-overlay" x-cloak x-show="sidebar" @click="sidebar = false" @keydown.escape.window="sidebar = false"></div><aside class="workspace-sidebar" :class="{ 'sidebar-open': sidebar }"><x-brand /><span class="sidebar-label">YOUR WORKSPACE</span><nav aria-label="Workspace navigation">
-@foreach ([['dashboard', 'layout-dashboard', 'Dashboard', route('dashboard')], ['checker', 'scan-text', 'ATS CV Checker', route('workspace.module', 'checker')], ['revamp', 'wand-sparkles', 'Revamp My CV', route('workspace.module', 'revamp')], ['builder', 'file-plus-2', 'Create CV', route('workspace.module', 'builder')], ['resumes', 'folder-open', 'My CVs', route('workspace.module', 'resumes')], ['history', 'history', 'Analysis History', route('workspace.module', 'history')], ['subscription', 'gem', 'Subscription', route('subscription')], ['profile', 'user-round', 'Profile', route('profile.edit')]] as $item)
-@php($active = request()->routeIs($item[0] === 'profile' ? 'profile.*' : $item[0]) || request()->route('module') === $item[0])
-<a class="sidebar-link {{ $active ? 'active' : '' }}" href="{{ $item[3] }}" @if($active) aria-current="page" @endif><x-icon :name="$item[1]" />{{ $item[2] }}@if($active)<span class="nav-active-dot"></span>@endif</a>@endforeach
-</nav><div class="sidebar-tip"><x-icon name="sparkles" /><strong>A little clarity goes a long way.</strong><p>Make your next application your most confident one.</p><a href="{{ route('home') }}#features">Explore what’s ahead ↗</a></div><form method="POST" action="{{ route('logout') }}" class="sidebar-logout">@csrf<button class="sidebar-link" type="submit"><x-icon name="log-out" />Logout</button></form></aside><div class="workspace-main"><header class="workspace-topbar"><div><button class="mobile-menu-button" @click="sidebar = !sidebar" :aria-expanded="sidebar" aria-label="Toggle sidebar"><x-icon name="menu" /></button><span>Your career workspace</span></div><div><a class="topbar-help" href="{{ route('contact') }}"><x-icon name="circle-help" /><span>Need a hand?</span></a><a class="user-profile" href="{{ route('profile.edit') }}"><span class="avatar">{{ mb_strtoupper(mb_substr(auth()->user()->name, 0, 1)) }}</span><span>{{ auth()->user()->name }}<small>Personal account</small></span><x-icon name="chevron-down" /></a></div></header><main id="main" class="workspace-content">@isset($header)<div class="workspace-page-header">{{ $header }}</div>@endisset{{ $slot }}</main><footer class="workspace-footer"><span>© {{ date('Y') }} ATS CV</span><div><a href="{{ route('privacy') }}">Privacy</a><a href="{{ route('terms') }}">Terms</a></div></footer></div></div>@livewireScripts</body></html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{{ config('app.name') }} · Workspace</title>
+    <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@200;300;400;500;600;700;800&display=swap" rel="stylesheet">
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @livewireStyles
+</head>
+<body data-workspace>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="workspace-shell" x-data="{ sidebar: false, mobile: window.innerWidth <= 900 }" @resize.window.debounce="mobile = window.innerWidth <= 900; if (!mobile) sidebar = false" @keydown.escape.window="sidebar = false">
+        <div class="sidebar-overlay" x-cloak x-show="sidebar" @click="sidebar = false"></div>
+        <aside id="workspace-navigation" class="workspace-sidebar" :class="{ 'sidebar-open': sidebar }" :inert="mobile && !sidebar ? '' : null">
+            <a class="workspace-brand" href="{{ route('dashboard') }}">atscvdetector<span>CV tools</span></a>
+            <nav aria-label="Workspace navigation">
+                @foreach ([['dashboard', 'layout-dashboard', 'Dashboard', route('dashboard')], ['checker', 'scan-text', 'CV Checker', route('workspace.module', 'checker')], ['builder', 'file-plus-2', 'Create CV', route('workspace.module', 'builder')], ['resumes', 'folder-open', 'My CVs', route('workspace.module', 'resumes')], ['subscription', 'credit-card', 'Subscription', route('subscription')]] as $item)
+                    @php($active = request()->routeIs($item[0]) || request()->route('module') === $item[0])
+                    <a class="sidebar-link {{ $active ? 'active' : '' }}" href="{{ $item[3] }}" @click="sidebar = false" @if($active) aria-current="page" @endif><x-icon :name="$item[1]" />{{ $item[2] }}</a>
+                @endforeach
+            </nav>
+            <form method="POST" action="{{ route('logout') }}" class="sidebar-logout">
+                @csrf
+                <button class="sidebar-link" type="submit"><x-icon name="log-out" />Sign out</button>
+            </form>
+        </aside>
+        <div class="workspace-main">
+            <header class="workspace-topbar">
+                <button class="mobile-menu-button" @click="sidebar = !sidebar" :aria-expanded="sidebar" aria-controls="workspace-navigation" aria-label="Toggle sidebar"><x-icon name="menu" /></button>
+                <a class="user-profile" href="{{ route('profile.edit') }}" aria-label="Account settings for {{ auth()->user()->name }}">
+                    <span class="avatar">{{ mb_strtoupper(mb_substr(auth()->user()->name, 0, 1)) }}</span>
+                    <span>{{ auth()->user()->name }}<small>Account settings</small></span>
+                    <x-icon name="chevron-right" />
+                </a>
+            </header>
+            <main id="main" class="workspace-content">
+                @unless(request()->routeIs('dashboard'))
+                    <div class="workspace-back-row"><x-back-button /></div>
+                @endunless
+                @isset($header)<div class="workspace-page-header">{{ $header }}</div>@endisset
+                {{ $slot }}
+            </main>
+            <footer class="workspace-footer">
+                <span>© {{ date('Y') }} atscvdetector</span>
+                <div><a href="{{ route('privacy') }}">Privacy</a><a href="{{ route('terms') }}">Terms</a><a href="{{ route('refund') }}">Refunds</a></div>
+            </footer>
+        </div>
+    </div>
+    @livewireScripts
+</body>
+</html>

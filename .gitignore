@@ -27,3 +27,5 @@ Thumbs.db
 /test-results
 /playwright-report
 /storage/app/sander-reference.html
+
+/.venv-ats

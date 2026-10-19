@@ -1,2 +1,32 @@
-<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="csrf-token" content="{{ csrf_token() }}"><title>{{ config('app.name') }} · Your account</title><link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml"><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">@vite(['resources/css/app.css', 'resources/js/app.js'])</head><body class="auth-body"><div class="auth-shell"><aside class="auth-story"><x-brand /><div><span class="eyebrow">YOUR NEXT CHAPTER STARTS HERE</span><h1>Your experience.<br>Your ambition.<br><span>A better introduction.</span></h1><p>Build the confidence to take your next career step.</p><div class="auth-story-points"><span><x-icon name="check" /> Practical guidance, made simple</span><span><x-icon name="check" /> Your story stays authentic</span><span><x-icon name="check" /> A private space for your career</span></div></div><span class="auth-bottom">MAKE YOUR POTENTIAL VISIBLE. <span>✳</span></span></aside><main class="auth-content"><a href="{{ route('home') }}" class="auth-back"><x-icon name="arrow-left" /> Back to home</a><div class="auth-card"><div class="auth-mobile-brand"><x-brand /></div><span class="eyebrow">WELCOME TO ATS CV</span><h2>{{ request()->routeIs('register') ? 'Your next move starts here.' : (request()->routeIs('login') ? 'Good to have you back.' : 'Let’s keep your account secure.') }}</h2><p class="auth-intro">{{ request()->routeIs('register') ? 'Create your free account. No credit card required.' : (request()->routeIs('login') ? 'Sign in to your personal career workspace.' : 'Follow the steps below to continue.') }}</p>{{ $slot }}@if(request()->routeIs('login'))<p class="auth-switch">New here? <a href="{{ route('register') }}">Create a free account ↗</a></p>@elseif(request()->routeIs('register'))<p class="auth-switch">Already have an account? <a href="{{ route('login') }}">Sign In ↗</a></p><p class="auth-legal">By creating an account, you agree to our <a href="{{ route('terms') }}">Terms</a> and acknowledge our <a href="{{ route('privacy') }}">Privacy Policy</a>.</p>@endif</div><div class="auth-footer"><x-icon name="shield-check" /> A secure space for your next chapter.</div></main></div></body></html>
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{{ config('app.name') }} · Your account</title>
+    <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+</head>
+<body class="auth-body auth-clean">
+    <div class="auth-waves" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div class="auth-shell">
+        <x-back-button class="auth-site-back" />
+        <header class="auth-clean-brand"><x-brand /></header>
+        <main class="auth-content">
+            <div class="auth-card">
+                <h1>{{ request()->routeIs('register') ? 'Create your account' : (request()->routeIs('login') ? 'Sign in' : 'Your account') }}</h1>
+                <div class="auth-form-content">{{ $slot }}</div>
+                @if(request()->routeIs('login'))
+                    <div class="auth-card-bottom"><p class="auth-switch">Don’t have an account? <a href="{{ route('register') }}">Sign up</a></p></div>
+                @elseif(request()->routeIs('register'))
+                    <div class="auth-card-bottom"><p class="auth-switch">Already have an account? <a href="{{ route('login') }}">Sign in</a></p><p class="auth-legal">By registering, you agree to our <a href="{{ route('terms') }}">Terms</a> and <a href="{{ route('privacy') }}">Privacy Policy</a>.</p></div>
+                @endif
+            </div>
+        </main>
+        <footer class="auth-footer"><a href="{{ route('contact') }}">Support</a><span>·</span><a href="{{ route('terms') }}">Terms</a><span>·</span><a href="{{ route('privacy') }}">Privacy</a></footer>
+    </div>
+</body>
+</html>

@@ -5,7 +5,7 @@
         {{ __('The code expires after 10 minutes.') }}
     </p>
     @if (session('status') == 'verification-code-sent')
-        <p class="mb-4 text-sm text-green-600" role="status">{{ __('A new verification code has been sent. Check your inbox and spam folder.') }}</p>
+        <p class="mb-4 text-sm text-blue-600" role="status">{{ __('A new verification code has been sent. Check your inbox and spam folder.') }}</p>
     @endif
     <x-input-error :messages="$errors->get('delivery')" class="mb-4" />
     <form method="POST" action="{{ route('verification.verify') }}">

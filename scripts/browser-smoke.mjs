@@ -13,7 +13,7 @@ let fixture;
 
 try {
     await page.goto(base, { waitUntil: 'networkidle' });
-    assert(await page.title() === 'Your next career move starts here · ATS CV', 'Homepage title');
+    assert(await page.title() === 'Your next career move starts here · atscvdetector', 'Homepage title');
     assert(await page.locator('svg.lucide').count() > 20, 'Lucide icons render');
     assert(await page.locator('h1').evaluate(el => getComputedStyle(el).fontFamily.includes('Plus Jakarta Sans')), 'Brand font');
     assert(await page.locator('.reference-hero').evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(52, 109, 225)'), 'Reference hero blue');
@@ -54,7 +54,7 @@ try {
     await page.goto(base, { waitUntil: 'networkidle' });
     await page.locator('.reference-faq-list summary').first().click();
     await expect(page.locator('.reference-faq-list details').first()).toHaveAttribute('open', '');
-    for (const path of ['privacy', 'terms', 'contact']) {
+    for (const path of ['privacy', 'terms', 'refund-policy', 'contact', 'ats-explained']) {
         const response = await page.goto(`${base}/${path}`, { waitUntil: 'networkidle' });
         assert(response.status() === 200, `${path} page`);
     }
@@ -65,12 +65,14 @@ try {
     await page.getByRole('button', { name: 'Log in', exact: true }).click();
     await page.waitForURL(`${base}/dashboard`);
     await page.waitForLoadState('networkidle');
-    assert(await page.getByRole('heading', { name: 'Hello, Browser.' }).isVisible(), 'Authenticated dashboard');
-    assert(await page.locator('svg.lucide').count() > 20, 'Workspace icons render');
+    assert(await page.getByRole('heading', { name: 'Dashboard', exact: true }).isVisible(), 'Authenticated dashboard');
+    assert(await page.locator('.workspace-sidebar svg.lucide').count() >= 5, 'Workspace navigation icons render');
     await page.screenshot({ path: 'storage/app/previews/dashboard-desktop.png', fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Mobile dashboard must not overflow');
+    await expect(page.locator('.workspace-sidebar')).toHaveAttribute('inert');
     await page.getByRole('button', { name: 'Toggle sidebar' }).click();
+    await expect(page.locator('.workspace-sidebar')).not.toHaveAttribute('inert');
     await expect.poll(() => page.locator('.workspace-sidebar').evaluate(el => el.getBoundingClientRect().left)).toBeGreaterThanOrEqual(0);
     await page.screenshot({ path: 'storage/app/previews/dashboard-mobile-menu.png', fullPage: true });
     await page.locator('.sidebar-overlay').click({ position: { x: 350, y: 100 } });
@@ -79,8 +81,29 @@ try {
     await page.getByRole('button', { name: 'Delete Account', exact: true }).first().click();
     await expect(page.getByRole('heading', { name: 'Are you sure you want to delete your account?' })).toBeVisible();
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(page.getByRole('dialog')).toBeHidden();
+    await page.locator('#name').fill('Updated Browser Check');
+    await page.locator('form[action$="/profile"]').filter({ has: page.locator('#name') }).getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.locator('#name')).toHaveValue('Updated Browser Check');
+    await page.locator('#update_password_current_password').fill(fixture.password);
+    await page.locator('#update_password_password').fill('Updated-browser-password-2026');
+    await page.locator('#update_password_password_confirmation').fill('Updated-browser-password-2026');
+    await page.locator('form[action$="/password"]').getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.locator('form[action$="/password"]')).toContainText('Saved.');
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+    await page.goto(`${base}/login`);
+    await page.getByLabel('Email', { exact: true }).fill(fixture.email);
+    await page.getByLabel('Password', { exact: true }).fill('Updated-browser-password-2026');
+    await page.getByRole('button', { name: 'Log in', exact: true }).click();
+    await page.waitForURL(`${base}/dashboard`);
+    await page.goto(`${base}/profile`);
+    await page.getByRole('button', { name: 'Delete Account', exact: true }).first().click();
+    await page.getByRole('dialog').getByLabel('Password', { exact: true }).fill('Updated-browser-password-2026');
+    await page.getByRole('dialog').getByRole('button', { name: 'Delete Account', exact: true }).click();
+    await expect(page).toHaveURL(`${base}/`);
     assert(errors.length === 0, `JavaScript errors: ${errors.join('; ')}`);
-    console.log('PASS: desktop/mobile rendering, font, colours, icons, mobile menus, auth forms, real MySQL login/dashboard, profile modal, legal pages, and no JavaScript errors.');
+    console.log('PASS: desktop/mobile rendering, mobile menu keyboard exclusion, auth forms, real MySQL login/dashboard, profile update, password change, sign out/in, account deletion/cancel, public pages, and no JavaScript errors.');
 } finally {
     if (fixture) execFileSync('php', ['scripts/browser-fixture.php', 'delete', fixture.email]);
     await browser.close();

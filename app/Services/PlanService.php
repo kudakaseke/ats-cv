@@ -18,11 +18,15 @@ class PlanService
         return $subscription?->plan ?? SubscriptionPlan::where('slug', 'free')->firstOrFail();
     }
 
-    public function remainingAnalyses(User $user): int
+    public function remainingAnalyses(User $user): ?int
     {
+        $limit = $this->current($user)->monthly_analyses;
+        if ($limit === null) {
+            return null;
+        }
         $used = $user->analyses()->where('created_at', '>=', now()->startOfMonth())
             ->whereIn('status', ['pending', 'processing', 'completed'])->count();
 
-        return max(0, $this->current($user)->monthly_analyses - $used);
+        return max(0, $limit - $used);
     }
 }

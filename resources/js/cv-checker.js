@@ -1,0 +1,58 @@
+window.cvChecker = (boot) => ({
+    step: 1, job: '', resumeText: '', filename: '', busy: false, error: '', result: null,
+    modalOpen: false, aiDraft: null, originalScore: null, dragging: false, aiConsent: false,
+    nextJob() {
+        if (!this.job.trim()) { this.error = 'Paste the job description first.'; return; }
+        this.error = ''; this.result = null; this.originalScore = null; this.modalOpen = false; this.step = 2;
+    },
+    nextResume() {
+        if (!this.resumeText.trim()) { this.error = 'Upload your resume or paste its text first.'; return; }
+        this.error = ''; this.step = 3;
+    },
+    async request(url, options) {
+        const response = await fetch(url, { ...options, headers: { Accept: 'application/json', 'X-CSRF-TOKEN': boot.csrf, ...(options.headers || {}) } });
+        const body = await response.json().catch(() => ({}));
+        if (response.status === 401 || response.status === 419) throw new Error('Your session has expired. Please sign in again, then retry.');
+        if (response.status === 429) throw new Error('Too many requests. Please wait a moment before trying again.');
+        if (!response.ok) throw new Error(Object.values(body.errors || {}).flat()[0] || body.message || 'Something went wrong. Please try again.');
+        if (!response.headers.get('Content-Type')?.includes('application/json')) throw new Error('The server returned an unexpected response. Please reload and try again.');
+        return body;
+    },
+    async upload(file) {
+        if (!file || this.busy) return;
+        if (!/\.(pdf|docx|txt)$/i.test(file.name) || file.size > 5 * 1024 * 1024) { this.error = 'Choose a PDF, DOCX or TXT file up to 5 MB.'; return; }
+        this.busy = true; this.error = '';
+        try {
+            const form = new FormData(); form.append('file', file);
+            const data = await this.request(boot.uploadUrl, { method: 'POST', body: form });
+            this.resumeText = data.text; this.filename = file.name; this.result = null;
+        } catch (error) { this.error = error.message; }
+        finally { this.busy = false; }
+    },
+    async scan() {
+        if (this.busy) return;
+        const text = this.resumeText;
+        if (!text.trim()) { this.error = 'Your resume cannot be empty.'; return; }
+        this.busy = true; this.error = '';
+        try {
+            const result = await this.request(boot.scanUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job_description: this.job, resume_text: text }) });
+            this.resumeText = text; this.result = result;
+            if (this.originalScore === null) this.originalScore = result.score;
+            this.step = 4;
+            this.$nextTick(() => { this.$refs.scanDialog.showModal(); this.modalOpen = true; });
+        } catch (error) { this.error = error.message; }
+        finally { this.busy = false; }
+    },
+    closeResults() { if (!this.busy) this.$refs.scanDialog.close(); },
+    async fix() {
+        if (this.busy) return;
+        if (!this.$refs.scanDialog.open) { this.$refs.scanDialog.showModal(); this.modalOpen = true; }
+        if (!this.aiConsent) { this.error = 'Please review and accept the AI processing notice before continuing.'; return; }
+        this.busy = true; this.error = '';
+        try {
+            this.aiDraft = await this.request(boot.rewriteUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job_description: this.job, resume_text: this.resumeText, confirmed_keywords: [], ai_consent: this.aiConsent }) });
+            await this.$nextTick();
+            this.$refs.generatedForm.requestSubmit();
+        } catch (error) { this.error = error.message; this.busy = false; }
+    },
+});

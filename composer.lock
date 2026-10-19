@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "05bf31845a765f5a5b701cdbb6e66358",
+    "content-hash": "3f41e75b206a80e081d83bede2123247",
     "packages": [
         {
             "name": "brick/math",
@@ -3429,6 +3429,69 @@
                 "source": "https://github.com/smalot/pdfparser/tree/v2.13.1"
             },
             "time": "2026-10-13T08:49:45+00:00"
+        },
+        {
+            "name": "srmklive/paypal",
+            "version": "3.2.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/blendbyte/laravel-paypal.git",
+                "reference": "535a8637d3f9a0496e33abbb0f3611efc01f11ec"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/blendbyte/laravel-paypal/zipball/535a8637d3f9a0496e33abbb0f3611efc01f11ec",
+                "reference": "535a8637d3f9a0496e33abbb0f3611efc01f11ec",
+                "shasum": ""
+            },
+            "require": {
+                "guzzlehttp/guzzle": "^7.15.2|^8.0.1",
+                "guzzlehttp/psr7": "^2.12.3|^3.0",
+                "illuminate/support": "^12.0|^13.0",
+                "nesbot/carbon": "^3.0",
+                "php": "^8.2",
+                "psr/http-client": "^1.0"
+            },
+            "require-dev": {
+                "larastan/larastan": "^3.0",
+                "laravel/framework": "^12.0|^13.0",
+                "laravel/pint": "^1.29",
+                "orchestra/testbench": "^10.0|^11.0",
+                "pestphp/pest": "^3.8|^4.0|^5.0",
+                "phpunit/phpunit": "^11.5.50|^12.5.22|^13.1.6"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "aliases": {
+                        "PayPal": "Srmklive\\PayPal\\Facades\\PayPal"
+                    },
+                    "providers": [
+                        "Srmklive\\PayPal\\Providers\\PayPalServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Srmklive\\PayPal\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "PayPal REST API client for Laravel and standalone PHP.",
+            "keywords": [
+                "REST API",
+                "laravel",
+                "payments",
+                "paypal"
+            ],
+            "support": {
+                "issues": "https://github.com/blendbyte/laravel-paypal/issues",
+                "source": "https://github.com/blendbyte/laravel-paypal/tree/3.2.0"
+            },
+            "time": "2026-10-02T07:40:45+00:00"
         },
         {
             "name": "symfony/clock",

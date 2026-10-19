@@ -2,21 +2,22 @@ import './bootstrap';
 
 import Alpine from 'alpinejs';
 import './cv-builder';
+import './cv-checker';
 import {
     createIcons, Asterisk, ArrowUpRight, ArrowRight, ArrowLeft, ShieldCheck,
     Sparkles, FileText, Check, FileCheck2, Download, Upload, Text,
     ChartNoAxesCombined, ScanText, GitCompareArrows, WandSparkles,
     FilePenLine, LayoutTemplate, FolderOpen, History, Info, Zap, Leaf,
-    Plus, Menu, LayoutDashboard, FilePlus2, Gem, UserRound, LogOut,
-    CircleHelp, ChevronDown, ChevronRight, ArrowDownRight, Target, Files,
+    Plus, Menu, LayoutDashboard, FilePlus2, Gem, CreditCard, UserRound, LogOut,
+    CircleHelp, ChevronDown, ChevronRight, ArrowDownRight, Target, Files, Maximize2, Eye, Pencil,
 } from 'lucide';
 
 const icons = { Asterisk, ArrowUpRight, ArrowRight, ArrowLeft, ShieldCheck,
     Sparkles, FileText, Check, FileCheck2, Download, Upload, Text,
     ChartNoAxesCombined, ScanText, GitCompareArrows, WandSparkles,
     FilePenLine, LayoutTemplate, FolderOpen, History, Info, Zap, Leaf,
-    Plus, Menu, LayoutDashboard, FilePlus2, Gem, UserRound, LogOut,
-    CircleHelp, ChevronDown, ChevronRight, ArrowDownRight, Target, Files };
+    Plus, Menu, LayoutDashboard, FilePlus2, Gem, CreditCard, UserRound, LogOut,
+    CircleHelp, ChevronDown, ChevronRight, ArrowDownRight, Target, Files, Maximize2, Eye, Pencil };
 
 const renderIcons = () => createIcons({ icons });
 document.addEventListener('DOMContentLoaded', renderIcons);
@@ -30,3 +31,16 @@ if (!document.querySelector('body[data-workspace]')) {
     window.Alpine = Alpine;
     Alpine.start();
 }
+
+
+// Shared navigation works on full-page and Livewire-rendered screens.
+document.addEventListener('click', event => {
+    const back = event.target.closest('[data-site-back]');
+    if (!back || event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    let sameSiteReferrer = false;
+    try { sameSiteReferrer = new URL(document.referrer).origin === location.origin; } catch { /* Use the page's fallback link. */ }
+    if (sameSiteReferrer && history.length > 1) {
+        event.preventDefault();
+        history.back();
+    }
+});

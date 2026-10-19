@@ -1,0 +1,2 @@
+@props(['format'])
+<svg class="download-format-icon" viewBox="0 0 36 42" fill="none" aria-hidden="true"><path d="M7 1h15l10 10v29H7z" fill="white" stroke="currentColor" stroke-width="1.7"/><path d="M22 1v11h10M12 19h14M12 23h14" stroke="currentColor" stroke-width="1.7"/><rect x="1" y="26" width="32" height="14" rx="3" fill="currentColor"/><text x="17" y="36" text-anchor="middle" fill="white" font-size="{{ $format === 'pdf' ? 10 : 12 }}" font-weight="700" font-family="Arial,sans-serif">{{ $format === 'pdf' ? 'PDF' : 'W' }}</text></svg>

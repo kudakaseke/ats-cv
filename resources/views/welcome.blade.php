@@ -4,7 +4,7 @@
             <h1>Make Your CV <span>Stand Out with AI</span></h1>
             <p>Check your CV against a job, improve it with AI,<br class="desktop-break"> and build a professional resume for your next move.</p>
             <div class="reference-hero-actions">
-                <a class="reference-start" href="{{ route('builder.start') }}">Get Started Free <span><x-icon name="arrow-up-right" /></span></a>
+                <a class="reference-start" href="{{ route('builder.start', ['questions' => 1]) }}">Get Started Free <span><x-icon name="arrow-up-right" /></span></a>
                 <a class="reference-explore" href="#features">Explore Features <x-icon name="arrow-down-right" /></a>
                 <a class="reference-check" href="{{ auth()->check() ? route('workspace.module', 'checker') : route('login') }}"><x-icon name="upload" /> Check My CV</a>
             </div>
@@ -39,11 +39,11 @@
                     <h3>Your next CV.<br>Built around you.</h3>
                     <div class="feature-meta"><span><x-icon name="file-pen-line" /> Step-by-step guidance</span><span><x-icon name="layout-template" /> ATS-friendly templates</span></div>
                     <p class="feature-highlight">From a fresh start to a finished CV</p>
-                    <ul class="feature-details"><li>20 templates with a live CV preview</li><li>Experience, education, skills, and achievements</li><li>Start before signing in; save to your account</li><li>Import PDF or Word; print or save as PDF</li></ul>
-                    <div class="feature-card-footer"><a href="{{ route('builder.start') }}">Explore <span><x-icon name="chevron-right" /></span></a><p>Designed for<br><span>Your next chapter</span></p></div>
+                    <ul class="feature-details"><li>{{ count(config('cv_templates')) }} templates with a live CV preview</li><li>Experience, education, skills, and achievements</li><li>Sign in to create and save your CV</li><li>Import PDF or Word; print or save as PDF</li></ul>
+                    <div class="feature-card-footer"><a href="{{ route('builder.start', ['questions' => 1]) }}">Explore <span><x-icon name="chevron-right" /></span></a><p>Designed for<br><span>Your next chapter</span></p></div>
                 </article>
             </div>
-            <p class="reference-release-note">Available now: accounts, your dashboard, and the CV Builder with 20 templates. AI analysis, revamping, and Word exports are coming in later releases.</p>
+            <p class="reference-release-note">Available now: accounts, your dashboard, and the CV Builder with {{ count(config('cv_templates')) }} templates. Keyword matching and PDF/Word downloads are available. Review AI-assisted improvements in the CV Checker.</p>
         </div>
     </section>
 
@@ -63,7 +63,7 @@
         <div class="reference-about-copy">
             <span class="reference-eyebrow">PEOPLE FIRST, POTENTIAL FORWARD</span>
             <h2 id="about-heading">Your Journey<br>Towards <span>Confidence</span><br>and <span>Opportunity</span></h2>
-            <p>ATS CV helps job seekers understand what a role needs and present their experience with clarity. Our approach puts people, simplicity, and integrity at the centre of every career move. Compare your CV with a job description, find practical ways to improve it, and build a professional resume that reflects who you are. AI supports your wording and organisation while your skills, qualifications, and achievements remain your own. You stay in control of your information, review every suggested change, and choose how to tell your story.</p>
+            <p>atscvdetector helps job seekers understand what a role needs and present their experience with clarity. Our approach puts people, simplicity, and integrity at the centre of every career move. Compare your CV with a job description, find practical ways to improve it, and build a professional resume that reflects who you are. AI supports your wording and organisation while your skills, qualifications, and achievements remain your own. You stay in control of your information, review every suggested change, and choose how to tell your story.</p>
         </div>
         <div class="reference-about-stats" aria-label="Our approach">
             <div class="reference-about-stat"><strong>3</strong><span>Career tools</span></div>
@@ -78,14 +78,15 @@
                 @foreach ($plans as $plan)
                     <article class="reference-plan">
                         <h3>{{ $plan->name }}</h3>
-                        <p class="reference-price">${{ number_format($plan->price_cents / 100, 0) }}<span>/ month</span></p>
+                        <p class="reference-price">${{ $plan->displayPrice() }}<span>{{ $plan->price_cents === 0 ? 'Forever' : ($plan->billing_interval === 'annually' ? '/ month, billed annually' : '/ month') }}</span></p>
+                        @if($plan->billing_interval === 'annually')<p class="plan-billing-note">US$47.40 billed once per year. Save US$12.60 (21%) compared with monthly billing.</p>@endif
                         <ul>@foreach ($plan->features as $feature)<li><x-icon name="check" /> {{ $feature }}</li>@endforeach</ul>
-                        <a class="reference-plan-link" href="{{ $plan->price_cents === 0 ? route('builder.start') : route('contact') }}">{{ $plan->price_cents === 0 ? 'Get Started Free' : 'Enquire about '.$plan->name }} <span><x-icon name="chevron-right" /></span></a>
+                        <a class="reference-plan-link" href="{{ $plan->price_cents === 0 ? route('builder.start', ['questions' => 1]) : route('subscription').'#plan-'.$plan->slug }}">{{ $plan->price_cents === 0 ? 'Get Started Free' : 'View '.$plan->name.' plan' }} <span><x-icon name="chevron-right" /></span></a>
                         <small>{{ $plan->price_cents > 0 ? 'Planned pricing. Paid upgrades are not active.' : 'No credit card required.' }}</small>
                     </article>
                 @endforeach
             </div>
-            <p class="reference-release-note">Prices in USD. Paid plans and live payments will be available in a future release.</p>
+            <p class="reference-release-note">Prices shown in USD. Paid checkout is not enabled yet. Paystack payments will be charged in ZAR; the exact rand amount will be shown before you pay. Your bank may apply conversion fees.</p>
         </div>
     </section>
 
@@ -93,12 +94,12 @@
         <div class="reference-container reference-faq-grid">
             <div><span class="reference-eyebrow">GOOD QUESTIONS. CLEAR ANSWERS.</span><h2 id="faq-heading">A little clarity.<br><span>A confident start.</span></h2><a class="reference-inline-link" href="{{ route('contact') }}">Still have a question? <x-icon name="arrow-up-right" /></a></div>
             <div class="reference-faq-list">
-                @foreach ([['What is an ATS CV Checker?', 'It compares the information in your CV with a job description and suggests ways to make your application clearer. It does not access an employer’s ATS.'], ['How is the match percentage calculated?', 'The planned scoring model weights required skills at 35%, experience at 25%, education at 15%, responsibilities at 15%, and readability at 10%. AI extracts evidence; rule-based logic calculates the estimate. It is not an official ATS score or a guarantee of employment.'], ['Can AI improve my CV?', 'The revamp tool will improve wording and organisation using your existing information. Unsupported requirements will appear separately as gaps. You review suggestions before saving.'], ['Can I download my CV as PDF or Word?', 'Searchable PDF and editable DOCX downloads are planned for the document-generation release, using the same clean, ATS-friendly template.'], ['Is my personal information secure?', 'Account access is protected by authentication. Document features will use private storage and ownership checks, and request consent before sharing CV content with Gemini. You can delete your account from your profile.'], ['Can I use the system for free?', 'Registration and the dashboard are free. The Free plan includes three monthly analyses and one saved CV once those tools are released. Paid upgrades are currently disabled.']] as $faq)
+                @foreach ([['What is an ATS CV Checker?', 'It compares the information in your CV with a job description and suggests ways to make your application clearer. It does not access an employer’s ATS.'], ['How is the match percentage calculated?', 'The checker uses TF-IDF vectors and cosine similarity to estimate how closely your CV matches the job description. It separately shows keyword coverage and missing requirements. It is not an official ATS score or a guarantee of employment.'], ['Can AI improve my CV?', 'The CV Checker offers optional AI rewriting to improve wording and organisation using your existing information. Unsupported requirements will appear separately as gaps. You review suggestions before saving.'], ['Can I download my CV as PDF or Word?', 'Yes. Review your CV in the builder, then choose Download and select PDF or editable Word (.docx).'], ['Is my personal information secure?', 'Account access uses authentication and ownership checks. Saved CVs are stored for editing. Optional AI rewriting sends relevant content to an external provider after you accept the processing notice. Read our Privacy Policy for details and contact support for access or deletion requests.'], ['Can I use the system for free?', 'Registration and the dashboard are free. The Free plan includes three monthly analyses and one saved CV. Paid upgrades are currently disabled.']] as $faq)
                     <details><summary>{{ $faq[0] }}<x-icon name="plus" /></summary><p>{{ $faq[1] }}</p></details>
                 @endforeach
             </div>
         </div>
     </section>
 
-    <section class="reference-final-cta"><div class="reference-container"><h2>Your next chapter.<br><span>A better introduction.</span></h2><a class="reference-plan-link" href="{{ route('builder.start') }}">Get Started Free <span><x-icon name="arrow-up-right" /></span></a></div></section>
+    <section class="reference-final-cta"><div class="reference-container"><h2>Your next chapter.<br><span>A better introduction.</span></h2><a class="reference-plan-link" href="{{ route('builder.start', ['questions' => 1]) }}">Get Started Free <span><x-icon name="arrow-up-right" /></span></a></div></section>
 </x-public-layout>

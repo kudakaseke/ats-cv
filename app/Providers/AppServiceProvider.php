@@ -14,6 +14,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        if (PHP_OS_FAMILY === 'Windows' && $this->app->runningInConsole()) {
+            \Illuminate\Foundation\Console\ServeCommand::$passthroughVariables = array_values(array_unique([
+                ...\Illuminate\Foundation\Console\ServeCommand::$passthroughVariables,
+                'SystemRoot', 'SystemDrive', 'windir', 'WINDIR', 'ComSpec', 'COMSPEC',
+                'TEMP', 'TMP', 'USERPROFILE', 'LOCALAPPDATA', 'APPDATA',
+                'ProgramFiles', 'ProgramFiles(x86)', 'ProgramW6432', 'PROGRAMFILES', 'PROGRAMFILES(X86)', 'HOMEDRIVE',
+            ]));
+        }
         RateLimiter::for('builder-save', fn (Request $request) => [
             Limit::perMinute(90)->by('session:'.$request->session()->getId()),
             Limit::perMinute(180)->by('ip:'.$request->ip()),
@@ -23,7 +31,7 @@ class AppServiceProvider extends ServiceProvider
             Limit::perHour(10)->by('ip:'.$request->ip()),
         ]);
         RateLimiter::for('auth-login', function (Request $request) {
-            $email = hash('sha256', strtolower(trim((string) $request->input('email'))));
+            $email = hash('sha256', strtolower(trim(is_string($request->input('email')) ? $request->input('email') : '')));
 
             return [
                 Limit::perMinute(20)->by('ip-minute:'.$request->ip()),
@@ -38,7 +46,7 @@ class AppServiceProvider extends ServiceProvider
         ]);
 
         RateLimiter::for('auth-reset', function (Request $request) {
-            $email = hash('sha256', strtolower(trim((string) $request->input('email'))));
+            $email = hash('sha256', strtolower(trim(is_string($request->input('email')) ? $request->input('email') : '')));
 
             return [
                 Limit::perMinute(3)->by('ip-minute:'.$request->ip()),

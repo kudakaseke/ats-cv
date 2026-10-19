@@ -1,0 +1,4 @@
+# Runtime PDF extractor. PyMuPDF is AGPL/commercial dual licensed; see README.
+PyMuPDF==1.28.2
+# Used to independently verify the PHP TF-IDF/cosine implementation.
+scikit-learn==1.9.1

@@ -30,6 +30,7 @@ class RegistrationTest extends TestCase
             'password_confirmation' => 'password',
         ]);
 
+        $response->assertSessionHas('url.intended', route('builder.start', ['questions' => 1]));
         $this->assertAuthenticated();
         $response->assertRedirect(route('verification.notice', absolute: false));
         $user = User::where('email', 'test@example.com')->firstOrFail();

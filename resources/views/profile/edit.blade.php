@@ -1,29 +1,11 @@
 <x-app-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Profile') }}
-        </h2>
-    </x-slot>
-
-    <div class="py-12">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
-            <div class="p-4 sm:p-8 bg-white shadow sm:rounded-lg">
-                <div class="max-w-xl">
-                    @include('profile.partials.update-profile-information-form')
-                </div>
-            </div>
-
-            <div class="p-4 sm:p-8 bg-white shadow sm:rounded-lg">
-                <div class="max-w-xl">
-                    @include('profile.partials.update-password-form')
-                </div>
-            </div>
-
-            <div class="p-4 sm:p-8 bg-white shadow sm:rounded-lg">
-                <div class="max-w-xl">
-                    @include('profile.partials.delete-user-form')
-                </div>
-            </div>
-        </div>
+    <div class="dashboard-heading"><div><h1>Account settings</h1><p>Manage your personal information, password and account.</p></div></div>
+    <div class="workspace-settings">
+        @if(auth()->user()->google_id)
+            <div class="panel workspace-settings-panel"><p>If you signed up with Google and have not set a password, <a class="text-link" href="{{ route('password.request') }}">set a password using email recovery</a> before changing your password or confirming account deletion.</p></div>
+        @endif
+        <div class="panel workspace-settings-panel">@include('profile.partials.update-profile-information-form')</div>
+        <div class="panel workspace-settings-panel">@include('profile.partials.update-password-form')</div>
+        <div class="panel workspace-settings-panel workspace-danger-panel">@include('profile.partials.delete-user-form')</div>
     </div>
 </x-app-layout>

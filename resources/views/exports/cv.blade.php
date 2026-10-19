@@ -1,0 +1,3 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'"><title>{{ $data['name'] }} CV</title><style>html,body{margin:0;padding:0;background:white}*{box-sizing:border-box}{!! $css !!}</style></head>
+<body><div x-data="cvBuilder({{ Js::from(['draft' => ['step' => 4, 'data' => $data], 'templates' => config('cv_templates'), 'saveUrl' => '', 'csrf' => '', 'savedAccount' => false]) }})"><div class="editor-paper-wrap cv-stage" x-html="reviewPreview(selected)"></div></div><script type="module">{!! $script !!}</script></body></html>

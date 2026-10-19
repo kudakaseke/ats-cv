@@ -41,7 +41,7 @@
                     <a href="{{ route('verification.notice') }}" class="underline text-sm">{{ __('Enter verification code') }}</a>
                     <x-input-error :messages="$errors->get('delivery')" class="mt-2" />
                     @if (session('status') === 'verification-code-sent')
-                        <p class="mt-2 font-medium text-sm text-green-600">
+                        <p class="mt-2 font-medium text-sm text-blue-600">
                             {{ __('A new verification code has been sent to your email address.') }}
                         </p>
                     @endif
