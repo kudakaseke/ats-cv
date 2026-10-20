@@ -14,7 +14,7 @@ class CvAiRewriteTest extends TestCase
 
     private function payload(): array
     {
-        return ['job_description' => 'PHP HTML CSS', 'resume_text' => "Alex Morgan\nSkills\nC#, Python", 'confirmed_keywords' => ['PHP', 'HTML'], 'ai_consent' => true];
+        return ['job_description' => 'PHP HTML CSS', 'resume_text' => "Alex Morgan\nSkills\nC#, Python", 'confirmed_keywords' => ['PHP', 'HTML']];
     }
 
     private function structured(array $extra = []): array
@@ -24,7 +24,7 @@ class CvAiRewriteTest extends TestCase
 
     private function setupProvider(): void
     {
-        config(['services.gemini.key' => 'fake-test-key', 'services.gemini.model' => 'test-model']);
+        config(['services.cv_ai.provider' => 'gemini', 'services.gemini.key' => 'fake-test-key', 'services.gemini.model' => 'test-model']);
         Http::preventStrayRequests();
         $this->actingAs(User::factory()->create());
     }
@@ -49,12 +49,11 @@ class CvAiRewriteTest extends TestCase
         $this->assertFalse(session()->has('cv_builder'));
     }
 
-    public function test_auth_consent_and_confirmed_keywords_are_checked_before_sending_data(): void
+    public function test_auth_and_confirmed_keywords_are_checked_before_sending_data(): void
     {
         Http::preventStrayRequests();
         $this->postJson('/checker/rewrite', $this->payload())->assertUnauthorized();
         $this->actingAs(User::factory()->create());
-        $this->postJson('/checker/rewrite', [...$this->payload(), 'ai_consent' => false])->assertUnprocessable();
         $this->postJson('/checker/rewrite', [...$this->payload(), 'confirmed_keywords' => ['Unrelated skill']])->assertUnprocessable();
         Http::assertNothingSent();
     }
@@ -115,5 +114,73 @@ class CvAiRewriteTest extends TestCase
         $this->assertNotContains('', $schema['enum']);
         $data = $mapper->data($this->structured(['languages' => [['name' => 'English', 'level' => null]]]));
         $this->assertSame(['name' => 'English', 'level' => ''], $data['languages'][0]);
+    }
+
+    public function test_openai_rewrites_named_cv_fields_and_uses_strict_schema_without_storing_the_request(): void
+    {
+        $this->setupProvider();
+        config(['services.cv_ai.provider' => 'openai', 'services.openai.key' => 'fake-openai-key', 'services.openai.model' => 'gpt-4.1-mini']);
+        $draft = ['structured_resume' => $this->structured(), 'changes' => ['Added confirmed PHP and HTML skills.'], 'unsupported_keywords' => ['CSS']];
+        Http::fake(['api.openai.com/v1/responses' => Http::response(['status' => 'completed', 'output' => [
+            ['type' => 'reasoning', 'summary' => []],
+            ['type' => 'message', 'content' => [['type' => 'output_text', 'text' => json_encode($draft)]]],
+        ]])]);
+        $response = $this->postJson('/checker/rewrite', $this->payload())->assertOk()
+            ->assertJsonPath('before.score', 0)->assertJsonPath('after.keyword_score', 67)
+            ->assertJsonPath('unsupported_keywords', ['CSS']);
+        Http::assertSent(function ($request) {
+            $input = json_decode($request['input'][0]['content'], true);
+            $schema = $request['text']['format']['schema'];
+            $level = $schema['properties']['structured_resume']['properties']['languages']['items']['properties']['level'];
+
+            return $request->hasHeader('Authorization', 'Bearer fake-openai-key')
+                && $request['store'] === false && $request['model'] === 'gpt-4.1-mini'
+                && $request['text']['format']['strict'] === true
+                && $schema['additionalProperties'] === false
+                && $schema['properties']['structured_resume']['additionalProperties'] === false
+                && $schema['properties']['structured_resume']['properties']['experience']['items']['additionalProperties'] === false
+                && $level['type'] === ['string', 'null'] && in_array(null, $level['enum'], true)
+                && $input['original_resume'] === $this->payload()['resume_text']
+                && $input['job_description'] === $this->payload()['job_description']
+                && str_contains($request['instructions'], 'Do not invent experience');
+        });
+        $this->post('/checker/edit', [
+            'resume_text' => $response->json('rewritten_resume'), 'generated' => 1,
+            'original_resume_text' => $this->payload()['resume_text'], 'job_description' => $this->payload()['job_description'],
+        ])->assertRedirect(route('builder.start'))->assertSessionHas('cv_builder.data.skills', 'C#, Python, PHP, HTML');
+    }
+
+    public function test_openai_incomplete_refused_and_malformed_results_do_not_replace_the_original_cv(): void
+    {
+        $this->setupProvider();
+        config(['services.cv_ai.provider' => 'openai', 'services.openai.key' => 'fake-openai-key', 'services.openai.model' => 'gpt-4.1-mini']);
+        Http::fakeSequence()->push(['status' => 'incomplete', 'output' => []])
+            ->push(['status' => 'completed', 'output' => [['type' => 'message', 'content' => [['type' => 'refusal', 'refusal' => 'Unable to comply']]]]])
+            ->push(['status' => 'completed', 'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => '{']]]]])
+            ->push(['error' => ['message' => 'Private diagnostic']], 429);
+        for ($i = 0; $i < 4; $i++) {
+            $this->withSession(['cv_builder' => ['data' => ['name' => 'Original Person']]])
+                ->postJson('/checker/rewrite', $this->payload())->assertStatus(503)
+                ->assertJsonMissingPath('rewritten_resume')->assertDontSee('fake-openai-key')->assertDontSee('Private diagnostic')
+                ->assertSessionHas('cv_builder.data.name', 'Original Person');
+        }
+    }
+
+    public function test_missing_openai_key_does_not_silently_send_the_cv_to_another_provider(): void
+    {
+        $this->setupProvider();
+        config(['services.cv_ai.provider' => 'openai', 'services.openai.key' => null]);
+        $this->postJson('/checker/rewrite', $this->payload())->assertStatus(503);
+        Http::assertNothingSent();
+    }
+
+    public function test_certification_dates_survive_structured_rewriting_and_older_drafts_remain_compatible(): void
+    {
+        $mapper = app(CvStructuredResume::class);
+        $data = $mapper->data($this->structured(['courses' => [['title' => 'Existing Certificate', 'institution' => 'Actual Provider', 'period' => 'Jun 2024']]]));
+        $this->assertSame('Jun 2024', $data['courses'][0]['period']);
+        $this->assertStringContainsString('Jun 2024', $mapper->text($data));
+        $legacy = $mapper->data($this->structured(['courses' => [['title' => 'Existing Certificate', 'institution' => 'Actual Provider']]]));
+        $this->assertSame('', $legacy['courses'][0]['period']);
     }
 }

@@ -36,7 +36,7 @@ class BillingTest extends TestCase
         $payment = BillingPayment::sole();
         $this->assertSame('test', $payment->mode);
         Http::swap(new Factory);
-        Http::fake(['*' => Http::response($this->signed(['reference' => $payment->reference, 'amount' => '5.00', 'paynowreference' => 'PN123', 'status' => 'Paid']))]);
+        Http::fake(['*' => Http::response($this->signed(['reference' => $payment->reference, 'amount' => '4.75', 'paynowreference' => 'PN123', 'status' => 'Paid']))]);
         app(PaymentService::class)->refresh($payment);
         $this->assertSame('test_paid', $payment->fresh()->status);
         $this->assertDatabaseCount('subscriptions', 0);
@@ -191,10 +191,16 @@ class BillingTest extends TestCase
     {
         $payment = $this->payment();
         $this->actingAs(User::findOrFail($payment->user_id));
+        Http::preventStrayRequests();
         foreach (['test', 'live', 'sandbox'] as $mode) {
             foreach (['pending', 'test_paid', 'paid', 'cancelled'] as $status) {
                 $payment->update(['mode' => $mode, 'status' => $status]);
-                $this->get('/payments/'.$payment->reference)->assertOk()->assertSee('Check payment status');
+                $response = $this->get('/payments/'.$payment->reference);
+                if (($mode === 'live' && $status === 'paid') || $status === 'test_paid') {
+                    $response->assertRedirect(route('dashboard'));
+                } else {
+                    $response->assertOk()->assertSee('Check payment status');
+                }
             }
         }
     }

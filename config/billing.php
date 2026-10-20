@@ -17,6 +17,6 @@ return [
         'client_id' => env(env('PAYPAL_MODE', 'sandbox') === 'live' ? 'PAYPAL_LIVE_CLIENT_ID' : 'PAYPAL_SANDBOX_CLIENT_ID', env('PAYPAL_CLIENT_ID')),
         'client_secret' => env(env('PAYPAL_MODE', 'sandbox') === 'live' ? 'PAYPAL_LIVE_CLIENT_SECRET' : 'PAYPAL_SANDBOX_CLIENT_SECRET', env('PAYPAL_CLIENT_SECRET')),
         'webhook_id' => env('PAYPAL_WEBHOOK_ID'),
-        'plans' => ['monthly' => env('PAYPAL_MONTHLY_PLAN_ID'), 'annual' => env('PAYPAL_ANNUAL_PLAN_ID')],
+        'plans' => ['monthly' => env('PAYPAL_MONTHLY_PLAN_ID'), 'pro' => env('PAYPAL_PRO_PLAN_ID'), 'annual' => env('PAYPAL_ANNUAL_PLAN_ID')],
     ],
 ];

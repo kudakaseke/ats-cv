@@ -7,6 +7,7 @@ use App\Models\SubscriptionPlan;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
@@ -77,34 +78,33 @@ class AuditRegressionTest extends TestCase
         }
     }
 
-    public function test_builder_write_endpoints_cannot_bypass_login_or_verification(): void
+    public function test_guest_drafts_remain_available_but_downloads_require_login_and_verification(): void
     {
-        foreach (['draft', 'import', 'export'] as $action) {
-            $this->postJson('/get-started/'.$action)->assertUnauthorized();
-        }
+        $this->postJson('/get-started/export')->assertUnauthorized();
+        $this->postJson('/get-started/draft')->assertUnprocessable();
         $this->actingAs(User::factory()->unverified()->create());
-        foreach (['draft', 'import', 'export'] as $action) {
-            $this->postJson('/get-started/'.$action)->assertForbidden();
-        }
-        $this->get('/get-started')->assertRedirect('/verify-email');
+        $this->postJson('/get-started/export')->assertForbidden();
+        $this->get('/get-started')->assertOk();
     }
 
     public function test_fresh_database_has_a_default_plan_without_manual_seeding(): void
     {
-        $this->assertSame(3, SubscriptionPlan::where('slug', 'free')->firstOrFail()->monthly_analyses);
+        $this->assertSame(475, SubscriptionPlan::where('slug', 'monthly')->firstOrFail()->price_cents);
         $this->actingAs(User::factory()->create())->get('/dashboard')->assertOk();
         $this->get('/')->assertOk()->assertSee('$3.95');
     }
 
     public function test_scan_allowance_is_enforced_and_results_are_saved_without_creating_cvs(): void
     {
+        config(['services.openai.key' => 'fake-key']);
+        Http::fake(['api.openai.com/*' => Http::response(['status' => 'completed', 'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => json_encode(['summary' => 'Comparison complete.', 'recommendations' => []])]]]]])]);
         $user = User::factory()->create();
         $this->actingAs($user);
         for ($i = 0; $i < 3; $i++) {
             $this->postJson('/checker/scan', ['job_description' => 'PHP SQL', 'resume_text' => 'PHP developer'])->assertOk()->assertJsonStructure(['analysis_id']);
         }
         $this->postJson('/checker/scan', ['job_description' => 'PHP SQL', 'resume_text' => 'PHP developer'])
-            ->assertUnprocessable()->assertJsonValidationErrors('resume_text');
+            ->assertUnprocessable()->assertJsonValidationErrors('credits');
         $this->assertSame(3, $user->analyses()->where('status', 'completed')->count());
         $this->assertDatabaseCount('resumes', 0);
         $this->get('/dashboard')->assertOk();

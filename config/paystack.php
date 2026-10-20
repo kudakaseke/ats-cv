@@ -1,6 +1,10 @@
 <?php
 
 return [
+    'enabled' => env('PAYSTACK_ENABLED', false),
+    'currency' => env('PAYSTACK_CURRENCY', 'ZAR'),
+    'pro_amount' => env('PAYSTACK_PRO_AMOUNT_ZAR_CENTS'),
+    'topup_amounts' => ['monthly' => env('PAYSTACK_MONTHLY_AMOUNT_ZAR_CENTS')],
     'secret_key' => env('PAYSTACK_SECRET_KEY'),
     // Explicit fixed charge amounts in ZAR cents; never infer an exchange rate.
     'monthly_amount' => env('PAYSTACK_MONTHLY_AMOUNT_ZAR_CENTS'),

@@ -114,6 +114,14 @@ body[data-workspace] .billing-consent a { color: var(--blue); text-decoration: u
 body[data-workspace] .ats-checker .checker-ai-consent { font-size: 12px; font-weight: 400; line-height: 1.7; text-align: left; margin: 20px 0; color: #596372; }
 body[data-workspace] .checker-ai-consent input { margin-right: 6px; }
 body[data-workspace] .checker-ai-consent a { color: var(--blue); text-decoration: underline; }
+.credit-summary { padding:24px; margin-bottom:24px; }
+.credit-summary h2 { font-size:20px; margin-bottom:10px; }
+.credit-summary > strong { font-size:28px; color:var(--blue); }
+.credit-summary p,.checker-credit-balance { margin:10px 0; line-height:1.7; }
+.credit-pack { padding:20px 0; border-top:1px solid #e3eaf2; }
+.credit-pack form { margin-top:14px; }
+.checker-ai-recommendations { text-align:left; margin:16px 0; }
+.checker-ai-recommendations ul { list-style:disc; padding-left:22px; }
 @media (max-width: 1100px) {
     body[data-workspace] .workspace-content { padding: 30px 28px 44px; }
     body[data-workspace] .workspace-topbar, body[data-workspace] .workspace-footer { padding-inline: 28px; }
@@ -166,3 +174,29 @@ body[data-workspace] .dashboard-action-card p { margin: 0; max-width: 260px; fon
 body[data-workspace] .dashboard-action-arrow { position: absolute; top: 28px; right: 24px; color: #346de1; }
 @media (max-width: 1100px) { body[data-workspace] .dashboard-action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 600px) { body[data-workspace] .dashboard-action-grid { grid-template-columns: 1fr; gap: 16px; } body[data-workspace] .dashboard-action-card { min-height: 180px; padding: 24px; } }
+
+body[data-workspace] .purchased-credit-badge {
+    width: 58px; height: 58px; flex: 0 0 58px; border-radius: 50%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 1px; background: #edf5ff; border: 2px solid var(--blue); color: var(--blue);
+    text-decoration: none; line-height: 1.15;
+}
+body[data-workspace] .purchased-credit-badge strong { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+body[data-workspace] .purchased-credit-badge span { font-size: 10px; font-weight: 600; }
+body[data-workspace] .purchased-credit-badge:hover { background: #dfeeff; }
+body[data-workspace] .purchased-credit-badge:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+@media (max-width: 480px) {
+    body[data-workspace] .workspace-topbar { gap: 10px; }
+    body[data-workspace] .purchased-credit-badge { width: 48px; height: 48px; flex-basis: 48px; }
+    body[data-workspace] .purchased-credit-badge strong { font-size: 15px; }
+    body[data-workspace] .user-profile > span:not(.avatar) { max-width: 110px; }
+}
+
+body[data-workspace] .audit-panel { margin-bottom: 24px; }
+body[data-workspace] .audit-panel h2 { margin-bottom: 12px; }
+body[data-workspace] .audit-table-scroll { overflow-x: auto; margin-block: 16px; }
+body[data-workspace] .audit-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
+body[data-workspace] .audit-table th, body[data-workspace] .audit-table td { padding: 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+body[data-workspace] .audit-table th { background: #edf5ff; font-weight: 600; }
+body[data-workspace] .audit-table pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; max-width: 460px; }
+body[data-workspace] .audit-table summary { cursor: pointer; }

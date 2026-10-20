@@ -20,6 +20,13 @@ return [
     |
     */
 
+    'cv_ai' => ['provider' => env('CV_AI_PROVIDER', 'openai')],
+
+    'openai' => [
+        'key' => env('OPENAI_API_KEY'),
+        'model' => env('OPENAI_MODEL', 'gpt-4.1-mini'),
+    ],
+
     'gemini' => [
         'key' => env('GEMINI_API_KEY'),
         'model' => env('GEMINI_MODEL'),

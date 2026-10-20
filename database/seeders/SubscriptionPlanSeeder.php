@@ -21,9 +21,10 @@ class SubscriptionPlanSeeder extends Seeder
         SubscriptionPlan::whereIn('slug', ['basic', 'pro'])->update(['is_active' => false]);
 
         foreach ([
-            ['slug' => 'free', 'name' => 'Free', 'price_cents' => 0, 'billing_interval' => 'free', 'monthly_analyses' => 3, 'resume_limit' => 1, 'features' => ['Basic CV builder', 'Limited ATS scans', 'Basic templates']],
-            ['slug' => 'monthly', 'name' => 'Monthly', 'price_cents' => 500, 'billing_interval' => 'monthly', 'monthly_analyses' => null, 'resume_limit' => null, 'features' => ['Unlimited CV edits', 'ATS matching', 'PDF downloads']],
-            ['slug' => 'annual', 'name' => 'Annual', 'price_cents' => 4740, 'billing_interval' => 'annually', 'monthly_analyses' => null, 'resume_limit' => null, 'features' => ['All Monthly features', 'Priority support', 'Advanced ATS insights']],
+            ['slug' => 'free', 'name' => 'Free', 'price_cents' => 0, 'billing_interval' => 'free', 'monthly_analyses' => null, 'resume_limit' => 1, 'features' => ['15 welcome credits, once per account', 'One complete analysis and CV revamp', 'Free manual edits and downloads']],
+            ['slug' => 'monthly', 'name' => 'Monthly', 'price_cents' => 475, 'billing_interval' => 'monthly', 'monthly_analyses' => null, 'resume_limit' => null, 'features' => ['150 credits each paid month', 'Up to 10 complete CV workflows', 'Free manual edits and downloads', 'Buy extra credits anytime']],
+            ['slug' => 'pro', 'name' => 'Pro', 'price_cents' => 625, 'billing_interval' => 'monthly', 'monthly_analyses' => null, 'resume_limit' => null, 'features' => ['225 credits each paid month', 'Up to 15 complete CV workflows', 'Free manual edits and downloads', 'Buy extra credits anytime']],
+            ['slug' => 'annual', 'name' => 'Annual', 'price_cents' => 4740, 'billing_interval' => 'annually', 'monthly_analyses' => null, 'resume_limit' => null, 'features' => ['150 credits released each month', '12 months of Monthly features', 'Free manual edits and downloads', 'Buy extra credits anytime']],
         ] as $plan) {
             SubscriptionPlan::updateOrCreate(['slug' => $plan['slug']], array_merge($plan, ['currency' => 'USD', 'is_active' => true]));
         }

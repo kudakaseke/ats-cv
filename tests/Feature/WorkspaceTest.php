@@ -33,7 +33,7 @@ class WorkspaceTest extends TestCase
         $this->get('/subscription/monthly/payment-method')->assertRedirect('/login');
         $this->actingAs(User::factory()->create())->get('/subscription')->assertOk()
             ->assertSee(route('subscription.payment-methods', 'monthly'))->assertSee(route('subscription.payment-methods', 'annual'));
-        foreach (['monthly' => '5.00', 'annual' => '47.40'] as $plan => $price) {
+        foreach (['monthly' => '4.75', 'pro' => '6.25', 'annual' => '47.40'] as $plan => $price) {
             $this->get('/subscription/'.$plan.'/payment-method')->assertOk()->assertSee('Choose payment method')
                 ->assertSee('Paystack')->assertSee('Paynow')->assertSee('PayPal')->assertSee('US$'.$price)
                 ->assertSee('payment-provider-paystack')->assertSee('payment-provider-paynow')->assertSee('payment-provider-paypal');
@@ -67,7 +67,7 @@ class WorkspaceTest extends TestCase
     public function test_new_accounts_are_free_and_viewing_plans_never_activates_payment(): void
     {
         $user = User::factory()->create();
-        $this->actingAs($user)->get('/subscription')->assertOk()->assertSee('No live payments');
+        $this->actingAs($user)->get('/subscription')->assertOk()->assertSee('15 AI credits');
         $this->assertSame('free', app(PlanService::class)->current($user)->slug);
         $this->assertDatabaseCount('subscriptions', 0);
     }
@@ -81,7 +81,7 @@ class WorkspaceTest extends TestCase
         $this->assertSame('free', app(PlanService::class)->current($user)->slug);
     }
 
-    public function test_usage_resets_monthly_and_failed_analyses_do_not_consume_allowance(): void
+    public function test_analysis_history_does_not_regrant_welcome_credits_or_double_charge(): void
     {
         $user = User::factory()->create();
         $resume = $user->resumes()->create(['name' => 'CV']);
@@ -89,7 +89,7 @@ class WorkspaceTest extends TestCase
         $oldAnalysis->forceFill(['created_at' => now()->subMonth()->startOfMonth()])->save();
         $user->analyses()->create(['resume_id' => $resume->id, 'job_description' => 'Failed job', 'status' => 'failed']);
         $user->analyses()->create(['resume_id' => $resume->id, 'job_description' => 'Queued job', 'status' => 'pending']);
-        $this->assertSame(2, app(PlanService::class)->remainingAnalyses($user));
+        $this->assertSame(3, app(PlanService::class)->remainingAnalyses($user));
     }
 
     public function test_account_deletion_cascades_workspace_records(): void

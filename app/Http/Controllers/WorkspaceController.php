@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\BillingPayment;
 use App\Models\CvAnalysis;
 use App\Models\SubscriptionPlan;
+use App\Services\AiCreditService;
 use App\Services\PlanService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -37,8 +38,10 @@ class WorkspaceController extends Controller
         return view('workspace.subscription', [
             'currentPlan' => $service->current($request->user()),
             'remaining' => $service->remainingAnalyses($request->user()),
+            'wallet' => app(AiCreditService::class)->wallet($request->user()),
             'plans' => SubscriptionPlan::where('is_active', true)->orderBy('price_cents')->get(),
             'paypalSubscriptions' => BillingPayment::where('user_id', $request->user()->id)->where('recurring', true)->where('provider', 'paypal')->latest()->get(),
+            'paystackSubscriptions' => BillingPayment::where('user_id', $request->user()->id)->where('recurring', true)->where('provider', 'paystack')->latest()->get(),
         ]);
     }
 
@@ -51,7 +54,7 @@ class WorkspaceController extends Controller
 
     public function paymentMethods(string $plan): View
     {
-        $plan = SubscriptionPlan::where('slug', $plan)->where('is_active', true)->whereIn('slug', ['monthly', 'annual'])->firstOrFail();
+        $plan = SubscriptionPlan::where('slug', $plan)->where('is_active', true)->whereIn('slug', ['monthly', 'pro', 'annual'])->firstOrFail();
 
         return view('workspace.payment-methods', compact('plan'));
     }

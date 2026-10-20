@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\AiCreditService;
 use App\Services\EmailVerificationCodeService;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -12,6 +13,11 @@ use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
+    protected static function booted(): void
+    {
+        static::created(fn (User $user) => app(AiCreditService::class)->wallet($user));
+    }
+
     public function sendEmailVerificationNotification(): void
     {
         app(EmailVerificationCodeService::class)->send($this);

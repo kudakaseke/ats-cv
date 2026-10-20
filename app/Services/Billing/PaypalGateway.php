@@ -50,7 +50,7 @@ class PaypalGateway
             'purchase_units' => [[
                 'reference_id' => $payment->reference,
                 'custom_id' => $payment->reference,
-                'description' => 'atscvdetector '.($payment->billing_interval === 'annually' ? 'annual' : 'monthly').' access - one-time payment',
+                'description' => $payment->kind === 'topup' ? 'atscvdetector '.$payment->credits.' AI credits - one-time purchase' : 'atscvdetector '.($payment->billing_interval === 'annually' ? 'annual' : 'monthly').' access - one-time payment',
                 'amount' => ['currency_code' => 'USD', 'value' => number_format($payment->amount_cents / 100, 2, '.', '')],
             ]],
             'application_context' => ['brand_name' => 'atscvdetector', 'shipping_preference' => 'NO_SHIPPING', 'user_action' => 'PAY_NOW',

@@ -5,6 +5,7 @@ namespace App\Services\Billing;
 use App\Models\BillingPayment;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Services\AiCreditService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -143,8 +144,11 @@ class PaypalSubscriptions
             $receipt = DB::table('paypal_subscription_receipts')->where('billing_payment_id', $locked->id)->where('transaction_id', $transaction['id'])->first();
             if ($status !== 'COMPLETED') {
                 if ($receipt) {
-                    Subscription::whereKey($receipt->subscription_id)->update(['status' => 'cancelled']);
+                    if (! DB::table('paypal_subscription_receipts')->where('subscription_id', $receipt->subscription_id)->where('id', '!=', $receipt->id)->where('status', 'COMPLETED')->exists()) {
+                        Subscription::whereKey($receipt->subscription_id)->update(['status' => 'cancelled']);
+                    }
                     DB::table('paypal_subscription_receipts')->where('id', $receipt->id)->update(['status' => $status, 'updated_at' => now()]);
+                    app(AiCreditService::class)->wallet(User::findOrFail($locked->user_id));
                 } else {
                     DB::table('paypal_subscription_receipts')->insert(['billing_payment_id' => $locked->id, 'transaction_id' => $transaction['id'], 'status' => $status, 'paid_at' => $paidAt, 'created_at' => now(), 'updated_at' => now()]);
                 }
@@ -156,14 +160,23 @@ class PaypalSubscriptions
             }
             $subscription = null;
             if ($locked->mode === 'live') {
-                $subscription = new Subscription;
-                $subscription->forceFill(['user_id' => $locked->user_id, 'subscription_plan_id' => $locked->subscription_plan_id,
-                    'status' => 'active', 'starts_at' => $paidAt,
-                    'ends_at' => $end])->save();
+                $anchor = $locked->paid_at ?? $paidAt;
+                $cycle = max(0, (int) round($anchor->diffInMonths($paidAt) / ($locked->billing_interval === 'annually' ? 12 : 1)));
+                $period = 'paypal:'.$locked->id.':'.$cycle;
+                $subscription = Subscription::where('funding_period', $period)->first();
+                if (! $subscription) {
+                    $subscription = new Subscription;
+                    $subscription->forceFill(['user_id' => $locked->user_id, 'subscription_plan_id' => $locked->subscription_plan_id,
+                        'status' => 'active', 'starts_at' => $paidAt, 'funding_period' => $period,
+                        'ends_at' => $end])->save();
+                }
             }
             DB::table('paypal_subscription_receipts')->insert(['billing_payment_id' => $locked->id, 'transaction_id' => $transaction['id'],
                 'subscription_id' => $subscription?->id, 'status' => 'COMPLETED', 'paid_at' => $paidAt, 'created_at' => now(), 'updated_at' => now()]);
             $locked->update(['status' => $locked->mode === 'live' ? 'paid' : 'test_paid', 'paid_at' => $locked->paid_at ?? $paidAt, 'subscription_id' => $subscription?->id]);
+            if ($locked->mode === 'live') {
+                app(AiCreditService::class)->wallet(User::findOrFail($locked->user_id));
+            }
         });
     }
 }

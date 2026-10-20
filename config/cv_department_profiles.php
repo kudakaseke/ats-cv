@@ -4,7 +4,7 @@
 return [
     'accounting-finance' => [
         'skills' => 'Accounting Skills', 'courses' => 'Professional Qualifications & Training', 'achievements' => 'Financial Achievements',
-        'order' => ['experience', 'skills', 'courses', 'education', 'achievements'],
+        'order' => ['experience', 'education', 'courses', 'skills', 'custom_sections', 'achievements'],
         'focus' => 'reconciliations, financial reporting and accurate financial records',
         'skill_sample' => 'Bank reconciliations; accounts payable and receivable; month-end reporting; budgeting; Excel; accounting systems',
         'work' => "Reconciled bank and supplier accounts and investigated discrepancies before month-end close.\nPrepared reporting schedules and maintained supporting documentation for audit review.\nFollowed up overdue balances and kept payment records accurate.",
@@ -12,7 +12,7 @@ return [
     ],
     'admin' => [
         'skills' => 'Administrative Skills', 'courses' => 'Training & Professional Development', 'achievements' => 'Administrative Achievements',
-        'order' => ['experience', 'skills', 'education', 'courses', 'achievements'],
+        'order' => ['experience', 'education', 'courses', 'skills', 'custom_sections', 'achievements'],
         'focus' => 'office coordination, record keeping and dependable administrative support',
         'skill_sample' => 'Diary management; meeting coordination; document control; correspondence; Microsoft Office; confidential records',
         'work' => "Coordinated calendars, meeting arrangements and correspondence for the office.\nMaintained accurate electronic records and tracked outstanding requests.\nPrepared meeting packs and followed up agreed actions with colleagues.",
@@ -20,7 +20,7 @@ return [
     ],
     'engineering' => [
         'skills' => 'Technical Skills', 'courses' => 'Certifications & Professional Development', 'achievements' => 'Engineering Achievements',
-        'order' => ['skills', 'experience', 'custom_sections', 'education', 'courses', 'achievements'],
+        'order' => ['experience', 'education', 'courses', 'skills', 'custom_sections', 'achievements'],
         'focus' => 'technical documentation, design verification and engineering problem solving',
         'skill_sample' => 'Engineering drawings; design calculations; CAD; testing; technical documentation; safety procedures',
         'work' => "Prepared technical drawings and checked specifications against design requirements.\nSupported testing, documented results and escalated non-conformances.\nWorked with senior engineers to resolve installation and maintenance issues.",
@@ -29,7 +29,7 @@ return [
     ],
     'hr' => [
         'skills' => 'Human Resources Skills', 'courses' => 'HR Qualifications & Professional Development', 'achievements' => 'HR Achievements',
-        'order' => ['experience', 'skills', 'education', 'courses', 'achievements'],
+        'order' => ['experience', 'education', 'courses', 'skills', 'custom_sections', 'achievements'],
         'focus' => 'recruitment coordination, employee records and confidential people support',
         'skill_sample' => 'Recruitment coordination; onboarding; HRIS; employee records; policy administration; confidentiality',
         'work' => "Coordinated interview schedules and maintained recruitment records.\nPrepared onboarding documentation and kept employee information up to date.\nResponded to routine HR enquiries and escalated sensitive matters appropriately.",
@@ -37,7 +37,7 @@ return [
     ],
     'it' => [
         'skills' => 'Technical Skills', 'courses' => 'IT Certifications & Training', 'achievements' => 'Technical Achievements',
-        'order' => ['skills', 'experience', 'custom_sections', 'courses', 'education', 'achievements'],
+        'order' => ['experience', 'education', 'courses', 'skills', 'custom_sections', 'achievements'],
         'focus' => 'technical support, system reliability and clear technical documentation',
         'skill_sample' => 'Troubleshooting; operating systems; networking fundamentals; ticket management; access controls; technical documentation',
         'work' => "Investigated support requests and documented reproducible troubleshooting steps.\nMaintained device records and supported authorised account administration.\nUpdated knowledge-base articles to help users resolve recurring issues.",
@@ -46,7 +46,7 @@ return [
     ],
     'legal' => [
         'skills' => 'Legal & Compliance Skills', 'courses' => 'Qualifications & Professional Development', 'achievements' => 'Legal & Compliance Achievements',
-        'order' => ['experience', 'skills', 'education', 'courses', 'achievements'],
+        'order' => ['experience', 'education', 'courses', 'skills', 'custom_sections', 'achievements'],
         'focus' => 'accurate legal records, regulatory research and confidential case support',
         'skill_sample' => 'Legal research; document review; compliance monitoring; case records; confidentiality; deadline tracking',
         'work' => "Maintained matter files and tracked deadlines under supervision.\nResearched regulatory updates and prepared summaries for review.\nChecked documentation for completeness and protected confidential information.",
@@ -54,7 +54,7 @@ return [
     ],
     'marketing-sales' => [
         'skills' => 'Marketing & Sales Skills', 'courses' => 'Certifications & Training', 'achievements' => 'Marketing & Sales Achievements',
-        'order' => ['experience', 'achievements', 'skills', 'education', 'courses'],
+        'order' => ['experience', 'education', 'courses', 'skills', 'custom_sections', 'achievements'],
         'focus' => 'campaign coordination, customer relationships and sales reporting',
         'skill_sample' => 'Campaign reporting; CRM; lead qualification; customer communication; market research; sales pipeline tracking',
         'work' => "Maintained CRM records and followed up qualified customer enquiries.\nSupported campaign delivery and compiled channel performance reports.\nTracked pipeline activity and shared customer feedback with the team.",
@@ -62,7 +62,7 @@ return [
     ],
     'operations' => [
         'skills' => 'Operations & Production Skills', 'courses' => 'Safety, Quality & Technical Training', 'achievements' => 'Process Improvement Achievements',
-        'order' => ['experience', 'skills', 'achievements', 'courses', 'education'],
+        'order' => ['experience', 'education', 'courses', 'skills', 'custom_sections', 'achievements'],
         'focus' => 'production coordination, quality checks and safe operating procedures',
         'skill_sample' => 'Production scheduling; quality checks; standard operating procedures; safety reporting; downtime tracking; continuous improvement',
         'work' => "Tracked daily production output and flagged deviations from the schedule.\nRecorded quality checks and escalated defects using agreed procedures.\nSupported shift handovers and maintained accurate operating records.",
@@ -70,7 +70,7 @@ return [
     ],
     'pr' => [
         'skills' => 'Public Relations & Communication Skills', 'courses' => 'Training & Professional Development', 'achievements' => 'Communication & Campaign Achievements',
-        'order' => ['experience', 'achievements', 'skills', 'education', 'courses'],
+        'order' => ['experience', 'education', 'courses', 'skills', 'custom_sections', 'achievements'],
         'focus' => 'media monitoring, stakeholder communication and accurate public messaging',
         'skill_sample' => 'Media monitoring; press materials; stakeholder communication; content editing; event coordination; campaign reporting',
         'work' => "Drafted press materials and coordinated approvals before publication.\nMonitored media coverage and prepared concise coverage reports.\nMaintained media contacts and supported stakeholder events.",
@@ -78,7 +78,7 @@ return [
     ],
     'supply-chain' => [
         'skills' => 'Supply Chain & Logistics Skills', 'courses' => 'Supply Chain Certifications & Training', 'achievements' => 'Supply Chain Achievements',
-        'order' => ['experience', 'skills', 'achievements', 'courses', 'education'],
+        'order' => ['experience', 'education', 'courses', 'skills', 'custom_sections', 'achievements'],
         'focus' => 'inventory accuracy, supplier coordination and dependable delivery tracking',
         'skill_sample' => 'Inventory control; purchasing; supplier coordination; shipment tracking; warehouse records; ERP systems',
         'work' => "Tracked purchase orders and followed up supplier delivery commitments.\nReconciled inventory records and investigated stock discrepancies.\nMaintained shipment documentation and reported delivery exceptions.",
@@ -86,7 +86,7 @@ return [
     ],
     'managers' => [
         'skills' => 'Leadership & Management Skills', 'courses' => 'Management Qualifications & Training', 'achievements' => 'Leadership & Business Achievements',
-        'order' => ['experience', 'achievements', 'skills', 'education', 'courses'],
+        'order' => ['experience', 'education', 'courses', 'skills', 'custom_sections', 'achievements'],
         'focus' => 'team leadership, resource planning and accountable business delivery',
         'skill_sample' => 'People leadership; budgeting; performance management; resource planning; stakeholder communication; risk management',
         'work' => "Set team priorities and reviewed delivery against agreed service targets.\nManaged resource allocation and monitored spending against the budget.\nCoached colleagues and reported performance and risks to senior stakeholders.",

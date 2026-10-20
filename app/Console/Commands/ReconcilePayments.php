@@ -14,7 +14,8 @@ class ReconcilePayments extends Command
 
     public function handle(PaymentService $service): int
     {
-        $payments = BillingPayment::whereIn('status', ['pending', 'paid', 'test_paid'])
+        $payments = BillingPayment::where(fn ($query) => $query->whereIn('status', ['pending', 'paid', 'test_paid'])
+            ->orWhere(fn ($query) => $query->where('status', 'reversed')->where('recurring', true)))
             ->where(fn ($query) => $query->where('recurring', true)->orWhere('created_at', '>', now()->subDays(400)))
             ->where(fn ($query) => $query->whereNotNull('poll_url')->orWhereNotNull('provider_reference'))
             ->orderBy('updated_at')->limit(max(1, min(1000, (int) $this->option('limit'))))->get();

@@ -1,6 +1,8 @@
 <x-app-layout>
-    <div class="dashboard-heading"><div><h1>Subscription</h1><p>Your current plan is {{ $currentPlan->name }}.@if($remaining !== null) {{ $remaining }} analyses remain this month.@endif</p></div><span class="pill">{{ (config('billing.paynow.enabled') && config('billing.paynow.mode') === 'live') || (config('billing.paypal.enabled') && config('billing.paypal.mode') === 'live') ? 'Payment options' : 'No live payments' }}</span></div>
-    <div class="panel subscription-info"><x-icon name="info" /><p>Paynow purchases are one-time payments. PayPal subscriptions renew automatically each month or year until cancelled. Prices for these methods are in USD. A method becomes available when its merchant setup is complete. Choose a payment method from your preferred plan. Paystack test checkout uses ZAR and does not activate access.</p></div>
+    <div class="dashboard-heading"><div><h1>Subscription</h1><p>Your current plan is {{ $currentPlan->name }}. You have {{ $wallet['credits'] }} AI credits.</p></div></div>
+    <x-payment-confirmation />
+    <section class="panel credit-summary"><h2>My AI Credits</h2><strong>{{ $wallet['credits'] }} credits</strong><p>{{ $wallet['subscription_credits'] }} subscription/welcome credits &middot; {{ $wallet['topup_credits'] }} purchased credits.</p>@if($wallet['credit_debt'])<p>{{ $wallet['credit_debt'] }} credits deducted from available balance for a refunded purchase already used.</p>@endif<p>Analysis: 5 credits. Revamp: 10 credits. One complete workflow: 15 credits. Manual editing and downloads use no credits.</p><p>Unused subscription credits reset each month. Purchased credits remain in your balance. Free accounts receive 15 welcome credits once.</p></section>
+    <div class="panel subscription-info"><x-icon name="info" /><p>Pay securely with Paystack. Subscriptions renew monthly or annually until cancelled. Credits are added after payment is verified, and you return to your dashboard. The checkout shows the exact amount and currency you will pay. Test payments do not activate paid credits.</p></div>
     <x-input-error :messages="$errors->get('billing')" class="my-4" />
     @if(session('billing_status'))<p class="my-4" role="status">{{ session('billing_status') }}</p>@endif
     @foreach($paypalSubscriptions as $agreement)
@@ -14,20 +16,39 @@
             @endunless
         </section>
     @endforeach
+    @foreach($paystackSubscriptions as $agreement)
+        <section class="panel credit-summary"><h2>Paystack automatic renewal</h2><p>{{ $agreement->currency }} {{ number_format($agreement->amount_cents/100,2) }} {{ $agreement->billing_interval==='annually' ? 'per year' : 'per month' }} &middot; {{ $agreement->recurring_status ?? 'Setup pending' }}</p><a class="text-link" href="{{ route('billing.show',$agreement->reference) }}">Check payment status</a>
+            @unless(in_array($agreement->recurring_status,['CANCELLED','DISABLED','COMPLETE'],true))<form method="POST" action="{{ route('paystack.cancel',$agreement->reference) }}">@csrf<button class="btn btn-outline">Cancel automatic renewal</button></form>@endunless
+        </section>
+    @endforeach
     <div class="pricing-grid workspace-pricing">
         @foreach($plans as $plan)
             <article id="plan-{{ $plan->slug }}" class="pricing-card {{ $plan->slug === $currentPlan->slug ? 'featured' : '' }}">
                 <div class="plan-label">{{ $plan->name }}</div>
                 <div class="price">${{ $plan->displayPrice() }}<span>{{ $plan->price_cents === 0 ? 'Forever' : '/ month' }}</span></div>
-                @if($plan->billing_interval === 'annually')<p class="plan-billing-note">Billed annually: US$47.40 per year.<br>Save US$12.60 (21%) compared with monthly billing.</p>@elseif($plan->price_cents > 0)<p class="plan-billing-note">Billed monthly. US$60 over 12 months.</p>@endif
-                @if($plan->paystack_amount_cents && $plan->paystack_mode === 'live')<p class="plan-billing-note">ZAR {{ number_format($plan->paystack_amount_cents / 100, 2) }} charged {{ $plan->billing_interval === 'annually' ? 'once per year' : 'each month' }}.</p>@endif
+                @if($plan->billing_interval === 'annually')<p class="plan-billing-note">US$47.40 billed once per year. 150 credits released each month.</p>@elseif($plan->price_cents > 0)<p class="plan-billing-note">US${{ number_format($plan->price_cents / 100, 2) }} billed monthly. {{ config('ai_credits.plans.'.$plan->slug) }} credits after each successful payment.</p>@endif
+                @if($plan->paystack_amount_cents && $plan->paystack_mode === 'live')<p class="plan-billing-note">{{ config('paystack.currency') }} {{ number_format($plan->paystack_amount_cents / 100, 2) }} charged {{ $plan->billing_interval === 'annually' ? 'once per year' : 'each month' }}.</p>@endif
                 <ul>@foreach($plan->features as $feature)<li><x-icon name="check" /> {{ $feature }}</li>@endforeach</ul>
-                @if(in_array($plan->slug, ['monthly', 'annual'], true))
-                    <a class="btn btn-primary" href="{{ route('subscription.payment-methods', $plan->slug) }}">Choose payment method <x-icon name="arrow-right" /></a>
+                @if(in_array($plan->slug, ['monthly', 'pro', 'annual'], true))
+                    <a class="btn btn-primary" href="{{ route('subscription.payment-methods', $plan->slug) }}">Continue to Paystack <x-icon name="arrow-right" /></a>
                 @else
                     <span class="pill">{{ $plan->slug === $currentPlan->slug ? 'Your current plan' : 'Free plan' }}</span>
                 @endif
             </article>
         @endforeach
     </div>
+    <section id="credit-topups" class="panel credit-summary">
+        <h2>Buy more credits</h2><p>One-time purchases. Your subscription stays the same, and purchased credits carry over.</p>
+        @php($packs = collect(config('ai_credits.topups'))->filter(fn($pack) => is_numeric($pack['price_cents']) && (int)$pack['price_cents'] > 0))
+        @forelse($packs as $id => $pack)
+            <article class="credit-pack"><h3>{{ $pack['credits'] }} credits &middot; US${{ number_format($pack['price_cents'] / 100, 2) }}</h3>
+            @foreach(['paynow' => 'Paynow', 'paypal' => 'PayPal', 'paystack' => 'Paystack'] as $provider => $label)
+                @if(($provider === 'paystack' && config('paystack.enabled') && filled(config('paystack.secret_key')) && (config('paystack.currency') === 'USD' || config('paystack.topup_amounts.'.$id))) || ($provider !== 'paystack' && config('billing.'.$provider.'.enabled')))
+                <form method="POST" action="{{ route('credits.topup') }}">@csrf<input type="hidden" name="pack" value="{{ $id }}"><input type="hidden" name="provider" value="{{ $provider }}"><label class="billing-consent"><input type="checkbox" name="billing_consent" value="1" required> I agree to this one-time purchase and the <a href="{{ route('refund') }}">Refund Policy</a>.</label><button class="btn btn-outline">Buy with {{ $label }}@if($provider==='paystack' && config('paystack.currency')!=='USD') &middot; {{ config('paystack.currency') }} {{ number_format(config('paystack.topup_amounts.'.$id)/100,2) }}@endif</button></form>
+                @endif
+            @endforeach
+            </article>
+        @empty <p>Extra-credit packs will be available once their prices are configured.</p>
+        @endforelse
+    </section>
 </x-app-layout>

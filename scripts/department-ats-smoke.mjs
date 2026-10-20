@@ -31,9 +31,15 @@ try {
             if (project !== ['engineering', 'it'].includes(department.id)) throw Error(department.title + ': inappropriate projects');
             const bounds = paper.getBoundingClientRect();
             const last = paper.querySelector('.cv-main > .cv-section:last-child').getBoundingClientRect();
-            if (last.bottom > bounds.bottom - 25 || last.bottom < bounds.bottom - 80) throw Error(department.title + ': page spacing');
+            if (last.bottom > bounds.bottom - 25) throw Error(department.title + ': content overflows page');
+            for (const section of paper.querySelectorAll('.cv-section')) {
+                if (getComputedStyle(section).marginBottom !== '18px') throw Error(department.title + ': inconsistent section spacing');
+            }
+            for (const skill of paper.querySelectorAll('.cv-skills > span')) {
+                if (parseFloat(getComputedStyle(skill).borderBottomWidth) !== 0) throw Error('Skills should not be underlined');
+            }
             // Existing content, custom headings and section placement must survive review.
-            cv.data = {...cv.data, template:template.id, name:'Real Person', summary:'My own summary',
+            cv.data = {...cv.data, template:template.id, name:'Real Person', summary:'My own summary', skills:'Actual skill',
                 section_titles:{skills:'My skills'}, custom_sections:[{title:'My voluntary work', content:'My own contribution'}],
                 section_positions:[{id:'custom_sections', region:'main', after:'education'}]};
             const review = new DOMParser().parseFromString(cv.reviewPreview(template), 'text/html');

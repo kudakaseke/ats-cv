@@ -50,13 +50,13 @@ class PaypalSubscriptionsTest extends TestCase
             '*/v1/oauth2/token' => Http::response(['access_token' => 'token']),
             '*/v1/billing/plans/P-MONTHLY' => Http::response(['id' => 'P-MONTHLY', 'status' => 'ACTIVE', 'billing_cycles' => [[
                 'tenure_type' => 'REGULAR', 'total_cycles' => 0, 'frequency' => ['interval_unit' => 'MONTH', 'interval_count' => 1],
-                'pricing_scheme' => ['fixed_price' => ['value' => '5.00', 'currency_code' => 'USD']],
+                'pricing_scheme' => ['fixed_price' => ['value' => '4.75', 'currency_code' => 'USD']],
             ]]]),
             '*/v1/billing/subscriptions' => Http::response(['id' => 'I-NEW123', 'links' => [['rel' => 'approve', 'href' => 'https://www.paypal.com/approve']]]),
         ]);
         $this->actingAs(User::factory()->create())->post('/paypal/checkout', ['plan' => 'monthly', 'billing_consent' => 1, 'amount' => '100.00'])->assertRedirect('https://www.paypal.com/approve');
         $this->assertTrue(BillingPayment::sole()->recurring);
-        $this->assertSame(500, BillingPayment::sole()->amount_cents);
+        $this->assertSame(475, BillingPayment::sole()->amount_cents);
         Http::assertNotSent(fn ($request) => str_contains($request->url(), '/checkout/orders'));
         $this->assertDatabaseCount('subscriptions', 0);
     }

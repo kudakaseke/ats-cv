@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\SubscriptionPlan;
+use App\Models\User;
 use Database\Seeders\SubscriptionPlanSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -20,11 +21,11 @@ class PaystackPlansTest extends TestCase
 
     public function test_catalog_has_correct_prices_and_annual_total(): void
     {
-        $this->assertSame(['Free', 'Monthly', 'Annual'], SubscriptionPlan::where('is_active', true)->orderBy('price_cents')->pluck('name')->all());
+        $this->assertSame(['Free', 'Monthly', 'Pro', 'Annual'], SubscriptionPlan::where('is_active', true)->orderBy('price_cents')->pluck('name')->all());
         $annual = SubscriptionPlan::where('slug', 'annual')->firstOrFail();
         $this->assertSame(4740, $annual->price_cents);
         $this->assertSame('3.95', $annual->displayPrice());
-        $this->get('/')->assertOk()->assertSee('$3.95')->assertSee('US$47.40')->assertSee('21%')->assertSee('ZAR');
+        $this->get('/')->assertOk()->assertSee('$3.95')->assertSee('US$47.40')->assertSee('150 credits')->assertSee('exact charge and currency');
     }
 
     public function test_missing_amounts_do_not_contact_paystack(): void
@@ -35,20 +36,21 @@ class PaystackPlansTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_hosted_test_checkout_links_are_only_shown_in_local_development(): void
+    public function test_untracked_hosted_links_are_never_used_for_credit_purchases(): void
     {
-        $user = \App\Models\User::factory()->create();
-        $this->app->instance('env', 'local');
-        $this->actingAs($user)->get('/subscription/monthly/payment-method')->assertOk()
-            ->assertSee('https://paystack.shop/pay/rehfdbdk33', false)
-            ->assertSee('ZAR 83.00')->assertSee('Test checkout');
-        $this->get('/subscription/annual/payment-method')->assertOk()
-            ->assertSee('https://paystack.shop/pay/5l1ff9py-9', false)->assertSee('ZAR 780.00');
-        $this->app->instance('env', 'production');
-        $this->get('/subscription/monthly/payment-method')->assertOk()
-            ->assertDontSee('https://paystack.shop/pay/rehfdbdk33', false)
-            ->assertDontSee('https://paystack.shop/pay/5l1ff9py-9', false);
-        $this->get('/')->assertOk()->assertDontSee('https://paystack.shop/pay/', false);
+        $user = User::factory()->create();
+        config(['paystack.enabled' => true, 'paystack.secret_key' => null]);
+        foreach (['local', 'production'] as $environment) {
+            $this->app->instance('env', $environment);
+            $this->actingAs($user)->get('/subscription/monthly/payment-method')->assertOk()
+                ->assertDontSee('https://paystack.shop/pay/', false)->assertSee('Paystack - unavailable');
+        }
+        $this->app->instance('env', 'testing');
+        Http::preventStrayRequests();
+        $this->post(route('paystack.subscribe', 'monthly'), ['billing_consent' => 1])
+            ->assertRedirect(route('subscription'))->assertSessionHasErrors('billing');
+        Http::assertNothingSent();
+        $this->assertDatabaseCount('billing_payments', 0);
         $this->assertDatabaseCount('subscriptions', 0);
     }
 
@@ -65,12 +67,13 @@ class PaystackPlansTest extends TestCase
         $this->configure();
         Http::fake(function ($request) {
             if ($request->method() === 'POST') {
-                return Http::response(['status' => true, 'data' => array_merge($request->data(), ['plan_code' => 'PLN_'.$request['interval']])]);
+                return Http::response(['status' => true, 'data' => array_merge($request->data(), ['plan_code' => 'PLN_'.$request['amount']])]);
             }
             if (str_contains($request->url(), '/plan/PLN_')) {
-                $annual = str_ends_with($request->url(), 'annually');
+                $amount = (int) substr($request->url(), strrpos($request->url(), '_') + 1);
+                $annual = $amount === 85320;
 
-                return Http::response(['status' => true, 'data' => ['plan_code' => $annual ? 'PLN_annually' : 'PLN_monthly', 'amount' => $annual ? 85320 : 9000, 'currency' => 'ZAR', 'interval' => $annual ? 'annually' : 'monthly']]);
+                return Http::response(['status' => true, 'data' => ['plan_code' => 'PLN_'.$amount, 'amount' => $amount, 'currency' => 'ZAR', 'interval' => $annual ? 'annually' : 'monthly']]);
             }
 
             return Http::response(['status' => true, 'data' => [], 'meta' => ['pageCount' => 1]]);
@@ -78,7 +81,7 @@ class PaystackPlansTest extends TestCase
         $this->artisan('paystack:sync-plans')->assertSuccessful();
         $this->artisan('paystack:sync-plans')->assertSuccessful();
         $posts = Http::recorded(fn ($request) => $request->method() === 'POST');
-        $this->assertCount(2, $posts);
+        $this->assertCount(3, $posts);
         Http::assertSent(fn ($request) => $request->method() === 'POST' && $request['interval'] === 'annually' && $request['amount'] === 85320 && $request['currency'] === 'ZAR');
         $this->assertNull(SubscriptionPlan::where('slug', 'free')->first()->paystack_plan_code);
         $this->assertDatabaseCount('subscriptions', 0);
@@ -96,6 +99,6 @@ class PaystackPlansTest extends TestCase
     private function configure(): void
     {
         // Test fixtures only: these are not approved production rand prices.
-        config(['paystack.secret_key' => 'sk_test_fixture', 'paystack.monthly_amount' => '9000', 'paystack.annual_amount' => '85320']);
+        config(['paystack.secret_key' => 'sk_test_fixture', 'paystack.pro_amount' => '12000', 'paystack.monthly_amount' => '9000', 'paystack.annual_amount' => '85320']);
     }
 }

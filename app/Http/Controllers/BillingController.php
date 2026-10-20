@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\BillingPayment;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
+use App\Services\AiCreditService;
 use App\Services\Billing\PaymentService;
 use App\Services\Billing\PaynowGateway;
 use App\Services\Billing\PaypalGateway;
@@ -19,7 +20,7 @@ class BillingController extends Controller
     public function start(Request $request, string $provider, string $plan)
     {
         abort_unless(in_array($provider, ['paynow', 'paypal'], true), 404);
-        $offer = SubscriptionPlan::where('slug', $plan)->where('is_active', true)->whereIn('slug', ['monthly', 'annual'])->firstOrFail();
+        $offer = SubscriptionPlan::where('slug', $plan)->where('is_active', true)->whereIn('slug', ['monthly', 'pro', 'annual'])->firstOrFail();
         $request->validate(['billing_consent' => ['accepted']]);
         if (! $this->available($provider)) {
             return to_route('subscription')->withErrors(['billing' => ucfirst($provider).' checkout is not available yet.']);
@@ -37,7 +38,7 @@ class BillingController extends Controller
         }
         $payment = DB::transaction(function () use ($request, $provider, $offer, $paypalPlan) {
             User::whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
-            if (BillingPayment::where('user_id', $request->user()->id)->where('recurring', true)
+            if (BillingPayment::where('user_id', $request->user()->id)->where('recurring', true)->where('mode', $provider === 'paypal' ? config('billing.paypal.mode') : config('billing.paynow.mode', 'live'))
                 ->where(fn ($query) => $query->whereNull('recurring_status')->orWhereNotIn('recurring_status', ['CANCELLED', 'EXPIRED', 'SETUP_FAILED']))->exists()) {
                 return null;
             }
@@ -46,6 +47,7 @@ class BillingController extends Controller
                 'reference' => (string) Str::uuid(), 'user_id' => $request->user()->id, 'subscription_plan_id' => $offer->id,
                 'provider' => $provider, 'mode' => $provider === 'paypal' ? config('billing.paypal.mode') : config('billing.paynow.mode', 'live'),
                 'amount_cents' => $offer->price_cents, 'currency' => 'USD', 'billing_interval' => $offer->billing_interval,
+                'credits' => config('ai_credits.plans.'.$offer->slug),
                 'recurring' => $provider === 'paypal', 'provider_plan_id' => $provider === 'paypal' ? $paypalPlan : null,
             ]);
         });
@@ -62,9 +64,21 @@ class BillingController extends Controller
         }
     }
 
-    public function show(Request $request, string $reference)
+    public function show(Request $request, string $reference, PaymentService $service)
     {
         $payment = BillingPayment::where('reference', $reference)->where('user_id', $request->user()->id)->firstOrFail();
+
+        if ($payment->status === 'pending') {
+            try {
+                $service->refresh($payment);
+                $payment->refresh();
+            } catch (\Throwable $exception) {
+                // Keep waiting for provider confirmation; a return URL alone is not proof of payment.
+            }
+        }
+        if (($payment->status === 'paid' && $payment->mode === 'live') || $payment->status === 'test_paid') {
+            return $this->paidResponse($request, $payment);
+        }
 
         return view('workspace.payment', ['payment' => $payment]);
     }
@@ -75,10 +89,40 @@ class BillingController extends Controller
         try {
             $service->refresh($payment);
         } catch (\Throwable $exception) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => 'Payment confirmation is temporarily unavailable. We will try again.'], 503);
+            }
+
             return back()->withErrors(['billing' => 'We could not verify this payment yet. Please try again or contact support with your reference.']);
         }
 
+        $payment->refresh();
+        if (($payment->status === 'paid' && $payment->mode === 'live') || $payment->status === 'test_paid') {
+            return $this->paidResponse($request, $payment);
+        }
+        if ($request->expectsJson()) {
+            return response()->json(['status' => $payment->status, 'redirect_url' => null]);
+        }
+
         return to_route('billing.show', $reference)->with('status', 'Payment status checked.');
+    }
+
+    private function paidResponse(Request $request, BillingPayment $payment)
+    {
+        $wallet = app(AiCreditService::class)->wallet($request->user());
+        $plan = $payment->kind === 'topup' ? 'Credit top-up' : SubscriptionPlan::find($payment->subscription_plan_id)?->name;
+        $message = 'Payment successful. '.($plan ?? 'Your plan').' is confirmed. Your available balance is '.$wallet['credits'].' credits.';
+        if ($payment->status === 'test_paid') {
+            $message = 'Test payment successful. '.($plan ?? 'Your purchase').' confirmed: '.$payment->currency.' '.number_format($payment->amount_cents / 100, 2).'. This was a test transaction; your live plan and credits are unchanged.';
+        }
+
+        if ($request->expectsJson()) {
+            $request->session()->flash('payment_success', $message);
+
+            return response()->json(['status' => $payment->status, 'credits' => $wallet['credits'], 'redirect_url' => route('dashboard')]);
+        }
+
+        return to_route('dashboard')->with('payment_success', $message);
     }
 
     public function paynowNotify(Request $request, string $reference, PaynowGateway $gateway, PaymentService $service)

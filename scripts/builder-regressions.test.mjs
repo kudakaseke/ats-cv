@@ -145,16 +145,16 @@ test('on-document month pickers update dates and support Present', () => {
     assert.match(cv.error, /end month/);
 });
 
-test('editor canvas grows beyond one page without shrinking long content', () => {
+test('editing grows with content while review uses download page fitting', () => {
     const cv = builder();
     cv.$root = { classList: { contains: () => false } };
     const properties = {};
     const paper = { dataset: {template:'double-column'}, scrollHeight:1900, offsetHeight:1900 };
     const stage = {
-        querySelector: () => paper,
+        querySelector: selector => selector === '.cv-paper' ? paper : null,
         getBoundingClientRect: () => ({width:794}),
         classList: {contains: name => name === 'editor-paper-wrap'},
-        style: {setProperty: (key,value) => {properties[key]=value;}},
+        style: {setProperty: (key,value) => {properties[key]=value;}, getPropertyValue: key => properties[key]},
     };
     cv.fitStage(stage);
     assert.equal(stage.style.height, '1900px');
@@ -162,8 +162,8 @@ test('editor canvas grows beyond one page without shrinking long content', () =>
     cv.reviewing = true;
     stage.getBoundingClientRect = () => ({width:397});
     cv.fitStage(stage);
-    assert.equal(stage.style.height, '950px');
-    assert.equal(properties['--cv-fit-scale'], 1);
+    assert.equal(stage.style.height, `${cv.pageDimensions().designHeight * .5}px`);
+    assert.ok(properties['--cv-fit-scale'] < 1);
     assert.equal(properties['--cv-display-scale'], .5);
     cv.reviewing = false;
     cv.fitStage(stage);

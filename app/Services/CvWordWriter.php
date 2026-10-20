@@ -68,6 +68,10 @@ class CvWordWriter
     {
         $xml = '';
         foreach ($blocks as $block) {
+            if ($block['type'] === 'pageBreak') {
+                $xml .= '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
+                continue;
+            }
             if ($block['type'] === 'paragraph') {
                 $xml .= $this->paragraph($block);
 
@@ -106,7 +110,7 @@ class CvWordWriter
     public function write(array $document, string $path): void
     {
         // Leave a small reflow allowance for Word's font metrics.
-        $this->scale = $document['scale'] * 0.94;
+        $this->scale = $document['scale'] * (! empty($document['paginated']) ? 1 : 0.94);
         $page = $document['page'];
         $width = (int) round($page['width'] * 1440 / 25.4);
         $height = (int) round($page['height'] * 1440 / 25.4);
@@ -115,11 +119,11 @@ class CvWordWriter
         $section = '<w:sectPr><w:pgSz w:w="'.$width.'" w:h="'.$height.'"/><w:pgMar w:top="'.$padding[0].'" w:right="'.$padding[1].'" w:bottom="'.$padding[2].'" w:left="'.$padding[3].'" w:header="0" w:footer="0"/></w:sectPr>';
         $archivePath = $path.'.zip';
         try {
-            $archive = new \PharData($archivePath, 0, null, \Phar::ZIP);
+            $archive = [];
             $archive['[Content_Types].xml'] = '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>';
             $archive['_rels/.rels'] = '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>';
             $archive['word/document.xml'] = '<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'.$body.$section.'</w:body></w:document>';
-            unset($archive);
+            $this->writeZip($archive, $archivePath);
             if (! rename($archivePath, $path)) {
                 throw new \RuntimeException('The Word document could not be written.');
             }
@@ -129,5 +133,21 @@ class CvWordWriter
                 unlink($archivePath);
             }
         }
+    }
+
+    private function writeZip(array $files, string $path): void
+    {
+        // Word rejects the Unix metadata extra fields emitted by PharData on
+        // some Windows installations. Write a standard OPC ZIP without extras.
+        $body = '';
+        $directory = '';
+        foreach ($files as $name => $content) {
+            $offset = strlen($body);
+            $size = strlen($content);
+            $crc = crc32($content);
+            $body .= pack('VvvvvvVVVvv', 0x04034b50, 20, 0, 0, 0, 33, $crc, $size, $size, strlen($name), 0).$name.$content;
+            $directory .= pack('VvvvvvvVVVvvvvvVV', 0x02014b50, 20, 20, 0, 0, 0, 33, $crc, $size, $size, strlen($name), 0, 0, 0, 0, 0, $offset).$name;
+        }
+        file_put_contents($path, $body.$directory.pack('VvvvvVVv', 0x06054b50, 0, 0, count($files), count($files), strlen($directory), strlen($body), 0));
     }
 }

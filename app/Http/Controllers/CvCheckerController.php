@@ -2,50 +2,60 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\AiCreditService;
 use App\Services\CvAiRewriter;
 use App\Services\CvKeywordMatcher;
 use App\Services\CvPdfExtractor;
 use App\Services\CvStructuredResume;
 use App\Services\CvTextParser;
 use Illuminate\Http\Request;
-use Illuminate\Validation\ValidationException;
-use App\Models\User;
-use App\Services\PlanService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class CvCheckerController extends Controller
 {
-    public function scan(Request $request, CvKeywordMatcher $matcher)
+    public function scan(Request $request, CvKeywordMatcher $matcher, AiCreditService $credits, CvAiRewriter $ai)
     {
+        $request->validate(['operation_id' => ['sometimes', 'uuid']]);
         $data = $request->validate(['job_description' => ['required', 'string', 'max:20000'], 'resume_text' => ['required', 'string', 'max:20000']]);
         $result = $matcher->compare($data['job_description'], $data['resume_text']);
         if ($result['total'] === 0) {
             throw ValidationException::withMessages(['job_description' => 'Add the job requirements or skills so we can compare keywords.']);
         }
 
-        $analysis = DB::transaction(function () use ($request, $data, $result) {
-            $user = User::whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
-            $remaining = app(PlanService::class)->remainingAnalyses($user);
-            if ($remaining !== null && $remaining < 1) {
-                throw ValidationException::withMessages(['resume_text' => 'You have used your monthly scan allowance. Your existing results remain available. Check your subscription or try again next month.']);
-            }
+        $operation = $credits->reserve($request->user(), 'analyse', $request->input('operation_id', (string) Str::uuid()), $data);
+        if ($operation->cached) {
+            return response()->json([...$operation->result, 'credits_remaining' => $credits->wallet($request->user())['credits']]);
+        }
+        try {
+            $result['ai_analysis'] = $ai->analyse($data['job_description'], $data['resume_text']);
+            $payload = DB::transaction(function () use ($request, $data, $result, $credits, $operation, $ai) {
+                $analysis = $request->user()->analyses()->create(['job_description' => $data['job_description'], 'status' => 'completed',
+                    'score' => (int) round($result['similarity_percent']), 'results' => $result]);
+                $payload = [...$result, 'analysis_id' => $analysis->id, 'credits_used' => config('ai_credits.costs.analyse')];
+                $credits->finish($request->user(), $operation->id, $payload, $ai->lastUsage);
 
-            return $user->analyses()->create(['job_description' => $data['job_description'], 'status' => 'completed',
-                'score' => (int) round($result['similarity_percent']), 'results' => $result]);
-        });
+                return $payload;
+            });
+        } catch (\Throwable $exception) {
+            $credits->finish($request->user(), $operation->id, null, $ai->lastUsage);
 
-        return response()->json([...$result, 'analysis_id' => $analysis->id]);
+            return response()->json(['message' => 'Analysis could not be completed. Your credits were refunded. Please try again.', 'credits_remaining' => $credits->wallet($request->user())['credits']], 503);
+        }
+
+        return response()->json([...$payload, 'credits_remaining' => $credits->wallet($request->user())['credits']]);
     }
 
-    public function rewrite(Request $request, CvAiRewriter $rewriter, CvKeywordMatcher $matcher)
+    public function rewrite(Request $request, CvAiRewriter $rewriter, CvKeywordMatcher $matcher, AiCreditService $credits)
     {
         $data = $request->validate([
             'job_description' => ['required', 'string', 'max:20000'],
             'resume_text' => ['required', 'string', 'max:20000'],
             'confirmed_keywords' => ['present', 'array', 'max:200'],
             'confirmed_keywords.*' => ['required', 'string', 'max:200', 'distinct'],
-            'ai_consent' => ['accepted'],
         ]);
+        $request->validate(['operation_id' => ['sometimes', 'uuid']]);
         $before = $matcher->compare($data['job_description'], $data['resume_text']);
         $allowed = array_values($matcher->tokens($data['job_description']));
         foreach ($data['confirmed_keywords'] as $keyword) {
@@ -53,19 +63,32 @@ class CvCheckerController extends Controller
                 throw ValidationException::withMessages(['confirmed_keywords' => 'Choose keywords from this job description.']);
             }
         }
+        $operation = $credits->reserve($request->user(), 'revamp', $request->input('operation_id', (string) Str::uuid()), $data);
+        if ($operation->cached) {
+            $payload = $operation->result;
+            $request->session()->put('cv_checker.generated', ['text' => $payload['rewritten_resume'], 'structured_resume' => $payload['structured_resume']]);
+
+            return response()->json([...$payload, 'credits_remaining' => $credits->wallet($request->user())['credits']]);
+        }
         try {
             $draft = $rewriter->rewrite($data['job_description'], $data['resume_text'], $data['confirmed_keywords']);
+            $payload = [...$draft, 'before' => $before, 'after' => $matcher->compare($data['job_description'], $draft['rewritten_resume']),
+                'credits_used' => config('ai_credits.costs.revamp')];
+            $credits->finish($request->user(), $operation->id, $payload, $rewriter->lastUsage);
         } catch (\Throwable $exception) {
-            return response()->json(['message' => 'AI rewriting is unavailable right now. Your CV is unchanged. Please try again.'], 503);
+            $credits->finish($request->user(), $operation->id, null, $rewriter->lastUsage);
+
+            return response()->json(['message' => 'AI rewriting is unavailable right now. Your CV is unchanged and your credits were refunded. Please try again.', 'credits_remaining' => $credits->wallet($request->user())['credits']], 503);
         }
 
         $request->session()->put('cv_checker.generated', ['text' => $draft['rewritten_resume'], 'structured_resume' => $draft['structured_resume']]);
 
-        return response()->json([
-            ...$draft,
-            'before' => $before,
-            'after' => $matcher->compare($data['job_description'], $draft['rewritten_resume']),
-        ]);
+        return response()->json([...$payload, 'credits_remaining' => $credits->wallet($request->user())['credits']]);
+    }
+
+    public function credits(Request $request, AiCreditService $credits)
+    {
+        return response()->json($credits->wallet($request->user()));
     }
 
     public function upload(Request $request, CvBuilderController $builder)

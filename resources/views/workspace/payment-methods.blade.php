@@ -5,9 +5,9 @@
         <article class="panel payment-method-card">
             <x-payment-provider-icon provider="paystack" />
             <h2>Paystack</h2>
-            @if(app()->environment('local') && ($testPage = config('paystack.test_payment_pages.'.$plan->slug)))
-                <p>Test checkout - ZAR {{ number_format($testPage['amount_cents'] / 100, 2) }} {{ $plan->billing_interval === 'annually' ? 'per year' : 'per month' }}. Test payments do not activate a paid plan.</p>
-                <a class="btn btn-outline" href="{{ $testPage['url'] }}" target="_blank" rel="noopener noreferrer">Continue with Paystack (test) <x-icon name="external-link" /></a>
+            @if(config('paystack.enabled') && filled(config('paystack.secret_key')) && $plan->paystack_plan_code && $plan->paystack_amount_cents > 0 && $plan->paystack_mode === (str_starts_with((string) config('paystack.secret_key'), 'sk_live_') ? 'live' : 'test'))
+                <p>{{ config('paystack.currency') }} {{ number_format($plan->paystack_amount_cents/100,2) }} {{ $plan->billing_interval==='annually' ? 'per year' : 'per month' }}. {{ config('ai_credits.plans.'.$plan->slug) }} credits released monthly during your paid term.</p>
+                <form method="POST" action="{{ route('paystack.subscribe',$plan->slug) }}">@csrf<label class="billing-consent"><input type="checkbox" name="billing_consent" value="1" required> I authorise this recurring payment until cancelled and agree to the <a href="{{ route('terms') }}">Terms</a> and <a href="{{ route('refund') }}">Refund Policy</a>.</label><button class="btn btn-primary">Subscribe with Paystack{{ $plan->paystack_mode==='test' ? ' (test)' : '' }}</button></form>
             @else
                 <p>Paystack checkout is not available yet.</p>
                 <button class="btn btn-outline" disabled>Paystack - unavailable</button>

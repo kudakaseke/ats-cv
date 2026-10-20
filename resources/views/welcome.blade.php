@@ -79,14 +79,14 @@
                     <article class="reference-plan">
                         <h3>{{ $plan->name }}</h3>
                         <p class="reference-price">${{ $plan->displayPrice() }}<span>{{ $plan->price_cents === 0 ? 'Forever' : ($plan->billing_interval === 'annually' ? '/ month, billed annually' : '/ month') }}</span></p>
-                        @if($plan->billing_interval === 'annually')<p class="plan-billing-note">US$47.40 billed once per year. Save US$12.60 (21%) compared with monthly billing.</p>@endif
+                        @if($plan->billing_interval === 'annually')<p class="plan-billing-note">US$47.40 billed once per year. 150 credits released monthly.</p>@endif
                         <ul>@foreach ($plan->features as $feature)<li><x-icon name="check" /> {{ $feature }}</li>@endforeach</ul>
                         <a class="reference-plan-link" href="{{ $plan->price_cents === 0 ? route('builder.start', ['questions' => 1]) : route('subscription').'#plan-'.$plan->slug }}">{{ $plan->price_cents === 0 ? 'Get Started Free' : 'View '.$plan->name.' plan' }} <span><x-icon name="chevron-right" /></span></a>
-                        <small>{{ $plan->price_cents > 0 ? 'Planned pricing. Paid upgrades are not active.' : 'No credit card required.' }}</small>
+                        <small>{{ $plan->price_cents > 0 ? 'Credits added after successful payment.' : '15 welcome credits. No credit card required.' }}</small>
                     </article>
                 @endforeach
             </div>
-            <p class="reference-release-note">Prices shown in USD. Paid checkout is not enabled yet. Paystack payments will be charged in ZAR; the exact rand amount will be shown before you pay. Your bank may apply conversion fees.</p>
+            <p class="reference-release-note">Prices shown in USD. Choose an available payment method at checkout. Paystack's exact charge and currency are shown before payment. Analysis uses 5 credits and a CV revamp uses 10 credits.</p>
         </div>
     </section>
 

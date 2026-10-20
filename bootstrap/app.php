@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Middleware\RecordAccountActivity;
+use App\Http\Middleware\WorkspaceResponseHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -12,8 +14,8 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->trustProxies(at: ['127.0.0.1', '::1']);
-        $middleware->web(append: [\App\Http\Middleware\WorkspaceResponseHeaders::class]);
-        $middleware->validateCsrfTokens(except: ['billing/paynow/notify/*', 'billing/paypal/notify', 'paypal/webhook']);
+        $middleware->web(append: [WorkspaceResponseHeaders::class, RecordAccountActivity::class]);
+        $middleware->validateCsrfTokens(except: ['billing/paynow/notify/*', 'billing/paypal/notify', 'paypal/webhook', 'webhooks/paystack']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

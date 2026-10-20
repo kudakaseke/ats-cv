@@ -56,7 +56,7 @@ class PaynowGateway
             'id' => config('billing.paynow.integration_id'),
             'reference' => $payment->reference,
             'amount' => number_format($payment->amount_cents / 100, 2, '.', ''),
-            'additionalinfo' => 'atscvdetector '.($payment->billing_interval === 'annually' ? 'annual' : 'monthly').' access - one-time payment',
+            'additionalinfo' => $payment->kind === 'topup' ? 'atscvdetector '.$payment->credits.' AI credits - one-time purchase' : 'atscvdetector '.($payment->billing_interval === 'annually' ? 'annual' : 'monthly').' access - one-time payment',
             'returnurl' => $callback('billing.show'),
             'resulturl' => $callback('billing.paynow.notify'),
             'status' => 'Message',

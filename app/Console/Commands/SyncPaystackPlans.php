@@ -10,11 +10,11 @@ class SyncPaystackPlans extends Command
 {
     protected $signature = 'paystack:sync-plans {--dry-run : Preview without contacting Paystack}';
 
-    protected $description = 'Create or reuse the Monthly and Annual ZAR plans without subscribing or charging customers';
+    protected $description = 'Create or reuse the Monthly, Pro and Annual ZAR plans without subscribing or charging customers';
 
     public function handle(): int
     {
-        $amounts = ['monthly' => config('paystack.monthly_amount'), 'annual' => config('paystack.annual_amount')];
+        $amounts = ['monthly' => config('paystack.monthly_amount'), 'pro' => config('paystack.pro_amount'), 'annual' => config('paystack.annual_amount')];
         foreach ($amounts as $slug => $amount) {
             if (! preg_match('/^[1-9][0-9]*$/', (string) $amount) || (float) $amount > 2147483647) {
                 $this->error("Set a positive integer ZAR-cent amount for {$slug} in config/paystack.php or its environment variable.");
@@ -23,7 +23,7 @@ class SyncPaystackPlans extends Command
             }
         }
         $plans = SubscriptionPlan::whereIn('slug', array_keys($amounts))->get()->keyBy('slug');
-        if ($plans->count() !== 2) {
+        if ($plans->count() !== 3) {
             $this->error('Run the SubscriptionPlanSeeder before syncing plans.');
 
             return self::FAILURE;

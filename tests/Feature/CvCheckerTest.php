@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Services\CvPdfExtractor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class CvCheckerTest extends TestCase
@@ -21,6 +22,9 @@ class CvCheckerTest extends TestCase
 
     public function test_scan_calculates_scores_from_submitted_text_instead_of_client_scores(): void
     {
+        config(['services.openai.key' => 'fake-key']);
+        Http::fake(['api.openai.com/*' => Http::response(['status' => 'completed', 'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => json_encode(['summary' => 'Comparison complete.', 'recommendations' => []])]]]]])]);
+
         $this->actingAs(User::factory()->create())->get('/workspace/checker')->assertOk()->assertSee('CV Checker');
         $this->postJson('/checker/scan', ['job_description' => 'PHP HTML CSS', 'resume_text' => 'C# Python', 'score' => 100])->assertOk()->assertJsonPath('score', 0)->assertJsonPath('missing', ['PHP', 'HTML', 'CSS']);
         $this->postJson('/checker/scan', ['job_description' => 'PHP HTML CSS', 'resume_text' => "C# Python\nSkills\nPHP HTML"])->assertOk()->assertJsonPath('score', 41)->assertJsonPath('keyword_score', 67);

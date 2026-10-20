@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\BillingController;
+use App\Http\Controllers\CreditBillingController;
 use App\Http\Controllers\CvBuilderController;
 use App\Http\Controllers\CvCheckerController;
 use App\Http\Controllers\HomeController;
@@ -26,12 +28,18 @@ Route::view('/contact', 'legal.contact')->name('contact');
 Route::post('/billing/paynow/notify/{reference}', [BillingController::class, 'paynowNotify'])->middleware('throttle:60,1')->name('billing.paynow.notify');
 Route::post('/billing/paypal/notify', [BillingController::class, 'paypalNotify'])->middleware('throttle:60,1')->name('billing.paypal.notify');
 Route::post('/paypal/webhook', [PayPalController::class, 'handleWebhook'])->middleware('throttle:60,1')->name('paypal.webhook');
+Route::post('/webhooks/paystack', [CreditBillingController::class, 'webhook'])->middleware('throttle:120,1')->name('paystack.webhook');
 
 Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/account/activity', ActivityController::class)->name('account.activity');
+    Route::get('/ai/credits', [CvCheckerController::class, 'credits'])->name('ai.credits');
+    Route::post('/credits/topup', [CreditBillingController::class, 'topup'])->middleware('throttle:6,1')->name('credits.topup');
+    Route::post('/paystack/subscribe/{plan}', [CreditBillingController::class, 'subscribe'])->middleware('throttle:6,1')->name('paystack.subscribe');
+    Route::post('/paystack/{reference}/cancel', [CreditBillingController::class, 'cancel'])->middleware('throttle:6,1')->name('paystack.cancel');
     Route::post('paypal/checkout', [PayPalController::class, 'checkout'])->middleware('throttle:6,1')->name('paypal.checkout');
     Route::get('paypal/success', [PayPalController::class, 'success'])->name('paypal.success');
     Route::get('paypal/cancel', [PayPalController::class, 'cancel'])->name('paypal.cancel');

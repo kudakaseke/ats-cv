@@ -11,12 +11,12 @@ class SetupPaypalPlans extends Command
 {
     protected $signature = 'paypal:setup-plans {--product= : Reuse an existing PayPal product ID} {--dry-run}';
 
-    protected $description = 'Prepare USD 5 monthly and USD 47.40 annual automatic-renewal plans';
+    protected $description = 'Prepare Monthly, Pro and Annual automatic-renewal plans';
 
     public function handle(PaypalGateway $gateway, PaypalSubscriptions $subscriptions): int
     {
         if ($this->option('dry-run')) {
-            $this->info('PayPal: USD 5.00 each MONTH; USD 47.40 each YEAR; no trial or setup fee; renew until cancelled.');
+            $this->info('PayPal: USD 4.75 monthly; USD 6.25 Pro monthly; USD 47.40 annually; no trial or setup fee.');
 
             return self::SUCCESS;
         }
@@ -30,7 +30,7 @@ class SetupPaypalPlans extends Command
             $client = $gateway->client($payment);
             $product = $this->option('product');
             $results = [];
-            foreach (['monthly' => [500, 'MONTH'], 'annual' => [4740, 'YEAR']] as $slug => [$amount, $unit]) {
+            foreach (['monthly' => [475, 'MONTH'], 'pro' => [625, 'MONTH'], 'annual' => [4740, 'YEAR']] as $slug => [$amount, $unit]) {
                 $existing = config('billing.paypal.plans.'.$slug);
                 if ($existing) {
                     $subscriptions->validatePlan(new BillingPayment(['mode' => $payment->mode, 'provider_plan_id' => $existing,

@@ -105,7 +105,7 @@
                     @if(isset($comparison['original_text'], $comparison['revised_text']))<details><summary>Compare original and tailored text</summary><div class="checker-text-comparison"><div><h3>Original CV</h3><pre>{{ $comparison['original_text'] }}</pre></div><div><h3>Tailored CV</h3><pre>{{ $comparison['revised_text'] }}</pre></div></div></details>@endif
                 </section>
             @endif
-            <div class="editor-intro"><h1 x-text="reviewing ? 'Review your CV.' : 'Make your CV yours.'"></h1><p x-text="reviewing ? 'Check your details, dates and content. When you are ready, choose Download for PDF or Word.' : 'Click any text on your CV to edit it. Add entries directly in each section, then select Review CV.'"></p></div>
+            <div class="editor-intro"><h1 x-text="reviewing ? 'Review your CV.' : 'Make your CV yours.'"></h1><p x-text="reviewing ? 'This preview shows the page layout used for your PDF download. Check your details before downloading. Word may flow differently in your document app.' : 'Click any text on your CV to edit it. Add entries directly in each section, then select Review CV.'"></p></div>
             <div class="editor-layout">
                 <div class="editor-preview" >
                     <div class="editor-paper-heading">

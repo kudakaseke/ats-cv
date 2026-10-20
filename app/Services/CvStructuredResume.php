@@ -14,7 +14,7 @@ class CvStructuredResume
     private const ROWS = [
         'experience' => ['title', 'company', 'period', 'location', 'responsibilities'],
         'education' => ['degree', 'school', 'period', 'location'],
-        'achievements' => ['title', 'description'], 'courses' => ['title', 'institution'],
+        'achievements' => ['title', 'description'], 'courses' => ['title', 'institution', 'period'],
         'languages' => ['name', 'level'], 'custom_sections' => ['title', 'content'],
     ];
 
@@ -68,7 +68,7 @@ class CvStructuredResume
                     $rules[$path.'.*'] = ['required', 'string', 'max:1000'];
                 } else {
                     $max = $field === 'content' ? 5000 : ($field === 'description' ? 2000 : (in_array($field, ['period', 'location']) ? 150 : ($key === 'languages' ? 100 : 200)));
-                    $rules[$path] = ['present', 'nullable', 'string', 'max:'.$max];
+                    $rules[$path] = [$key === 'courses' && $field === 'period' ? 'sometimes' : 'present', 'nullable', 'string', 'max:'.$max];
                     if (! in_array($field, ['content', 'description'])) {
                         $rules[$path][] = 'not_regex:/[\r\n]/';
                     }

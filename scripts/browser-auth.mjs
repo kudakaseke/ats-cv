@@ -6,7 +6,7 @@ export async function signInTestUser(page, base = process.env.APP_TEST_URL || 'h
         await page.goto(`${base}/login`);
         await page.getByLabel('Email', { exact: true }).fill(fixture.email);
         await page.getByLabel('Password', { exact: true }).fill(fixture.password);
-        await page.getByRole('button', { name: 'Log in', exact: true }).click();
+        await page.getByRole('button', { name: /^(Log in|Sign in)$/i }).click();
         await page.waitForURL(url => !url.pathname.includes('/login'));
         return fixture;
     } catch (error) {

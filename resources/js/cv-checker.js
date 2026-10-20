@@ -1,6 +1,12 @@
 window.cvChecker = (boot) => ({
     step: 1, job: '', resumeText: '', filename: '', busy: false, error: '', result: null,
-    modalOpen: false, aiDraft: null, originalScore: null, dragging: false, aiConsent: false,
+    modalOpen: false, aiDraft: null, originalScore: null, dragging: false,
+    credits: boot.credits ?? 0, operations: {},
+    operation(feature) {
+        const fingerprint = JSON.stringify([this.job, this.resumeText]);
+        if (this.operations[feature]?.fingerprint !== fingerprint) this.operations[feature] = {fingerprint, id: crypto.randomUUID()};
+        return this.operations[feature].id;
+    },
     nextJob() {
         if (!this.job.trim()) { this.error = 'Paste the job description first.'; return; }
         this.error = ''; this.result = null; this.originalScore = null; this.modalOpen = false; this.step = 2;
@@ -12,9 +18,16 @@ window.cvChecker = (boot) => ({
     async request(url, options) {
         const response = await fetch(url, { ...options, headers: { Accept: 'application/json', 'X-CSRF-TOKEN': boot.csrf, ...(options.headers || {}) } });
         const body = await response.json().catch(() => ({}));
+        if (Number.isInteger(body.credits_remaining)) {
+            this.credits = body.credits_remaining;
+            window.dispatchEvent(new CustomEvent('credits-updated'));
+        }
         if (response.status === 401 || response.status === 419) throw new Error('Your session has expired. Please sign in again, then retry.');
         if (response.status === 429) throw new Error('Too many requests. Please wait a moment before trying again.');
-        if (!response.ok) throw new Error(Object.values(body.errors || {}).flat()[0] || body.message || 'Something went wrong. Please try again.');
+        if (!response.ok) {
+            if (response.status === 503) this.operations = {};
+            throw new Error(Object.values(body.errors || {}).flat()[0] || body.message || 'Something went wrong. Please try again.');
+        }
         if (!response.headers.get('Content-Type')?.includes('application/json')) throw new Error('The server returned an unexpected response. Please reload and try again.');
         return body;
     },
@@ -35,7 +48,8 @@ window.cvChecker = (boot) => ({
         if (!text.trim()) { this.error = 'Your resume cannot be empty.'; return; }
         this.busy = true; this.error = '';
         try {
-            const result = await this.request(boot.scanUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job_description: this.job, resume_text: text }) });
+            const result = await this.request(boot.scanUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job_description: this.job, resume_text: text, operation_id: this.operation('analyse') }) });
+            delete this.operations.analyse;
             this.resumeText = text; this.result = result;
             if (this.originalScore === null) this.originalScore = result.score;
             this.step = 4;
@@ -47,10 +61,9 @@ window.cvChecker = (boot) => ({
     async fix() {
         if (this.busy) return;
         if (!this.$refs.scanDialog.open) { this.$refs.scanDialog.showModal(); this.modalOpen = true; }
-        if (!this.aiConsent) { this.error = 'Please review and accept the AI processing notice before continuing.'; return; }
         this.busy = true; this.error = '';
         try {
-            this.aiDraft = await this.request(boot.rewriteUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job_description: this.job, resume_text: this.resumeText, confirmed_keywords: [], ai_consent: this.aiConsent }) });
+            this.aiDraft = await this.request(boot.rewriteUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job_description: this.job, resume_text: this.resumeText, confirmed_keywords: [], operation_id: this.operation('revamp') }) });
             await this.$nextTick();
             this.$refs.generatedForm.requestSubmit();
         } catch (error) { this.error = error.message; this.busy = false; }

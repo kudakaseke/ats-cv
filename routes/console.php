@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 
 Schedule::command('billing:reconcile')->everyFiveMinutes()->withoutOverlapping();
+Schedule::command('credits:maintain')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('cv:prune-exports')->daily()->withoutOverlapping();
 
 Artisan::command('inspire', function () {

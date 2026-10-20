@@ -12,7 +12,7 @@ class PayPalController extends Controller
 {
     public function checkout(Request $request, BillingController $billing)
     {
-        $data = $request->validate(['plan' => ['required', Rule::in(['monthly', 'annual'])]]);
+        $data = $request->validate(['plan' => ['required', Rule::in(['monthly', 'pro', 'annual'])]]);
 
         return $billing->start($request, 'paypal', $data['plan']);
     }

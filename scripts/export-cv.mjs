@@ -73,6 +73,8 @@ try {
             const render = (el, skipBox = false) => {
                 if (getComputedStyle(el).display === 'none') return [];
                 const css = style(el);
+                if (el.matches('.position-entry-subheading,.cv-role')) return [paragraph(el)];
+                if (el.matches('.cv-skills-grouped')) return Array.from(el.children).map(child => paragraph(child));
                 if (el.matches('.cv-skills,.cv-contact')) {
                     const content = [];
                     Array.from(el.children).forEach((child, index) => { if (index) content.push({ text: el.matches('.cv-contact') ? ' | ' : ', ', style: css }); content.push(...runs(child)); });
@@ -86,14 +88,16 @@ try {
                 if (/^(P|H2|H3|H4|SMALL|B|STRONG|LI)$/.test(el.tagName) || el.matches('.cv-role')) return [paragraph(el)];
                 const elements = children(el);
                 const display = getComputedStyle(el).display;
-                if ((display === 'grid' && getComputedStyle(el).gridTemplateColumns.split(' ').length > 1) || (display === 'flex' && el.matches('.ats-entry-heading,.ats-entry-subheading'))) return columns(el, elements);
+                if ((display === 'grid' && getComputedStyle(el).gridTemplateColumns.split(' ').length > 1) || (display === 'flex' && el.matches('.ats-entry-heading,.ats-entry-subheading,.position-entry-heading'))) return columns(el, elements);
                 if (!skipBox && css.background && css.background !== 'FFFFFF') return [{ type: 'table', cells: [{ width: el.getBoundingClientRect().width, style: css, blocks: render(el, true) }] }];
                 return renderChildren(el);
             };
             const builder = window.Alpine.$data(document.querySelector('[x-data]'));
             const page = builder.pageDimensions();
             const padding = style(paper).padding.map(value => value * scale);
-            return { scale, page: { width: page.width, height: page.height, padding }, blocks: render(paper, true) };
+            const papers = [...document.querySelectorAll('.cv-document-pages > .cv-paper')];
+            const blocks = papers.length ? papers.flatMap((item, index) => [...(index ? [{type:'pageBreak'}] : []), ...render(item, true)]) : render(paper, true);
+            return { scale, paginated: papers.length > 0, page: { width: page.width, height: page.height, padding }, blocks };
         });
         fs.writeFileSync(layoutPath, JSON.stringify(document));
     }

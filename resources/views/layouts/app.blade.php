@@ -19,7 +19,7 @@
         <aside id="workspace-navigation" class="workspace-sidebar" :class="{ 'sidebar-open': sidebar }" :inert="mobile && !sidebar ? '' : null">
             <a class="workspace-brand" href="{{ route('dashboard') }}">atscvdetector<span>CV tools</span></a>
             <nav aria-label="Workspace navigation">
-                @foreach ([['dashboard', 'layout-dashboard', 'Dashboard', route('dashboard')], ['checker', 'scan-text', 'CV Checker', route('workspace.module', 'checker')], ['builder', 'file-plus-2', 'Create CV', route('workspace.module', 'builder')], ['resumes', 'folder-open', 'My CVs', route('workspace.module', 'resumes')], ['subscription', 'credit-card', 'Subscription', route('subscription')]] as $item)
+                @foreach ([['dashboard', 'layout-dashboard', 'Dashboard', route('dashboard')], ['checker', 'scan-text', 'CV Checker', route('workspace.module', 'checker')], ['builder', 'file-plus-2', 'Create CV', route('workspace.module', 'builder')], ['resumes', 'folder-open', 'My CVs', route('workspace.module', 'resumes')], ['subscription', 'credit-card', 'Subscription', route('subscription')], ['account.activity', 'history', 'Audit trail', route('account.activity')]] as $item)
                     @php($active = request()->routeIs($item[0]) || request()->route('module') === $item[0])
                     <a class="sidebar-link {{ $active ? 'active' : '' }}" href="{{ $item[3] }}" @click="sidebar = false" @if($active) aria-current="page" @endif><x-icon :name="$item[1]" />{{ $item[2] }}</a>
                 @endforeach
@@ -32,6 +32,25 @@
         <div class="workspace-main">
             <header class="workspace-topbar">
                 <button class="mobile-menu-button" @click="sidebar = !sidebar" :aria-expanded="sidebar" aria-controls="workspace-navigation" aria-label="Toggle sidebar"><x-icon name="menu" /></button>
+                @php($headerWallet = app(\App\Services\AiCreditService::class)->wallet(auth()->user()))
+                <a class="purchased-credit-badge" href="{{ route('subscription') }}"
+                    x-data="{ credits: @js($headerWallet['purchased_credits']), checking: false,
+                        async refreshCredits() {
+                            if (this.checking) return;
+                            this.checking = true;
+                            try {
+                                const response = await fetch(@js(route('ai.credits')), { headers: { Accept: 'application/json' } });
+                                if (response.ok) this.credits = (await response.json()).purchased_credits;
+                            } catch (error) { /* Keep the last known balance. */ }
+                            finally { this.checking = false; }
+                        }
+                    }"
+                    @focus.window="refreshCredits()" @credits-updated.window="refreshCredits()"
+                    :aria-label="credits + ' purchased credits remaining. View your plan.'"
+                    title="Purchased credits remaining">
+                    <strong x-text="credits">{{ $headerWallet['purchased_credits'] }}</strong>
+                    <span>Credits</span>
+                </a>
                 <a class="user-profile" href="{{ route('profile.edit') }}" aria-label="Account settings for {{ auth()->user()->name }}">
                     <span class="avatar">{{ mb_strtoupper(mb_substr(auth()->user()->name, 0, 1)) }}</span>
                     <span>{{ auth()->user()->name }}<small>Account settings</small></span>

@@ -2,8 +2,22 @@
 
 namespace App\Providers;
 
+use App\Models\BillingPayment;
+use App\Models\CvAnalysis;
+use App\Models\Resume;
+use App\Models\Subscription;
+use App\Models\User;
+use App\Observers\ActivityObserver;
+use App\Services\AuditTrail;
+use Illuminate\Auth\Events\Failed;
+use Illuminate\Auth\Events\Login;
+use Illuminate\Auth\Events\Logout;
+use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Auth\Events\Verified;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Foundation\Console\ServeCommand;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -14,9 +28,19 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        foreach ([BillingPayment::class, Subscription::class, User::class, Resume::class, CvAnalysis::class] as $model) {
+            $model::observe(ActivityObserver::class);
+        }
+        foreach ([Login::class, Logout::class, Failed::class, PasswordReset::class, Verified::class] as $event) {
+            Event::listen($event, function ($activity) {
+                app(AuditTrail::class)->record($activity->user?->id,
+                    'account.'.strtolower(class_basename($activity)), 'User', $activity->user?->id ?? 'unknown');
+            });
+        }
+
         if (PHP_OS_FAMILY === 'Windows' && $this->app->runningInConsole()) {
-            \Illuminate\Foundation\Console\ServeCommand::$passthroughVariables = array_values(array_unique([
-                ...\Illuminate\Foundation\Console\ServeCommand::$passthroughVariables,
+            ServeCommand::$passthroughVariables = array_values(array_unique([
+                ...ServeCommand::$passthroughVariables,
                 'SystemRoot', 'SystemDrive', 'windir', 'WINDIR', 'ComSpec', 'COMSPEC',
                 'TEMP', 'TMP', 'USERPROFILE', 'LOCALAPPDATA', 'APPDATA',
                 'ProgramFiles', 'ProgramFiles(x86)', 'ProgramW6432', 'PROGRAMFILES', 'PROGRAMFILES(X86)', 'HOMEDRIVE',

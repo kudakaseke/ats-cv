@@ -20,13 +20,6 @@ class PlanService
 
     public function remainingAnalyses(User $user): ?int
     {
-        $limit = $this->current($user)->monthly_analyses;
-        if ($limit === null) {
-            return null;
-        }
-        $used = $user->analyses()->where('created_at', '>=', now()->startOfMonth())
-            ->whereIn('status', ['pending', 'processing', 'completed'])->count();
-
-        return max(0, $limit - $used);
+        return intdiv(app(AiCreditService::class)->wallet($user)['credits'], config('ai_credits.costs.analyse'));
     }
 }
