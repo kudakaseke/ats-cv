@@ -13,7 +13,7 @@ class CvTextParser
             'education' => ['education', 'qualifications', 'academic qualifications', 'education and qualifications', 'educational background'],
             'skills' => ['skills', 'technical skills', 'professional skills'],
             'competencies' => ['key competency', 'key competencies', 'core competencies', 'competencies', 'areas of expertise'],
-            'core_strengths' => ['core strength', 'core strengths', 'key strength', 'key strengths', 'personal strengths', 'strengths'],
+            'core_strengths' => ['core strength', 'core strengths', 'key strength', 'key strengths', 'personal strengths', 'strengths', 'strengths and competencies', 'strengths/competencies'],
             'references' => ['references', 'referees', 'professional references'],
             'achievements' => ['achievements', 'key achievements', 'awards'],
             'courses' => ['courses', 'training', 'certifications', 'training and certifications', 'certification', 'certificates'],
@@ -50,7 +50,7 @@ class CvTextParser
                 if (! empty($parts[1])) {
                     $sections[$current][] = $parts[1];
                 }
-            } elseif (preg_match('/^(?:full name|name)\s*:\s*(.+)$/iu', $line, $name)) {
+            } elseif ($current === null && preg_match('/^(?:full name|name)\s*:\s*(.+)$/iu', $line, $name)) {
                 $data['name'] = mb_substr($name[1], 0, 150);
             } elseif ($current !== null) {
                 $sections[$current][] = $line;
@@ -109,9 +109,14 @@ class CvTextParser
                 if (! $lines) {
                     continue;
                 }
-                $row = $key === 'experience' ? ['title' => '', 'company' => '', 'period' => '', 'location' => '', 'description' => ''] : ['degree' => '', 'school' => '', 'period' => '', 'location' => ''];
+                $row = $key === 'experience' ? ['title' => '', 'company' => '', 'period' => '', 'location' => '', 'description' => ''] : ['degree' => '', 'school' => '', 'period' => '', 'location' => '', 'grade' => ''];
                 $remaining = [];
                 foreach ($lines as $line) {
+                    if (preg_match('/^(?:period|dates?)\s*:\s*(.+)$/iu', $line, $labelledPeriod)) {
+                        $row['period'] = trim($labelledPeriod[1]);
+
+                        continue;
+                    }
                     // Keep the role or qualification when dates share the same line.
                     $datePattern = '/\b(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+)?(?:19|20)\d{2}\s*(?:[-\x{2013}\x{2014}]|to)\s*(?:(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+)?(?:19|20)\d{2}|present|current)\b/iu';
                     if (! $row['period'] && ! preg_match('/^(?:[\x{2022}*\-]|responsibilities:|duties:)/iu', $line) && preg_match($datePattern, $line, $date)) {
@@ -122,10 +127,11 @@ class CvTextParser
                         }
                     }
 
-                    if (preg_match('/^(position|job title|title|company|employer|place|location|period|dates?|degree|qualification|school|institution|university|responsibilities|responsibilties|duties)\s*:\s*(.+)$/iu', $line, $m)) {
+                    if (preg_match('/^(position|job title|title|company|employer|place|location|period|dates?|degree|qualification|grade|degree class\/grade|degree class|classification|gpa|school|institution|university|responsibilities|responsibilties|duties)\s*:\s*(.+)$/iu', $line, $m)) {
                         $field = match (mb_strtolower($m[1])) {
                             'position', 'job title', 'title' => 'title', 'company', 'employer', 'place' => 'company',
                             'date', 'dates', 'period' => 'period', 'degree', 'qualification' => 'degree',
+                            'grade', 'degree class/grade', 'degree class', 'classification', 'gpa' => 'grade',
                             'school', 'institution', 'university' => 'school', 'location' => 'location', default => 'description',
                         };
                         if (array_key_exists($field, $row)) {

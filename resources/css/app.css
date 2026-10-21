@@ -171,12 +171,18 @@ html{scroll-behavior:smooth;scroll-padding-top:100px}body{font-family:var(--font
 .checker-fix { margin-top:26px; }.checker-choices { display:flex; flex-wrap:wrap; gap:10px; margin:20px 0; }.checker-choices label { display:flex; align-items:center; gap:8px; padding:8px 12px; border:1px solid #cbd5e1; border-radius:6px; margin:0; cursor:pointer; }.checker-choices input { accent-color:#346de1; }.checker-error { padding:14px 18px; border-radius:8px; background:#fef2f2; color:#b91c1c!important; }.checker-export { border-top:1px solid #dbe4f0; margin-top:32px; padding-top:24px; text-align:right; }
 @media(max-width:600px) { .ats-checker>h1 { margin-bottom:18px; }.checker-steps li { font-size:10px; }.checker-panel { padding:16px; }.checker-drop { padding:20px 16px; }.checker-score-panel { gap:18px; padding:20px; }.checker-keywords { grid-template-columns:1fr; }.checker-actions .btn { flex:1; justify-content:center; }.checker-score-panel h2 { font-size:17px; } }
 
-.checker-result-dialog { width:calc(100% - 32px); max-width:480px; max-height:90vh; margin:auto; padding:0; border:0; border-radius:18px; background:white; color:#12365f; box-shadow:0 24px 80px #12365f40; }
+.checker-result-dialog { width:calc(100% - 32px); max-width:960px; max-height:90vh; margin:auto; padding:0; border:0; border-radius:10px; background:white; color:#12365f; box-shadow:0 24px 80px #12365f40; }
+.checker-experience-warning { padding:14px 18px; margin:16px 0; border:1px solid #f5c26b; border-radius:6px; background:#fff8eb; color:#714300; text-align:left; }
+.checker-experience-warning p { margin:4px 0; }
+.checker-ai-recommendations { text-align:left; }
+.checker-score-explanation { text-align:left; margin:16px 0; }
 .checker-result-dialog::backdrop { background:#10274388; }
 .checker-dialog-content { position:relative; padding:40px 30px 30px; text-align:center; }
 .checker-dialog-close { position:absolute; top:10px; right:14px; width:32px; height:32px; border:0; background:transparent; color:#64748b; font-size:26px; cursor:pointer; }
 .checker-dialog-content h2 { margin:20px 0 4px; font-size:23px; }
-.checker-dialog-score { font-size:76px; line-height:1.4; font-weight:700; color:#2459a6; }
+.checker-dialog-score { font-size:clamp(42px,7vw,76px); line-height:1.4; font-weight:700; color:#2459a6; }
+.checker-score-panel { flex-wrap:wrap; }
+.checker-score-panel > div:last-child { flex:1 1 240px; }
 .checker-dialog-content>.btn { min-width:210px; justify-content:center; margin:8px 0 16px; }
 .ats-checker .checker-dialog-note { font-size:12px; margin:0; }
 .checker-spinner { display:inline-block; width:26px; height:26px; border:3px solid #dbeafe; border-top-color:#346de1; border-radius:50%; animation:checker-spin 1s linear infinite; }
@@ -418,3 +424,20 @@ html:has(.builder-body) { overflow-y: auto; }
 .department-role-list summary { cursor: pointer; }
 .department-role-list ul { max-height: 180px; overflow-y: auto; list-style: disc; padding: 10px 0 0 20px; line-height: 1.8; }
 .department-card .position-use-template { border: 0; cursor: pointer; margin-top: 18px; }
+
+.checker-confirmed-skills { display:flex; flex-wrap:wrap; gap:8px 16px; }
+.checker-confirmed-skills label { display:flex; align-items:center; gap:6px; }
+.checker-requirement-groups { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin:18px 0; }
+.checker-requirement-groups ul { padding-left:18px; margin-top:10px; }
+.checker-requirement-groups li { margin-bottom:8px; }
+.checker-green-flags { border:1px solid #a7dfbf; border-radius:8px; background:#effbf4; color:#16633d; padding:16px 18px; margin:16px 0; text-align:left; }
+.checker-green-flags ul { padding-left:20px; margin:8px 0; }
+.checker-review-warnings { border-left:4px solid #c53030; background:#fff3f3; color:#a11b1b; padding:12px 16px; margin:14px 0; }
+.checker-review-warnings h3 { color:#a11b1b; font-weight:700; }
+.checker-comparison .checker-review-warnings li { color:#a11b1b; }
+.missing-requirement-groups { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:20px; margin-top:16px; }
+.missing-requirement-groups h3 { font-weight:700; margin-bottom:8px; }
+.missing-requirements ul { padding-left:20px; list-style:disc; }
+.missing-requirements li { margin:0 0 8px; line-height:1.6; }
+@media(max-width:800px) { .missing-requirement-groups { grid-template-columns:1fr; } }
+@media(max-width:800px) { .checker-requirement-groups { grid-template-columns:1fr; } }

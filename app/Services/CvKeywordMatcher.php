@@ -13,7 +13,7 @@ class CvKeywordMatcher
         $aliases = ['js' => 'javascript', 'html5' => 'html', 'css3' => 'css', 'ts' => 'typescript', 'csharp' => 'c#', 'cplusplus' => 'c++', 'dotnet' => '.net', 'apis' => 'api', 'nodejs' => 'node.js'];
         preg_match_all('/\.[\p{L}]+|[\p{L}][\p{L}\p{N}]*(?:[.+][\p{L}\p{N}]+)*(?:\+\+|#)?/u', mb_strtolower($text), $matches);
         $terms = [];
-        $stopWords = array_fill_keys(explode(' ', self::STOP_WORDS), true);
+        $stopWords = array_fill_keys(explode(' ', self::STOP_WORDS.' sound better best effectively effective efficiently efficient highly very ideally willing demonstrate demonstrated capabilities capability proficient proficiency basic advanced level levels'), true);
         foreach ($matches[0] as $word) {
             $word = $aliases[$word] ?? $word;
             if (isset($stopWords[$word]) || (mb_strlen($word) < 2 && ! in_array($word, ['c', 'r'], true))) {
@@ -27,8 +27,51 @@ class CvKeywordMatcher
 
     public function tokens(string $text): array
     {
+        $evidence = [];
+        if (preg_match('/\b(?:authored|wrote|developed|drafted)\b.{0,90}\b(?:manuals?|reports?|publications?|briefs?)\b/iu', $text)) {
+            $evidence[] = 'Document drafting Document preparation Written communication';
+        }
+        if (preg_match('/\b(?:contributed?|contribute|published)\b.{0,80}\bpublications?\b/iu', $text)) {
+            $evidence[] = 'Written communication';
+        }
+        if (preg_match('/\b(?:trained\s+\d+|delivered training|facilitated workshops|gave presentations)\b/iu', $text)) {
+            $evidence[] = 'Oral communication';
+        }
+        if (preg_match('/\b(?:coordinated|coordinating)\b.{0,70}\b(?:NGOs?|CSOs?|partners|stakeholders|organizations|organisations)\b|stakeholder relationship management/iu', $text)) {
+            $evidence[] = 'Stakeholder collaboration Interpersonal skills';
+        }
+        if (preg_match('/\bcommunity development\b/iu', $text)) {
+            $evidence[] = 'Community engagement';
+        }
+        if (preg_match('/\b(?:programme?|project) management\b/iu', $text)) {
+            $evidence[] = 'Planning organising';
+        }
+        $text .= ' '.implode(' ', $evidence);
+        $phrases = [
+            '/\bverbal\s+communications?\b/iu' => 'oral communication',
+            '/\bbachelor[\x{0027}’]?s?\s+(?:degree\s+)?(?:of\s+|in\s+)?/iu' => 'bachelor degree ',
+            '/\bbcom\b/iu' => 'bachelor degree commerce',
+            '/\bcascading\s+style\s+sheets?\b/iu' => 'CSS',
+            '/\bhypertext\s+markup\s+language\b/iu' => 'HTML',
+            '/\bstructured\s+query\s+language\b/iu' => 'SQL',
+            '/\b(?:microsoft|ms)\s+(excel|word|powerpoint|outlook)\b/iu' => '$1',
+            '/\bcustomer\s+relationship\s+management\b/iu' => 'CRM',
+            '/\bsearch\s+engine\s+optimisation\b|\bsearch\s+engine\s+optimization\b/iu' => 'SEO',
+        ];
+        $text = preg_replace(array_keys($phrases), array_values($phrases), $text);
         $words = [];
         foreach ($this->terms($text) as $word) {
+            $word = match ($word) {
+                'report', 'reports' => 'reporting',
+                'budget', 'budgets' => 'budgeting',
+                'communications' => 'communication',
+                'identifying', 'identified', 'identifies' => 'identify',
+                'opportunities' => 'opportunity',
+                'adaptable', 'flexibility', 'flexible' => 'adaptability',
+                'organizing', 'organization', 'organisation' => 'organising',
+                'analyse', 'analyze', 'analyses' => 'analysis',
+                default => $word,
+            };
             $words[$word] = self::LABELS[$word] ?? $word;
         }
 
@@ -41,12 +84,13 @@ class CvKeywordMatcher
         $lines = [];
         foreach (preg_split('/\R/u', $description) as $line) {
             $heading = trim($line, " \t#*");
-            if (preg_match('/^\s*(?:minimum requirements|requirements|required qualifications|qualifications|required skills|essential skills|technical skills|what you bring|what we are looking for)\s*(?::\s*(.*))?$/iu', $heading, $match)) {
+            $heading = preg_replace('/^\d+[.)]\s*/u', '', $heading);
+            if (preg_match('/^\s*(?:minimum requirements|key requirements|requirements|required qualifications|qualifications|qualifications and experience|experience and qualifications|skills and experience|person specification|essential criteria|required skills|essential skills|technical skills|what you bring|what we are looking for)\s*(?::\s*(.*))?$/iu', $heading, $match)) {
                 $collect = true;
                 if (trim($match[1] ?? '') !== '') {
                     $lines[] = $match[1];
                 }
-            } elseif ($collect && preg_match('/^\s*(?:benefits|about us|about the company|how to apply|responsibilities|duties|salary|what we offer)\s*(?::.*)?$/iu', $heading)) {
+            } elseif ($collect && preg_match('/^\s*(?:benefits|about us|about the company|company overview|application process|equal opportunity|equal opportunities|diversity|how to apply|responsibilities|duties|salary|what we offer)\s*(?::.*)?$/iu', $heading)) {
                 $collect = false;
             } elseif ($collect) {
                 $lines[] = $line;
@@ -93,13 +137,22 @@ class CvKeywordMatcher
             $suggestions[] = ['keyword' => $word, 'suggestion' => 'Use '.$word.' in Skills, Summary or a responsibility only where your experience supports it; otherwise identify it as a skill gap.'];
         }
 
-        return [
+        $result = [
             'score' => (int) round($similarity * 100), 'similarity' => round($similarity, 8),
             'similarity_percent' => round($similarity * 100, 2), 'method' => 'tfidf-cosine-v1',
             'keyword_score' => count($keywords) ? (int) round(count($matched) / count($keywords) * 100) : 0,
             'keyword_source' => $requirements !== null ? 'requirements' : 'job_description',
             'total' => count($keywords), 'matched' => array_values($matched), 'missing' => array_values($missing),
             'suggestions' => $suggestions,
+            'experience_check' => (new CvExperienceMatcher)->compare($description, $resume),
         ];
+        $requirements = (new CvJobRequirements)->extract($description, $this);
+        if ($requirements) {
+            $result = [...$result, ...(new CvJobRequirements)->compare($requirements, $resume, $this)];
+            $result['keyword_source'] = 'requirements';
+            $result['suggestions'] = array_map(fn ($phrase) => ['keyword' => $phrase, 'suggestion' => 'Show evidence of '.$phrase.' in the appropriate CV section where your background supports it.'], $result['missing']);
+        }
+
+        return $result;
     }
 }

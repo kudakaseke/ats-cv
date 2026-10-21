@@ -13,7 +13,7 @@ class CvStructuredResume
 
     private const ROWS = [
         'experience' => ['title', 'company', 'period', 'location', 'responsibilities'],
-        'education' => ['degree', 'school', 'period', 'location'],
+        'education' => ['degree', 'school', 'period', 'location', 'grade'],
         'achievements' => ['title', 'description'], 'courses' => ['title', 'institution', 'period'],
         'languages' => ['name', 'level'], 'custom_sections' => ['title', 'content'],
     ];
@@ -38,11 +38,15 @@ class CvStructuredResume
             }
             $properties[$key] = ['type' => 'ARRAY', 'items' => ['type' => 'OBJECT', 'properties' => $row, 'required' => $fields]];
         }
-        $properties['experience']['description'] = 'One object per job. Title is only the job position; company is only the employer. Responsibilities belong only to that specific job.';
-        $properties['education']['description'] = 'One object per qualification. Degree is the qualification; school is the institution. Dates belong in period, never in school or degree.';
+        $properties['role']['description'] = 'Existing applicant professional headline from the original CV, never the advertised vacancy title. Empty when absent. Never rename the applicant profession to match an advert.';
+        $properties['experience']['description'] = 'One object per job. Preserve the original historical job title exactly. Title is only the job position; company is only the employer. Responsibilities belong only to that specific job.';
+        $properties['education']['description'] = 'One object per qualification. Degree is the qualification; school is the institution. Dates belong in period. Grade is the supplied degree class, GPA or grade; keep it separate and never invent it. Empty if not supplied.';
+        $properties['custom_sections']['description'] = 'For projects or other titled entries, content must put each entry title on its own line, then its description on following lines. Separate entries with a blank line. Do not combine a title and description into one sentence or use Markdown formatting.';
+        $properties['achievements']['description'] = 'Keep the short achievement title separate from its description. The renderer displays a bold title with description underneath.';
         $properties['skills']['description'] = 'Short skill names only, not employment duties, education or full paragraphs.';
-        $properties['core_strengths']['description'] = 'Personal strengths in their own section, separate from technical skills and competencies.';
-        $properties['references']['description'] = 'Referees and their contact details only. Do not put referee contacts in applicant email or phone.';
+        $properties['core_strengths']['description'] = 'One combined strengths and competencies list: concise, distinct qualities relevant to the job and supported by the original CV. The application displays five items across each row. Prefer ten relevant supported competencies for two rows; never invent items to fill the grid.';
+        $properties['competencies']['description'] = 'Legacy compatibility field. Return an empty array; put all strengths and competencies together in core_strengths.';
+        $properties['references']['description'] = 'Preserve provided referees only, one referee per line: Name and surname | Position | Phone number | Email. Leave unavailable values blank in their columns; never substitute an organisation for a missing position, never invent contacts, and never put referees in applicant contact fields. Empty if none supplied.';
 
         return ['type' => 'OBJECT', 'properties' => $properties, 'required' => array_keys($properties)];
     }
@@ -68,7 +72,7 @@ class CvStructuredResume
                     $rules[$path.'.*'] = ['required', 'string', 'max:1000'];
                 } else {
                     $max = $field === 'content' ? 5000 : ($field === 'description' ? 2000 : (in_array($field, ['period', 'location']) ? 150 : ($key === 'languages' ? 100 : 200)));
-                    $rules[$path] = [$key === 'courses' && $field === 'period' ? 'sometimes' : 'present', 'nullable', 'string', 'max:'.$max];
+                    $rules[$path] = [($key === 'courses' && $field === 'period') || ($key === 'education' && $field === 'grade') ? 'sometimes' : 'present', 'nullable', 'string', 'max:'.$max];
                     if (! in_array($field, ['content', 'description'])) {
                         $rules[$path][] = 'not_regex:/[\r\n]/';
                     }
@@ -84,7 +88,9 @@ class CvStructuredResume
             $data[$key] = trim($validated[$key] ?? '');
         }
         foreach (self::LISTS as $key) {
-            $data[$key] = implode(', ', array_map('trim', $validated[$key]));
+            $items = array_map('trim', $validated[$key]);
+            $grouped = $key === 'skills' && array_filter($items, fn ($item) => preg_match('/^[^:]+:/u', $item));
+            $data[$key] = implode($grouped ? "\n" : ', ', $items);
         }
         foreach (self::ROWS as $key => $fields) {
             $data[$key] = [];
@@ -102,11 +108,12 @@ class CvStructuredResume
         }
         Validator::make($data, ['skills' => ['max:2000'], 'core_strengths' => ['max:5000'], 'competencies' => ['max:5000'], 'experience.*.description' => ['max:5000']])->validate();
 
-        return $data;
+        return CvResumeFormat::builder($data);
     }
 
     public function text(array $data): string
     {
+        $data = CvResumeFormat::builder($data);
         $lines = [];
         foreach (['name', 'role', 'email', 'phone', 'location', 'website'] as $key) {
             if (! empty($data[$key])) {
@@ -118,19 +125,19 @@ class CvStructuredResume
                 $lines = [...$lines, '', $heading, ...$body];
             }
         };
-        foreach (['summary' => 'Professional Summary', 'skills' => 'Skills', 'core_strengths' => 'Core Strengths', 'competencies' => 'Key Competencies'] as $key => $heading) {
+        foreach (['summary' => 'Professional Summary'] as $key => $heading) {
             if (! empty($data[$key])) {
                 $section($heading, [$data[$key]]);
             }
         }
-        foreach (['experience' => ['Experience', ['title' => 'Position', 'company' => 'Company', 'period' => 'Period', 'location' => 'Location']], 'education' => ['Education', ['degree' => 'Degree', 'school' => 'School', 'period' => 'Period', 'location' => 'Location']]] as $key => [$heading, $fields]) {
+        foreach (['experience' => ['Professional Experience', ['title' => 'Position', 'company' => 'Company', 'period' => 'Period', 'location' => 'Location']], 'education' => ['Education', ['degree' => 'Degree', 'school' => 'School', 'period' => 'Period', 'location' => 'Location', 'grade' => 'Degree class/grade']]] as $key => [$heading, $fields]) {
             $body = [];
             foreach ($data[$key] as $row) {
                 if ($body) {
                     $body[] = '';
                 }
                 foreach ($fields as $field => $label) {
-                    if ($row[$field] !== '') {
+                    if (($row[$field] ?? '') !== '') {
                         $body[] = $label.': '.$row[$field];
                     }
                 }
@@ -142,16 +149,23 @@ class CvStructuredResume
             }
             $section($heading, $body);
         }
-        foreach (['achievements' => 'Achievements', 'courses' => 'Courses', 'languages' => 'Languages'] as $key => $heading) {
-            $section($heading, array_map(fn ($row) => implode(' - ', array_filter($row, fn ($value) => $value !== '')), $data[$key]));
+        $section('Certification', array_map(fn ($row) => implode(' - ', array_filter($row, fn ($value) => $value !== '')), $data['courses']));
+        if ($data['skills'] !== '') {
+            $section('Technical Skills', [$data['skills']]);
         }
-        if ($data['references'] !== '') {
-            $section('References', [$data['references']]);
+        foreach (['achievements' => 'Achievements', 'languages' => 'Languages'] as $key => $heading) {
+            $section($heading, array_map(fn ($row) => implode(' - ', array_filter($row, fn ($value) => $value !== '')), $data[$key]));
         }
         foreach ($data['custom_sections'] as $row) {
             if ($row['content'] !== '') {
                 $section($row['title'], [$row['content']]);
             }
+        }
+        if ($data['core_strengths'] !== '') {
+            $section('Competencies', [$data['core_strengths']]);
+        }
+        if ($data['references'] !== '') {
+            $section('References', [$data['references']]);
         }
 
         $text = trim(implode("\n", $lines));

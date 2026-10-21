@@ -10,6 +10,7 @@ use App\Services\Billing\PaymentService;
 use App\Services\Billing\PaynowGateway;
 use App\Services\Billing\PaypalGateway;
 use App\Services\Billing\PaypalSubscriptions;
+use App\Services\Billing\PaystackGateway;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -114,6 +115,10 @@ class BillingController extends Controller
         $message = 'Payment successful. '.($plan ?? 'Your plan').' is confirmed. Your available balance is '.$wallet['credits'].' credits.';
         if ($payment->status === 'test_paid') {
             $message = 'Test payment successful. '.($plan ?? 'Your purchase').' confirmed: '.$payment->currency.' '.number_format($payment->amount_cents / 100, 2).'. This was a test transaction; your live plan and credits are unchanged.';
+            if (PaystackGateway::localTestCreditsEnabled() && $payment->subscription_id) {
+                $message = 'Test payment successful. '.($plan ?? 'Your plan').' is active for local testing. Your available balance is '.$wallet['credits'].' credits.';
+            }
+
         }
 
         if ($request->expectsJson()) {

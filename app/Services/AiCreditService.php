@@ -2,10 +2,12 @@
 
 namespace App\Services;
 
+use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class AiCreditService
@@ -29,7 +31,7 @@ class AiCreditService
             $this->ledger($user->id, 'welcome:'.$user->id, 'welcome', config('ai_credits.welcome'), 0);
             $wallet = DB::table('ai_wallets')->where('user_id', $user->id)->first();
         }
-        $subscription = $user->subscriptions()->where('status', 'active')->where('starts_at', '<=', now())
+        $subscription = $user->subscriptions()->whereIn('status', Subscription::availableStatuses())->where('starts_at', '<=', now())
             ->where('ends_at', '>', now())->with('plan')->orderByDesc('starts_at')->orderByDesc('id')->first();
         if ($subscription && ($credits = config('ai_credits.plans.'.$subscription->plan->slug, 0)) > 0 && $subscription->plan->slug !== 'free') {
             $anchor = Carbon::parse($subscription->starts_at);
@@ -44,13 +46,24 @@ class AiCreditService
                 $this->ledger($user->id, $reference, 'subscription_allocation', $credits - $wallet->subscription_credits, 0);
                 DB::table('ai_wallets')->where('id', $wallet->id)->update(['subscription_credits' => $credits,
                     'allocation_reference' => $reference, 'expires_at' => $end, 'updated_at' => now()]);
+            } elseif ($subscription->status === 'test_active' && $wallet->allocation_reference === 'expired:'.$reference) {
+                // Recover only the unspent balance if local test configuration was temporarily removed.
+                // Prior operations remain authoritative, so restoring configuration cannot refill spent credits.
+                $spent = DB::table('ai_operations')->where('user_id', $user->id)->where('allocation_reference', $reference)
+                    ->whereIn('status', ['reserved', 'completed'])->sum('subscription_spent');
+                $remaining = max(0, $credits - $spent);
+                $this->ledger($user->id, 'restore:'.$reference.':'.Str::uuid(), 'subscription_restored', $remaining - $wallet->subscription_credits, 0);
+                DB::table('ai_wallets')->where('id', $wallet->id)->update(['subscription_credits' => $remaining,
+                    'allocation_reference' => $reference, 'expires_at' => $end, 'updated_at' => now()]);
             }
         } elseif ($wallet->expires_at && Carbon::parse($wallet->expires_at)->lte(now()) ||
             (! $subscription && str_starts_with($wallet->allocation_reference ?? '', 'subscription:'))) {
             if ($wallet->subscription_credits > 0) {
                 $this->ledger($user->id, 'expire:'.$wallet->allocation_reference, 'subscription_expired', -$wallet->subscription_credits, 0);
-                DB::table('ai_wallets')->where('id', $wallet->id)->update(['subscription_credits' => 0, 'updated_at' => now()]);
+
             }
+            DB::table('ai_wallets')->where('id', $wallet->id)->update(['subscription_credits' => 0,
+                'allocation_reference' => 'expired:'.$wallet->allocation_reference, 'expires_at' => null, 'updated_at' => now()]);
         }
 
         return DB::table('ai_wallets')->where('id', $wallet->id)->first();

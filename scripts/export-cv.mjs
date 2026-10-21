@@ -75,7 +75,22 @@ try {
                 const css = style(el);
                 if (el.matches('.position-entry-subheading,.cv-role')) return [paragraph(el)];
                 if (el.matches('.cv-skills-grouped')) return Array.from(el.children).map(child => paragraph(child));
-                if (el.matches('.cv-skills,.cv-contact')) {
+                if (el.matches('.cv-skills')) {
+                    const cells = Array.from(el.children);
+                    const widths = getComputedStyle(el).gridTemplateColumns.split(' ').map(parseFloat);
+                    const gap = parseFloat(getComputedStyle(el).columnGap) || 0;
+                    const rows = [];
+                    for (let index = 0; index < cells.length; index += widths.length) {
+                        rows.push({type:'table', width:el.getBoundingClientRect().width, cells:cells.slice(index, index + widths.length).map((child, column) => ({width:widths[column] + (column < widths.length - 1 ? gap : 0), style:style(child), blocks:[paragraph(child)]}))});
+                        while (rows.at(-1).cells.length < widths.length) {
+                            const column = rows.at(-1).cells.length;
+                            rows.at(-1).cells.push({width:widths[column] + (column < widths.length - 1 ? gap : 0),style:css,blocks:[]});
+                        }
+                    }
+                    return rows;
+                }
+                if (el.matches('.cv-reference-row')) return columns(el, children(el));
+                if (el.matches('.cv-contact')) {
                     const content = [];
                     Array.from(el.children).forEach((child, index) => { if (index) content.push({ text: el.matches('.cv-contact') ? ' | ' : ', ', style: css }); content.push(...runs(child)); });
                     return content.length ? [paragraph(el, content)] : [];

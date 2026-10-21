@@ -26,7 +26,7 @@
 .cv-paper .cv-experience-points[data-field] { white-space:normal; }
 .cv-paper .cv-experience-points li:empty::before { content:attr(data-placeholder); opacity:.65; }
 .cv-paper.cv-review .cv-experience-points li:empty::before { visibility:hidden; }
-.cv-paper .cv-skills { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px 12px; white-space:normal; }
+.cv-paper .cv-skills { display:grid; grid-template-columns:repeat(5,minmax(0,max-content)); width:fit-content; max-width:100%; justify-content:start; gap:6px 12px; white-space:normal; }
 .cv-paper .cv-skills > span { display:block; min-width:0; overflow-wrap:anywhere; }
 .cv-paper .cv-skills > span:empty::before { content:attr(data-placeholder); opacity:.65; }
 .cv-paper.cv-review .cv-skills > span:empty::before { visibility:hidden; }
@@ -291,9 +291,9 @@
 .cv-paper.cv-department-ats p { margin-bottom:5px; white-space:pre-line; }
 
 /* Consistent section rhythm, without stretching gaps to fill spare page space. */
-.cv-paper[class] .cv-section { margin-bottom:18px; }
+.cv-paper[class] .cv-section { margin-bottom:12px; }
 .cv-paper[class] .cv-lead { margin-bottom:0; }
-.cv-paper[class] .cv-entry { margin-bottom:12px; }
+.cv-paper[class] .cv-entry { margin-bottom:8px; }
 .cv-paper[class] .cv-entry:last-child { margin-bottom:0; }
 .cv-paper[class] .cv-skills span { border:0; text-decoration:none; }
 
@@ -304,7 +304,7 @@
 .cv-paper.cv-department-ats .cv-header h2 { font-size:12.5pt; text-transform:uppercase; font-weight:700; margin:0; }
 .cv-paper.cv-department-ats .cv-role { font-size:8pt; font-weight:700; margin:0; line-height:1.15; }
 .cv-paper.cv-department-ats .cv-contact { justify-content:center; border-bottom:.5pt solid #000; padding-bottom:2px; font-size:8pt; gap:0 8px; }
-.cv-paper.cv-department-ats .cv-section h3 { font-size:10pt; text-transform:uppercase; border-bottom:.5pt solid #777; padding-bottom:1px; margin-bottom:3px; }
+.cv-paper.cv-department-ats .cv-section h3 { font-size:10pt; font-weight:700; text-transform:uppercase; border-bottom:.5pt solid #777; padding-bottom:1px; margin-bottom:3px; }
 .cv-paper.cv-department-ats .cv-entry h4 { font-size:9pt; line-height:1.15; }
 .cv-paper.cv-department-ats .position-entry-heading > span,
 .cv-paper.cv-department-ats .position-entry-subheading { font-size:9pt; }
@@ -314,9 +314,32 @@
 .cv-paper.cv-department-ats ul { margin-top:1px; padding-left:12.466667px; }
 .cv-paper.cv-department-ats [data-section="summary"] p { text-align:justify; }
 .cv-paper.cv-department-ats .cv-contact > span:not(:last-child)::after { content:' |'; color:inherit; }
-.cv-paper .cv-skills.cv-skills-grouped { display:block; }
+.cv-paper .cv-skills.cv-skills-grouped { display:block; width:auto; }
 .cv-paper .cv-skills.cv-skills-grouped > span { padding:0; margin-bottom:1px; }
 .cv-paper.cv-department-ats .cv-section { break-inside:auto; }
+.cv-paper.cv-word-reference .cv-header { border:0; padding-bottom:0; }
+.cv-paper.cv-word-reference .cv-header h2 { letter-spacing:0; }
+.cv-paper.cv-word-reference .cv-header > .cv-role { font-size:8pt; font-weight:700; line-height:1.15; }
+.cv-paper.cv-word-reference .cv-section h3 { letter-spacing:0; }
+.cv-paper.cv-word-reference .cv-entry p { font-size:inherit; }
+.cv-paper.cv-word-reference [data-section="references"] p { font-size:9pt; }
+.cv-paper.cv-word-reference .ats-entry-heading > span { font-weight:400; }
+.cv-paper.cv-word-reference [data-section="courses"] h3 { border-bottom:0; }
+.cv-paper .cv-references { display:block; white-space:pre-line; }
+.cv-paper .cv-entry > strong { display:block; font-weight:700; }
+.cv-paper .cv-entry > h4 { display:block; font-weight:700; }
+.cv-paper .cv-entry > p { display:block; font-weight:400; }
+.cv-paper .cv-titled-content .cv-item-title { display:block; margin:8px 0 2px; font-weight:700; }
+.cv-paper .cv-titled-content .cv-item-title:first-child { margin-top:0; }
+.cv-paper .cv-titled-content .cv-item-title strong { font-weight:700; }
+.cv-paper .cv-titled-content .cv-item-description { display:block; margin:0 0 3px; font-weight:400; }
+.cv-paper .cv-titled-content ul { margin-top:0; margin-bottom:0; }
+.cv-paper .cv-reference-row { display:grid; grid-template-columns:1fr 2fr 1.25fr 2fr; gap:0 4px; align-items:start; margin-bottom:6px; }
+.cv-paper .cv-reference-row > span { min-width:0; overflow-wrap:anywhere; }
+.cv-paper .cv-references .cv-reference-row { margin-bottom:6px; }
+.cv-paper .cv-references p:last-child { margin-bottom:0; }
+.cv-paper [data-section="core_strengths"] .cv-skills { display:grid; grid-template-columns:repeat(5,minmax(0,max-content)); gap:3px 10px; }
+.cv-paper [data-section="core_strengths"] .cv-skills > span { font:inherit; text-decoration:none; border:0; }
 .cv-document-pages { width:816px; transform:scale(var(--cv-display-scale,1)); transform-origin:top left; display:flex; flex-direction:column; gap:24px; }
 .cv-document-pages > .cv-paper.cv-document-page { position:relative; width:816px; height:1056px; min-height:1056px; flex:none; transform:none; display:block; overflow:visible; box-shadow:0 3px 16px #0001; }
 .editor-paper-wrap:has(> .cv-document-pages) { aspect-ratio:auto; background:transparent; overflow:visible; box-shadow:none; }

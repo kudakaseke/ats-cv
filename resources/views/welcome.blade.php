@@ -23,7 +23,7 @@
                     <h3>AI ATS<br>CV Checker</h3>
                     <div class="feature-meta"><span><x-icon name="file-text" /> PDF & DOCX uploads</span><span><x-icon name="scan-text" /> Job-description matching</span></div>
                     <p class="feature-highlight">Understand where you stand</p>
-                    <ul class="feature-details"><li>A transparent estimated match score</li><li>Matching skills and missing requirements</li><li>Clear recommendations for improvement</li><li>Saved results and analysis history</li></ul>
+                    <ul class="feature-details"><li>A transparent estimated match score</li><li>Matching skills and missing requirements</li><li>Clear recommendations for improvement</li><li>Saved ATS Detect results and history</li></ul>
                     <div class="feature-card-footer"><a href="{{ auth()->check() ? route('workspace.module', 'checker') : route('login') }}">Explore <span><x-icon name="chevron-right" /></span></a><p>Made for<br><span>Clearer applications</span></p></div>
                 </article>
                 <article class="reference-feature-card feature-revamp">
@@ -80,13 +80,13 @@
                         <h3>{{ $plan->name }}</h3>
                         <p class="reference-price">${{ $plan->displayPrice() }}<span>{{ $plan->price_cents === 0 ? 'Forever' : ($plan->billing_interval === 'annually' ? '/ month, billed annually' : '/ month') }}</span></p>
                         @if($plan->billing_interval === 'annually')<p class="plan-billing-note">US$47.40 billed once per year. 150 credits released monthly.</p>@endif
-                        <ul>@foreach ($plan->features as $feature)<li><x-icon name="check" /> {{ $feature }}</li>@endforeach</ul>
+                        <ul>@foreach ($plan->features as $feature)<li><x-icon name="check" /> {{ str_replace(['One complete analysis and CV revamp', 'Analysis history'], ['One complete ATS Detect check and CV revamp', 'ATS Detect history'], $feature) }}</li>@endforeach</ul>
                         <a class="reference-plan-link" href="{{ $plan->price_cents === 0 ? route('builder.start', ['questions' => 1]) : route('subscription').'#plan-'.$plan->slug }}">{{ $plan->price_cents === 0 ? 'Get Started Free' : 'View '.$plan->name.' plan' }} <span><x-icon name="chevron-right" /></span></a>
                         <small>{{ $plan->price_cents > 0 ? 'Credits added after successful payment.' : '15 welcome credits. No credit card required.' }}</small>
                     </article>
                 @endforeach
             </div>
-            <p class="reference-release-note">Prices shown in USD. Choose an available payment method at checkout. Paystack's exact charge and currency are shown before payment. Analysis uses 5 credits and a CV revamp uses 10 credits.</p>
+            <p class="reference-release-note">Prices shown in USD. Choose an available payment method at checkout. Paystack's exact charge and currency are shown before payment. ATS Detect uses 5 credits and a CV revamp uses 10 credits.</p>
         </div>
     </section>
 
@@ -94,7 +94,7 @@
         <div class="reference-container reference-faq-grid">
             <div><span class="reference-eyebrow">GOOD QUESTIONS. CLEAR ANSWERS.</span><h2 id="faq-heading">A little clarity.<br><span>A confident start.</span></h2><a class="reference-inline-link" href="{{ route('contact') }}">Still have a question? <x-icon name="arrow-up-right" /></a></div>
             <div class="reference-faq-list">
-                @foreach ([['What is an ATS CV Checker?', 'It compares the information in your CV with a job description and suggests ways to make your application clearer. It does not access an employer’s ATS.'], ['How is the match percentage calculated?', 'The checker uses TF-IDF vectors and cosine similarity to estimate how closely your CV matches the job description. It separately shows keyword coverage and missing requirements. It is not an official ATS score or a guarantee of employment.'], ['Can AI improve my CV?', 'The CV Checker offers optional AI rewriting to improve wording and organisation using your existing information. Unsupported requirements will appear separately as gaps. You review suggestions before saving.'], ['Can I download my CV as PDF or Word?', 'Yes. Review your CV in the builder, then choose Download and select PDF or editable Word (.docx).'], ['Is my personal information secure?', 'Account access uses authentication and ownership checks. Saved CVs are stored for editing. Optional AI rewriting sends relevant content to an external provider after you accept the processing notice. Read our Privacy Policy for details and contact support for access or deletion requests.'], ['Can I use the system for free?', 'Registration and the dashboard are free. The Free plan includes three monthly analyses and one saved CV. Paid upgrades are currently disabled.']] as $faq)
+                @foreach ([['What is an ATS CV Checker?', 'It compares the information in your CV with a job description and suggests ways to make your application clearer. It does not access an employer’s ATS.'], ['How is the match percentage calculated?', 'The checker compares the wording in your CV with the job description. It shows matching skills and requirements that are missing from your CV. The percentage is a guide, not an employer?s ATS score or a guarantee of employment.'], ['Can AI improve my CV?', 'The CV Checker offers optional AI rewriting to improve wording and organisation using your existing information. Unsupported requirements will appear separately as gaps. You review suggestions before saving.'], ['Can I download my CV as PDF or Word?', 'Yes. Review your CV in the builder, then choose Download and select PDF or editable Word (.docx).'], ['Is my personal information secure?', 'Account access uses authentication and ownership checks. Saved CVs are stored for editing. AI analysis and rewriting send your CV text and job description to OpenAI when you use those features. Read our Privacy Policy for details and contact support for access or deletion requests.'], ['Can I use the system for free?', 'Registration and the dashboard are free. Your account receives 15 welcome credits once: enough for one ATS Detect check and revamp, or three ATS Detect checks. The Free plan includes one saved CV. Paid plans provide monthly credits, and you can buy additional credits.']] as $faq)
                     <details><summary>{{ $faq[0] }}<x-icon name="plus" /></summary><p>{{ $faq[1] }}</p></details>
                 @endforeach
             </div>

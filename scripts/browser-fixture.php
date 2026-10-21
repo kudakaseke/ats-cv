@@ -11,12 +11,13 @@ if (! $app->environment('local')) {
 }
 
 if (($argv[1] ?? '') === 'create') {
-    $email = 'browser-smoke-'.bin2hex(random_bytes(8)).'@example.invalid';
+    $domain = ($argv[2] ?? '') === 'paystack' ? 'example.com' : 'example.invalid';
+    $email = 'browser-smoke-'.bin2hex(random_bytes(8)).'@'.$domain;
     $password = bin2hex(random_bytes(16));
     User::create(['name' => 'Browser Check', 'email' => $email, 'password' => $password])
         ->forceFill(['email_verified_at' => now()])->save();
     echo json_encode(['email' => $email, 'password' => $password]);
-} elseif (($argv[1] ?? '') === 'delete' && preg_match('/^browser-smoke-[a-f0-9]{16}@example\.invalid$/', $argv[2] ?? '')) {
+} elseif (($argv[1] ?? '') === 'delete' && preg_match('/^browser-smoke-[a-f0-9]{16}@example\.(invalid|com)$/', $argv[2] ?? '')) {
     User::where('email', $argv[2])->delete();
 } else {
     throw new RuntimeException('Invalid fixture command.');

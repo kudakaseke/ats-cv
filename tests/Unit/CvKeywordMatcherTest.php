@@ -7,6 +7,23 @@ use PHPUnit\Framework\TestCase;
 
 class CvKeywordMatcherTest extends TestCase
 {
+    public function test_equivalent_terms_and_common_word_forms_count_as_matches(): void
+    {
+        $result = (new CvKeywordMatcher)->compare('CSS SQL Microsoft Excel reporting budgeting', 'Cascading Style Sheets, Structured Query Language, MS Excel, reports, budgets');
+        $this->assertSame(100, $result['keyword_score']);
+        $this->assertSame([], $result['missing']);
+        $this->assertSame(5, $result['total']);
+        $this->assertSame(0, (new CvKeywordMatcher)->compare('Python', 'JavaScript')['keyword_score']);
+    }
+
+    public function test_more_requirement_headings_exclude_company_and_benefit_words(): void
+    {
+        $result = (new CvKeywordMatcher)->compare("Company overview\nGlobal insurance business\n2. Qualifications and experience:\nSQL and Excel\nBenefits\nTravel allowance", 'SQL and Microsoft Excel');
+        $this->assertSame('requirements', $result['keyword_source']);
+        $this->assertSame(2, $result['total']);
+        $this->assertSame(100, $result['keyword_score']);
+    }
+
     public function test_score_changes_only_when_resume_keywords_change(): void
     {
         $matcher = new CvKeywordMatcher;

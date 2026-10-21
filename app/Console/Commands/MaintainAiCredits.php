@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Subscription;
 use App\Models\User;
 use App\Services\AiCreditService;
 use Illuminate\Console\Command;
@@ -22,7 +23,7 @@ class MaintainAiCredits extends Command
                 $credits->finish($user, $operation->id, null);
             }
         }
-        User::whereHas('subscriptions', fn ($q) => $q->where('status', 'active'))->chunkById(100, function ($users) use ($credits) {
+        User::whereHas('subscriptions', fn ($q) => $q->whereIn('status', Subscription::availableStatuses()))->chunkById(100, function ($users) use ($credits) {
             foreach ($users as $user) {
                 $credits->wallet($user);
             }

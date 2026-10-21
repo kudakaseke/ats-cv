@@ -49,6 +49,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/payments/{reference}/cancel-paypal', [BillingController::class, 'cancelPaypal'])->middleware('throttle:6,1')->name('billing.paypal.cancel');
     Route::post('/checker/rewrite', [CvCheckerController::class, 'rewrite'])->middleware('throttle:5,1')->name('checker.rewrite');
     Route::post('/checker/scan', [CvCheckerController::class, 'scan'])->middleware('throttle:30,1')->name('checker.scan');
+    Route::post('/checker/detect', [CvCheckerController::class, 'detect'])->middleware('throttle:30,1')->name('checker.detect');
     Route::post('/checker/upload', [CvCheckerController::class, 'upload'])->middleware('throttle:builder-import')->name('checker.upload');
     Route::post('/checker/edit', [CvCheckerController::class, 'edit'])->block(10, 3)->name('checker.edit');
     Route::get('/workspace/{module}', [WorkspaceController::class, 'module'])->name('workspace.module');

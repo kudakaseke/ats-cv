@@ -35,7 +35,7 @@ try {
  await page.getByRole('button',{name:'ATS Scan',exact:true}).click();
  const dialog=page.getByRole('dialog',{name:'Your ATS scan result'});
  await expect(dialog).toBeVisible();
- await expect(dialog.locator('.checker-dialog-score')).toHaveText('11.87%');
+ await expect(dialog.locator('.checker-dialog-score')).toHaveText('67/100');
  await expect(page.getByText('Tailor your resume with AI',{exact:true})).toHaveCount(0);
  await expect(page.getByRole('button',{name:'Generate AI draft',exact:true})).toHaveCount(0);
  await page.screenshot({path:'storage/app/previews/checker-popup.png',fullPage:true});
@@ -68,8 +68,8 @@ try {
  await expect(page).toHaveURL(/get-started/);
  await expect(page.locator('.editor-form')).toBeHidden();
  await expect(page.locator('.editor-preview')).toBeVisible();
- await expect(page.locator('.checker-generated-score')).toContainText('11.87%');
- await expect(page.locator('.checker-generated-score')).toContainText(after.similarity_percent + '%');
+ await expect(page.locator('.checker-generated-score')).toContainText('67/100');
+ await expect(page.locator('.checker-generated-score')).toContainText(after.keyword_score + '/100');
  await expect(page.locator('.checker-comparison')).toContainText('CSS');
  await expect(page.locator('.checker-comparison')).toContainText('Used CSS terminology');
  await page.getByText('Compare original and tailored text',{exact:true}).click();

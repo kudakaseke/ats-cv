@@ -25,7 +25,7 @@ class CvCheckerTest extends TestCase
         config(['services.openai.key' => 'fake-key']);
         Http::fake(['api.openai.com/*' => Http::response(['status' => 'completed', 'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => json_encode(['summary' => 'Comparison complete.', 'recommendations' => []])]]]]])]);
 
-        $this->actingAs(User::factory()->create())->get('/workspace/checker')->assertOk()->assertSee('CV Checker');
+        $this->actingAs(User::factory()->create())->get('/workspace/checker')->assertOk()->assertSee('ATS Scanner');
         $this->postJson('/checker/scan', ['job_description' => 'PHP HTML CSS', 'resume_text' => 'C# Python', 'score' => 100])->assertOk()->assertJsonPath('score', 0)->assertJsonPath('missing', ['PHP', 'HTML', 'CSS']);
         $this->postJson('/checker/scan', ['job_description' => 'PHP HTML CSS', 'resume_text' => "C# Python\nSkills\nPHP HTML"])->assertOk()->assertJsonPath('score', 41)->assertJsonPath('keyword_score', 67);
         $this->postJson('/checker/scan', ['job_description' => 'and the', 'resume_text' => 'Python'])->assertUnprocessable()->assertJsonValidationErrors('job_description');
@@ -73,7 +73,7 @@ class CvCheckerTest extends TestCase
         $comparison = session('cv_builder.checker_result');
         $this->assertSame($comparison['before'], $comparison['after']);
         $this->assertSame([], $comparison['added_keywords']);
-        $this->get('/get-started')->assertOk()->assertSee('The text similarity has not increased.')
+        $this->get('/get-started')->assertOk()->assertSee('The requirements match has not increased.')
             ->assertSee('Compare original and tailored text')->assertSee('Requirements still missing');
     }
 }

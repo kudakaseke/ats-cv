@@ -1,7 +1,7 @@
 import { chromium, expect } from '@playwright/test';
 import { signInTestUser, removeTestUser } from './browser-auth.mjs';
 
-const base = process.env.APP_TEST_URL || 'http://127.0.0.1:8015';
+const base = process.env.APP_TEST_URL || 'http://127.0.0.1:8000';
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 const page = await browser.newPage();
 let fixture;
@@ -26,6 +26,7 @@ try {
     for (const plan of ['monthly', 'annual']) {
         await expect(page.locator(`#plan-${plan}`)).toBeVisible();
     }
+    if (process.argv.includes('--live-ai')) {
     const scan = await page.request.post(`${base}/checker/scan`, {
         headers: { 'X-CSRF-TOKEN': csrf, Accept: 'application/json' },
         data: { job_description: 'PHP SQL developer', resume_text: 'PHP developer' },
@@ -34,7 +35,11 @@ try {
     await page.goto(`${base}/workspace/history`);
     await page.getByRole('link', { name: 'View result', exact: true }).click();
     await expect(page.getByText('PHP SQL developer', { exact: true })).toBeVisible();
-    console.log('PASS: saved CV delete cancellation/confirmation, subscription cards, scan persistence, history and saved-result navigation.');
+    } else {
+        await page.goto(`${base}/workspace/history`);
+        await expect(page.getByRole('heading', { name: 'Saved checks', exact: true })).toBeVisible();
+    }
+    console.log('PASS: saved CV delete cancellation/confirmation, subscription cards and history. Live AI scan only runs with --live-ai.');
 } finally {
     await browser.close();
     removeTestUser(fixture);

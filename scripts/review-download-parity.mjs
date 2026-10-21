@@ -20,7 +20,8 @@ try {
             const measure=print=>{
                 root.className='';root.innerHTML='<div class="editor-paper-wrap cv-stage" style="width:794px">'+cv.reviewPreview(template)+'</div>';
                 const grid=root.querySelector('.cv-skills');
-                if(grid && (grid.children.length!==8 || getComputedStyle(grid).gridTemplateColumns.split(' ').length!==4))throw Error(template.id+' skills must have four columns');
+                if(root.textContent.includes('Dates'))throw Error(template.id+' empty date placeholder leaked into review');
+                if(grid && (grid.children.length!==8 || getComputedStyle(grid).gridTemplateColumns.split(' ').length!==5))throw Error(template.id+' skills must have five columns');
                 if(root.querySelector('.cv-contact [data-field="website"]'))throw Error(template.id+' empty website remains in review');
                 if(print)cv.fitPrintedPage();else cv.fitStage(root.firstElementChild);
                 const wrap=root.firstElementChild,paper=wrap.firstElementChild;

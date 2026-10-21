@@ -13,7 +13,7 @@
 <body class="auth-body auth-clean">
     <div class="auth-waves" aria-hidden="true"><i></i><i></i><i></i></div>
     <div class="auth-shell">
-        <x-back-button class="auth-site-back" />
+        <a class="site-back-button auth-site-back" href="{{ route('home') }}"><x-icon name="arrow-left" /><span>Home</span></a>
         <header class="auth-clean-brand"><x-brand /></header>
         <main class="auth-content">
             <div class="auth-card">

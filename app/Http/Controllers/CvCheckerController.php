@@ -4,8 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Services\AiCreditService;
 use App\Services\CvAiRewriter;
+use App\Services\CvCompatibilityChecker;
 use App\Services\CvKeywordMatcher;
 use App\Services\CvPdfExtractor;
+use App\Services\CvResumeFormat;
+use App\Services\CvReviewComparison;
 use App\Services\CvStructuredResume;
 use App\Services\CvTextParser;
 use Illuminate\Http\Request;
@@ -15,6 +18,13 @@ use Illuminate\Validation\ValidationException;
 
 class CvCheckerController extends Controller
 {
+    public function detect(Request $request, CvCompatibilityChecker $checker)
+    {
+        $data = $request->validate(['resume_text' => ['required', 'string', 'max:20000']]);
+
+        return response()->json($checker->check($data['resume_text']));
+    }
+
     public function scan(Request $request, CvKeywordMatcher $matcher, AiCreditService $credits, CvAiRewriter $ai)
     {
         $request->validate(['operation_id' => ['sometimes', 'uuid']]);
@@ -41,7 +51,7 @@ class CvCheckerController extends Controller
         } catch (\Throwable $exception) {
             $credits->finish($request->user(), $operation->id, null, $ai->lastUsage);
 
-            return response()->json(['message' => 'Analysis could not be completed. Your credits were refunded. Please try again.', 'credits_remaining' => $credits->wallet($request->user())['credits']], 503);
+            return response()->json(['message' => 'ATS Detect could not be completed. Your credits were refunded. Please try again.', 'credits_remaining' => $credits->wallet($request->user())['credits']], 503);
         }
 
         return response()->json([...$payload, 'credits_remaining' => $credits->wallet($request->user())['credits']]);
@@ -57,7 +67,7 @@ class CvCheckerController extends Controller
         ]);
         $request->validate(['operation_id' => ['sometimes', 'uuid']]);
         $before = $matcher->compare($data['job_description'], $data['resume_text']);
-        $allowed = array_values($matcher->tokens($data['job_description']));
+        $allowed = $before['confirmable_skills'] ?? array_values($matcher->tokens($data['job_description']));
         foreach ($data['confirmed_keywords'] as $keyword) {
             if (! in_array($keyword, $allowed, true)) {
                 throw ValidationException::withMessages(['confirmed_keywords' => 'Choose keywords from this job description.']);
@@ -136,6 +146,7 @@ class CvCheckerController extends Controller
             $content = app(CvStructuredResume::class)->data($cached['structured_resume']);
         }
         $content ??= $parser->parse($data['resume_text']);
+        $content = CvResumeFormat::builder($content);
         $content['template'] = 'ats-professional';
         $content['imported_text'] = $data['resume_text'];
         $draft = ['step' => 4, 'data' => $content];
@@ -144,19 +155,8 @@ class CvCheckerController extends Controller
                 'original_resume_text' => ['required', 'string', 'max:20000'], 'job_description' => ['required', 'string', 'max:20000'],
                 'ai_changes' => ['sometimes', 'array', 'max:30'], 'ai_changes.*' => ['required', 'string', 'max:1000'],
             ]);
-            $matcher = app(CvKeywordMatcher::class);
-            $before = $matcher->compare($source['job_description'], $source['original_resume_text']);
-            $after = $matcher->compare($source['job_description'], $data['resume_text']);
             $draft['review_ready'] = true;
-            $draft['checker_result'] = [
-                'method' => $after['method'],
-                'before' => $before['similarity_percent'], 'after' => $after['similarity_percent'],
-                'keyword_before' => $before['keyword_score'], 'keyword_after' => $after['keyword_score'],
-                'added_keywords' => array_values(array_diff($after['matched'], $before['matched'])),
-                'remaining_keywords' => $after['missing'], 'suggestions' => $after['suggestions'],
-                'changes' => $source['ai_changes'] ?? [],
-                'original_text' => $source['original_resume_text'], 'revised_text' => $data['resume_text'],
-            ];
+            $draft['checker_result'] = app(CvReviewComparison::class)->make($source['job_description'], $source['original_resume_text'], $data['resume_text'], $source['ai_changes'] ?? []);
         }
         $request->session()->put('cv_builder', $draft);
 

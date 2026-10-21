@@ -118,6 +118,31 @@ body[data-workspace] .checker-ai-consent a { color: var(--blue); text-decoration
 .credit-summary h2 { font-size:20px; margin-bottom:10px; }
 .credit-summary > strong { font-size:28px; color:var(--blue); }
 .credit-summary p,.checker-credit-balance { margin:10px 0; line-height:1.7; }
+.dashboard-credit-card { display:grid; grid-template-columns:1fr 1.2fr; gap:32px; align-items:center; margin-top:24px; padding:32px; border:1px solid #c9dfff; border-radius:16px; background:linear-gradient(115deg,#edf5ff,#fff); }
+.dashboard-credit-label { color:var(--blue); font-size:11px; font-weight:700; letter-spacing:1.4px; }
+.dashboard-credit-intro h2 { margin:8px 0; font-size:27px; font-weight:600; letter-spacing:-.7px; }
+.dashboard-credit-intro p { margin:0 0 20px; color:var(--muted); }
+.dashboard-credit-balance { display:flex; align-items:baseline; gap:12px; margin-bottom:20px; color:var(--blue); }
+.dashboard-credit-balance > strong { font-size:56px; line-height:1; font-weight:700; font-variant-numeric:tabular-nums; }
+.dashboard-credit-balance > span { font-size:14px; }
+.dashboard-credit-rates { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
+.dashboard-credit-rates > span { display:flex; flex-direction:column; gap:5px; font-size:12px; color:var(--muted); }
+.dashboard-credit-rates strong { color:#1962cb; font-size:14px; }
+body[data-workspace] .scanner-compact-header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:4px; }
+.scanner-compact-header h1 { margin:0; font-size:28px; font-weight:600; letter-spacing:-.8px; }
+.scanner-compact-header > div { display:flex; align-items:center; gap:14px; font-size:13px; }
+body[data-workspace] .ats-checker .scanner-costs { margin:0 0 12px; font-size:12px; color:var(--muted); }
+.scanner-costs > span { padding:0 8px; color:#a5b2c2; }
+body[data-workspace] .scanner-compact-header ~ .checker-steps { margin-bottom:12px; }
+body[data-workspace] .checker-job-section h2 { margin:0 0 12px; font-size:19px; font-weight:500; }
+body[data-workspace] .ats-checker .scanner-basic-link { margin-top:12px; font-size:12px; }
+@media(max-width:700px) {
+    .dashboard-credit-card { grid-template-columns:1fr; padding:24px; gap:24px; }
+    .dashboard-credit-intro h2 { font-size:24px; }
+    .dashboard-credit-rates { gap:10px; }
+    .dashboard-credit-rates strong { font-size:12px; }
+    .scanner-compact-header h1 { font-size:24px; }
+}
 .credit-pack { padding:20px 0; border-top:1px solid #e3eaf2; }
 .credit-pack form { margin-top:14px; }
 .checker-ai-recommendations { text-align:left; margin:16px 0; }
@@ -162,7 +187,7 @@ body[data-workspace] .checker-ai-consent a { color: var(--blue); text-decoration
 /* Keep the job-description step compact without large surrounding cards. */
 body[data-workspace] .checker-steps { background: transparent; border: 0; border-radius: 0; padding: 8px 0; margin-bottom: 22px; }
 body[data-workspace] .checker-job-section { border: 0; border-radius: 0; background: transparent; padding: 0; }
-body[data-workspace] .ats-checker #checker-job { width: 100%; min-height: 360px; height: clamp(360px, 60vh, 560px); max-height: max(360px, 80vh); overflow-y: scroll; scrollbar-gutter: stable; resize: vertical; }
+body[data-workspace] .ats-checker #checker-job { width: 100%; min-height: 220px; height: clamp(220px, 36vh, 380px); max-height: max(220px, 80vh); overflow-y: scroll; scrollbar-gutter: stable; resize: vertical; }
 
 body[data-workspace] .dashboard-action-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
 body[data-workspace] .dashboard-action-card { position: relative; display: block; min-height: 210px; padding: 28px; background: white; border: 1px solid #dfe6ef; border-radius: 14px; transition: border-color .18s, box-shadow .18s, transform .18s; }

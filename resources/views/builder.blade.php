@@ -95,13 +95,22 @@
             @if(isset($draft['checker_result']))
                 @php($comparison = $draft['checker_result'])
                 <section class="checker-comparison" aria-label="CV improvement results">
-                    <p class="checker-generated-score" role="status">Your tailored CV is ready. {{ ($comparison['method'] ?? '') === 'tfidf-cosine-v1' ? 'TF-IDF similarity' : 'Previous keyword match' }}: <strong>{{ $comparison['before'] }}% &rarr; {{ $comparison['after'] }}%</strong>.</p>
-                    <p>Keyword coverage: <strong>{{ $comparison['keyword_before'] ?? $comparison['before'] }}% &rarr; {{ $comparison['keyword_after'] ?? $comparison['after'] }}%</strong>. Review your new CV below, then download as PDF or Word.</p>
+                    <p class="checker-generated-score" role="status">Your tailored CV is ready. CV and job requirements match: <strong>{{ $comparison['keyword_before'] ?? $comparison['before'] }}/100 &rarr; {{ $comparison['keyword_after'] ?? $comparison['after'] }}/100</strong>.</p>
+                    <p>The score checks how well your CV covers the listed requirements. Review your new CV below, then download as PDF or Word.</p>
                     <p class="checker-comparison-note">Scores and comparisons describe the AI-generated version before manual edits.</p>
-                    @if(!empty($comparison['added_keywords']))<p><strong>Keywords added:</strong> {{ implode(', ', $comparison['added_keywords']) }}</p>@endif
+                    @if(!empty($comparison['green_flags']))<div class="checker-green-flags"><h3>Qualification strengths</h3><ul>@foreach($comparison['green_flags'] as $flag)<li>{{ $flag }}</li>@endforeach</ul>@if($comparison['certificate_bonus'] ?? 0)<p>Includes {{ $comparison['certificate_bonus'] }} additional certificate bonus points.</p>@endif</div>@endif
+                    @if(!empty($comparison['added_keywords']))<p><strong>Requirements added:</strong> {{ implode(', ', $comparison['added_keywords']) }}</p>@endif
                     @if(!empty($comparison['changes']))<details open><summary>What AI changed</summary><ul>@foreach($comparison['changes'] as $change)<li>{{ $change }}</li>@endforeach</ul></details>@endif
-                    @if(!empty($comparison['remaining_keywords']))<details><summary>Requirements still missing ({{ count($comparison['remaining_keywords']) }})</summary><p>{{ implode(', ', $comparison['remaining_keywords']) }}</p><p>Add these only where you have supporting skills or experience.</p></details>@endif
-                    @if($comparison['after'] <= $comparison['before'])<p>The text similarity has not increased. Check the changes and remaining requirements; formatting alone does not improve a text-match score.</p>@endif
+                    @if(!empty($comparison['remaining_keywords']) || !empty($comparison['warnings']))
+                        <details open class="missing-requirements"><summary>Requirements still missing ({{ count($comparison['remaining_keywords'] ?? []) }})</summary>
+                            @if(!empty($comparison['warnings']))<section class="checker-review-warnings" role="note"><h3>Warnings</h3><ul>@foreach($comparison['warnings'] as $warning)<li>{{ $warning }}</li>@endforeach</ul></section>@endif
+                            @if(!empty($comparison['remaining_groups']))
+                                <div class="missing-requirement-groups">@foreach($comparison['remaining_groups'] as $category => $requirements)@if($requirements)<section><h3>{{ ['qualifications' => 'Qualifications', 'skills' => 'Skills', 'competencies' => 'Competencies'][$category] ?? ucfirst($category) }}</h3><ul>@foreach($requirements as $requirement)<li>{{ $requirement }}</li>@endforeach</ul></section>@endif @endforeach</div>
+                            @else<ul>@foreach($comparison['remaining_keywords'] ?? [] as $requirement)<li>{{ $requirement }}</li>@endforeach</ul>@endif
+                            <p>Add these only where you have supporting skills or experience.</p>
+                        </details>
+                    @endif
+                    @if(($comparison['keyword_after'] ?? $comparison['after']) <= ($comparison['keyword_before'] ?? $comparison['before']))<p>The requirements match has not increased. Review the remaining requirements; only add skills and experience you can support.</p>@endif
                     @if(isset($comparison['original_text'], $comparison['revised_text']))<details><summary>Compare original and tailored text</summary><div class="checker-text-comparison"><div><h3>Original CV</h3><pre>{{ $comparison['original_text'] }}</pre></div><div><h3>Tailored CV</h3><pre>{{ $comparison['revised_text'] }}</pre></div></div></details>@endif
                 </section>
             @endif

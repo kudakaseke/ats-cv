@@ -19,7 +19,7 @@
         <aside id="workspace-navigation" class="workspace-sidebar" :class="{ 'sidebar-open': sidebar }" :inert="mobile && !sidebar ? '' : null">
             <a class="workspace-brand" href="{{ route('dashboard') }}">atscvdetector<span>CV tools</span></a>
             <nav aria-label="Workspace navigation">
-                @foreach ([['dashboard', 'layout-dashboard', 'Dashboard', route('dashboard')], ['checker', 'scan-text', 'CV Checker', route('workspace.module', 'checker')], ['builder', 'file-plus-2', 'Create CV', route('workspace.module', 'builder')], ['resumes', 'folder-open', 'My CVs', route('workspace.module', 'resumes')], ['subscription', 'credit-card', 'Subscription', route('subscription')], ['account.activity', 'history', 'Audit trail', route('account.activity')]] as $item)
+                @foreach ([['dashboard', 'layout-dashboard', 'Dashboard', route('dashboard')], ['checker', 'scan-text', 'ATS Scanner', route('workspace.module', 'checker')], ['detect', 'file-check-2', 'ATS Detect', route('workspace.module', 'detect')], ['builder', 'file-plus-2', 'Create CV', route('workspace.module', 'builder')], ['resumes', 'folder-open', 'My CVs', route('workspace.module', 'resumes')], ['subscription', 'credit-card', 'Subscription', route('subscription')], ['account.activity', 'history', 'Audit trail', route('account.activity')]] as $item)
                     @php($active = request()->routeIs($item[0]) || request()->route('module') === $item[0])
                     <a class="sidebar-link {{ $active ? 'active' : '' }}" href="{{ $item[3] }}" @click="sidebar = false" @if($active) aria-current="page" @endif><x-icon :name="$item[1]" />{{ $item[2] }}</a>
                 @endforeach

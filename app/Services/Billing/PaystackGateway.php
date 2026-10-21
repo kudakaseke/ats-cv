@@ -13,6 +13,34 @@ use Illuminate\Support\Facades\Http;
 
 class PaystackGateway
 {
+    public static function localTestCreditsEnabled(): bool
+    {
+        return app()->environment('local') && config('paystack.local_test_credits')
+            && str_starts_with((string) config('paystack.secret_key'), 'sk_test_');
+    }
+
+    private function fundsCredits(BillingPayment $payment): bool
+    {
+        return $payment->mode === 'live' || ($payment->mode === 'test' && $payment->kind !== 'topup' && self::localTestCreditsEnabled());
+    }
+
+    private function fundedSubscription(BillingPayment $payment, User $user, Carbon $paid): Subscription
+    {
+        $anchor = $payment->paid_at ?? $paid;
+        $cycle = max(0, (int) round($anchor->diffInMonths($paid) / ($payment->billing_interval === 'annually' ? 12 : 1)));
+        $period = 'paystack:'.$payment->id.':'.$cycle;
+        $subscription = Subscription::where('funding_period', $period)->first();
+        if (! $subscription) {
+            $subscription = new Subscription;
+            $subscription->forceFill(['user_id' => $user->id, 'subscription_plan_id' => $payment->subscription_plan_id,
+                'status' => $payment->mode === 'test' ? 'test_active' : 'active',
+                'funding_period' => $period, 'starts_at' => $paid,
+                'ends_at' => $payment->billing_interval === 'annually' ? $paid->copy()->addYearNoOverflow() : $paid->copy()->addMonthNoOverflow()])->save();
+        }
+
+        return $subscription;
+    }
+
     public function mode(): string
     {
         $key = config('paystack.secret_key');
@@ -132,6 +160,14 @@ class PaystackGateway
                 throw new \RuntimeException('Transaction already assigned.');
             }
             if ($receipt) {
+                if ($status === 'success' && $receipt->status === 'success' && ! $receipt->subscription_id && $locked->mode === 'test' && $this->fundsCredits($locked)) {
+                    $subscription = $this->fundedSubscription($locked, $user, $paid);
+                    DB::table('paystack_receipts')->where('id', $receipt->id)->update(['subscription_id' => $subscription->id, 'updated_at' => now()]);
+                    $locked->update(['subscription_id' => $subscription->id]);
+                    app(AiCreditService::class)->wallet($user);
+                    app(AuditTrail::class)->record($user->id, 'payment.test_credits_activated', 'BillingPayment', $locked->id,
+                        ['mode' => 'test', 'credits' => $locked->credits, 'subscription_id' => $subscription->id], 'test-activation:'.$receipt->id);
+                }
                 if ($status === 'reversed' && $receipt->status !== 'reversed') {
                     if ($receipt->subscription_id && ! DB::table('paystack_receipts')->where('subscription_id', $receipt->subscription_id)->where('id', '!=', $receipt->id)->where('status', 'success')->exists()) {
                         Subscription::whereKey($receipt->subscription_id)->update(['status' => 'cancelled']);
@@ -147,32 +183,24 @@ class PaystackGateway
                 return;
             }
             $subscription = null;
-            if ($status === 'success' && $locked->mode === 'live') {
+            if ($status === 'success' && $this->fundsCredits($locked)) {
                 if ($locked->kind === 'topup') {
                     app(AiCreditService::class)->topup($user, $locked->credits, 'payment:'.$data['reference']);
                 } else {
-                    $anchor = $locked->paid_at ?? $paid;
-                    $cycle = max(0, (int) round($anchor->diffInMonths($paid) / ($locked->billing_interval === 'annually' ? 12 : 1)));
-                    $period = 'paystack:'.$locked->id.':'.$cycle;
-                    $subscription = Subscription::where('funding_period', $period)->first();
-                    if (! $subscription) {
-                        $subscription = new Subscription;
-                        $subscription->forceFill(['user_id' => $user->id, 'subscription_plan_id' => $locked->subscription_plan_id, 'status' => 'active',
-                            'funding_period' => $period, 'starts_at' => $paid, 'ends_at' => $locked->billing_interval === 'annually' ? $paid->copy()->addYearNoOverflow() : $paid->copy()->addMonthNoOverflow()])->save();
-                    }
+                    $subscription = $this->fundedSubscription($locked, $user, $paid);
                 }
             }
             DB::table('paystack_receipts')->insert(['billing_payment_id' => $locked->id, 'subscription_id' => $subscription?->id,
                 'provider_transaction_id' => (string) $data['id'], 'reference' => $data['reference'], 'status' => $status, 'created_at' => now(), 'updated_at' => now()]);
             $locked->update(['status' => $status === 'reversed' ? 'reversed' : ($locked->mode === 'live' ? 'paid' : 'test_paid'),
                 'provider_customer_id' => $customer, 'paid_at' => $locked->paid_at ?? $paid, 'subscription_id' => $subscription?->id]);
-            if ($locked->mode === 'live') {
+            if ($this->fundsCredits($locked)) {
                 app(AiCreditService::class)->wallet($user);
             }
             app(AuditTrail::class)->record($user->id, 'payment.provider_confirmed', 'BillingPayment', $locked->id,
                 ['provider' => 'paystack', 'mode' => $locked->mode, 'status' => $locked->status, 'reference' => $data['reference'],
                     'provider_transaction_id' => (string) $data['id'], 'amount_cents' => $locked->amount_cents, 'currency' => $locked->currency,
-                    'subscription_id' => $subscription?->id, 'credits_granted' => $status === 'success' && $locked->mode === 'live' ? $locked->credits : 0],
+                    'subscription_id' => $subscription?->id, 'credits_granted' => $status === 'success' && $this->fundsCredits($locked) ? $locked->credits : 0],
                 'paystack:'.$data['id'].':'.$status);
 
         }, 3);

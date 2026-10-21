@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 
-export async function signInTestUser(page, base = process.env.APP_TEST_URL || 'http://127.0.0.1:8015') {
-    const fixture = JSON.parse(execFileSync('php', ['scripts/browser-fixture.php', 'create'], { encoding: 'utf8' }));
+export async function signInTestUser(page, base = process.env.APP_TEST_URL || 'http://127.0.0.1:8015', options = {}) {
+    const fixture = JSON.parse(execFileSync('php', ['scripts/browser-fixture.php', 'create', ...(options.paymentTest ? ['paystack'] : [])], { encoding: 'utf8' }));
     try {
         await page.goto(`${base}/login`);
         await page.getByLabel('Email', { exact: true }).fill(fixture.email);

@@ -69,3 +69,10 @@ Recorded activity includes payment creation/status transitions, successful provi
 Run `php artisan audit:backfill` once to include existing payment, subscription, credit and AI-use records as labelled snapshots. Reruns preserve the original snapshots. Historical changes before logging was enabled cannot be reconstructed; the existing credit ledger retains the financial movements already recorded.
 
 Keep the Paystack webhook at the public HTTPS app URL plus `/webhooks/paystack`, and run the Laravel scheduler (`php artisan schedule:run` every minute in production) for missed-callback reconciliation and credit maintenance. The application records signed provider notifications and verification failures; it does not grant access based on an email or callback query alone.
+
+
+Local test subscription credit simulation
+-----------------------------------------
+At the owner's request, `PAYSTACK_LOCAL_TEST_CREDITS=true` can activate credits for verified Paystack test subscriptions on the local development site. It is false by default and ignored outside `APP_ENV=local` or with live keys. Test subscriptions use status `test_active`; production/live access only recognises `active`. Verified existing test receipts can be activated once through normal provider reconciliation. Repeated checks do not refill spent credits. Test top-ups remain uncredited.
+
+The Monthly local test subscription starts with exactly 150 credits, replacing the welcome allocation rather than adding it. Analysis costs 5, revamp costs 10, and the balance reaches zero without going negative. Local test activation and all spending remain in the audit trail. Switching out of local test mode invalidates the subscription allocation; failed operations cannot refund test subscription credits into production availability. The dashboard identifies this subscription as `(test)`.

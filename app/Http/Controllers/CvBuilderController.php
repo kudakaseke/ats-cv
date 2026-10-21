@@ -4,15 +4,17 @@ namespace App\Http\Controllers;
 
 use App\Models\Resume;
 use App\Models\User;
-use App\Services\PlanService;
 use App\Services\CvDocumentExporter;
+use App\Services\CvPdfExtractor;
+use App\Services\CvProfessionalTitle;
+use App\Services\CvReviewComparison;
 use App\Services\CvTextParser;
+use App\Services\PlanService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
-use App\Services\CvPdfExtractor;
 
 class CvBuilderController extends Controller
 {
@@ -25,6 +27,24 @@ class CvBuilderController extends Controller
         }
 
         $draft = $request->session()->get('cv_builder', []);
+        if (isset($draft['checker_result']['original_text'], $draft['data']) && empty($draft['professional_title_checked'])) {
+            $original = $draft['checker_result']['original_text'];
+            $oldTitle = $draft['data']['role'] ?? '';
+            $newTitle = app(CvProfessionalTitle::class)->preserve($original, $oldTitle);
+            // Repair legacy AI headlines only while they still match the generated
+            // snapshot. A title subsequently edited by the user is their choice.
+            $snapshot = $draft['checker_result']['revised_text'] ?? '';
+            if ($oldTitle !== '' && $oldTitle !== $newTitle && in_array($oldTitle, preg_split('/\R/u', $snapshot), true)) {
+                $draft['data']['role'] = $newTitle;
+                $draft['checker_result']['revised_text'] = implode("\n", array_map(fn ($line) => $line === $oldTitle ? $newTitle : $line, preg_split('/\R/u', $snapshot)));
+                unset($draft['checker_result']['comparison_version']);
+            }
+            $draft['professional_title_checked'] = true;
+        }
+        if (isset($draft['checker_result'])) {
+            $draft['checker_result'] = app(CvReviewComparison::class)->refreshForUser($draft['checker_result'], $request->user()?->id);
+            $request->session()->put('cv_builder', $draft);
+        }
         if ($request->boolean('questions')) {
             $draft['step'] = 1;
         }
@@ -117,7 +137,8 @@ class CvBuilderController extends Controller
             'data.experience.*.location' => ['nullable', 'string', 'max:150'],
             'data.experience.*.description' => ['nullable', 'string', 'max:5000'],
             'data.education' => ['present', 'array', 'max:20'],
-            'data.education.*' => ['array:degree,school,period,location'],
+            'data.education.*' => ['array:degree,school,period,location,grade'],
+            'data.education.*.grade' => ['sometimes', 'nullable', 'string', 'max:200'],
             'data.education.*.degree' => ['nullable', 'string', 'max:200'],
             'data.education.*.school' => ['nullable', 'string', 'max:200'],
             'data.education.*.period' => ['nullable', 'string', 'max:150'],

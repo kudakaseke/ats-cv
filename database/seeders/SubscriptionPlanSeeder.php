@@ -13,7 +13,7 @@ class SubscriptionPlanSeeder extends Seeder
         foreach ([
             ['slug' => 'free', 'name' => 'Free', 'price_cents' => 0, 'monthly_analyses' => 3, 'resume_limit' => 1, 'features' => ['3 monthly CV analyses', 'Basic match results', 'One saved CV', 'Basic ATS-friendly template']],
             ['slug' => 'basic', 'name' => 'Basic', 'price_cents' => 300, 'monthly_analyses' => 20, 'resume_limit' => 5, 'features' => ['20 monthly CV analyses', 'AI CV revamping', 'Five saved CVs', 'PDF and DOCX downloads', 'Detailed skill matching']],
-            ['slug' => 'pro', 'name' => 'Pro', 'price_cents' => 700, 'monthly_analyses' => 75, 'resume_limit' => 25, 'features' => ['75 monthly CV analyses', 'Advanced AI recommendations', '25 tailored CV versions', 'Full CV Builder', 'Analysis history', 'Priority features']],
+            ['slug' => 'pro', 'name' => 'Pro', 'price_cents' => 700, 'monthly_analyses' => 75, 'resume_limit' => 25, 'features' => ['75 monthly CV analyses', 'Advanced AI recommendations', '25 tailored CV versions', 'Full CV Builder', 'ATS Detect history', 'Priority features']],
         ] as $plan) {
             SubscriptionPlan::firstOrCreate(['slug' => $plan['slug']], $plan);
         }
@@ -21,7 +21,7 @@ class SubscriptionPlanSeeder extends Seeder
         SubscriptionPlan::whereIn('slug', ['basic', 'pro'])->update(['is_active' => false]);
 
         foreach ([
-            ['slug' => 'free', 'name' => 'Free', 'price_cents' => 0, 'billing_interval' => 'free', 'monthly_analyses' => null, 'resume_limit' => 1, 'features' => ['15 welcome credits, once per account', 'One complete analysis and CV revamp', 'Free manual edits and downloads']],
+            ['slug' => 'free', 'name' => 'Free', 'price_cents' => 0, 'billing_interval' => 'free', 'monthly_analyses' => null, 'resume_limit' => 1, 'features' => ['15 welcome credits, once per account', 'One complete ATS Detect check and CV revamp', 'Free manual edits and downloads']],
             ['slug' => 'monthly', 'name' => 'Monthly', 'price_cents' => 475, 'billing_interval' => 'monthly', 'monthly_analyses' => null, 'resume_limit' => null, 'features' => ['150 credits each paid month', 'Up to 10 complete CV workflows', 'Free manual edits and downloads', 'Buy extra credits anytime']],
             ['slug' => 'pro', 'name' => 'Pro', 'price_cents' => 625, 'billing_interval' => 'monthly', 'monthly_analyses' => null, 'resume_limit' => null, 'features' => ['225 credits each paid month', 'Up to 15 complete CV workflows', 'Free manual edits and downloads', 'Buy extra credits anytime']],
             ['slug' => 'annual', 'name' => 'Annual', 'price_cents' => 4740, 'billing_interval' => 'annually', 'monthly_analyses' => null, 'resume_limit' => null, 'features' => ['150 credits released each month', '12 months of Monthly features', 'Free manual edits and downloads', 'Buy extra credits anytime']],

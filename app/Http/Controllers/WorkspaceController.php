@@ -21,6 +21,9 @@ class WorkspaceController extends Controller
         if ($module === 'checker') {
             return view('workspace.checker');
         }
+        if ($module === 'detect') {
+            return view('workspace.detect');
+        }
         if ($module === 'revamp') {
             return redirect()->route('workspace.module', 'checker');
         }

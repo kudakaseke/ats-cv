@@ -21,6 +21,16 @@ class CvBuilderTest extends TestCase
         $this->actingAs(User::factory()->create());
     }
 
+    public function test_degree_grade_survives_draft_saving_and_rejects_overlong_values(): void
+    {
+        $draft = $this->payload();
+        $draft['data']['education'][0]['grade'] = 'Upper Second Class (2:1)';
+        $this->postJson('/get-started/draft', $draft)->assertOk()
+            ->assertSessionHas('cv_builder.data.education.0.grade', 'Upper Second Class (2:1)');
+        $draft['data']['education'][0]['grade'] = str_repeat('a', 201);
+        $this->postJson('/get-started/draft', $draft)->assertUnprocessable()->assertJsonValidationErrors('data.education.0.grade');
+    }
+
     public function test_questions_link_opens_first_step_without_discarding_draft(): void
     {
         $draft = $this->payload();

@@ -8,6 +8,7 @@ use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Services\AiCreditService;
 use App\Services\Billing\PaystackGateway;
+use App\Services\PlanService;
 use Database\Seeders\SubscriptionPlanSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -30,6 +31,64 @@ class AccountAuditTest extends TestCase
             'subscription_plan_id' => SubscriptionPlan::where('slug', 'monthly')->firstOrFail()->id,
             'provider' => 'paystack', 'mode' => $mode, 'status' => 'pending', 'amount_cents' => 7795,
             'currency' => 'ZAR', 'billing_interval' => 'monthly', 'credits' => 150, 'provider_plan_id' => 'PLN_MONTHLY']);
+    }
+
+    public function test_local_test_subscription_grants_150_and_counts_down_to_zero_without_replay_refills(): void
+    {
+        $this->app->instance('env', 'local');
+        config(['paystack.secret_key' => 'sk_test_fake', 'paystack.local_test_credits' => true]);
+        $user = User::factory()->create();
+        $payment = $this->payment($user, 'test');
+        $data = ['id' => 201, 'reference' => $payment->reference, 'domain' => 'test', 'currency' => 'ZAR', 'amount' => 7795,
+            'plan' => 'PLN_MONTHLY', 'status' => 'success', 'paid_at' => now()->toIso8601String(),
+            'customer' => ['customer_code' => 'CUS_TEST', 'email' => $user->email]];
+        $gateway = app(PaystackGateway::class);
+        $credits = app(AiCreditService::class);
+        $gateway->apply($payment, $data);
+        $this->assertDatabaseHas('subscriptions', ['status' => 'test_active', 'user_id' => $user->id]);
+        $this->assertSame(150, $credits->wallet($user)['credits']);
+        $this->assertSame(150, $credits->wallet($user)['purchased_credits']);
+        for ($used = 1; $used <= 15; $used++) {
+            $operation = $credits->reserve($user, 'revamp', (string) Str::uuid(), ['fixture' => true]);
+            $credits->finish($user, $operation->id, ['done' => true]);
+            $gateway->apply($payment->fresh(), $data);
+            $this->assertSame(150 - $used * 10, $credits->wallet($user)['purchased_credits']);
+        }
+        $this->assertDatabaseCount('subscriptions', 1);
+        $this->assertSame(0, $credits->wallet($user)['credits']);
+        $this->app->instance('env', 'production');
+        $this->assertSame(0, $credits->wallet($user)['credits']);
+        $this->app->instance('env', 'local');
+        $this->assertSame(0, $credits->wallet($user)['credits']);
+    }
+
+    public function test_existing_verified_test_receipt_can_be_activated_once_and_never_in_production(): void
+    {
+        config(['paystack.secret_key' => 'sk_test_fake', 'paystack.local_test_credits' => true]);
+        $user = User::factory()->create();
+        $payment = $this->payment($user, 'test');
+        $data = ['id' => 202, 'reference' => $payment->reference, 'domain' => 'test', 'currency' => 'ZAR', 'amount' => 7795,
+            'plan' => 'PLN_MONTHLY', 'status' => 'success', 'paid_at' => now()->toIso8601String(),
+            'customer' => ['customer_code' => 'CUS_TEST', 'email' => $user->email]];
+        $gateway = app(PaystackGateway::class);
+        $this->app->instance('env', 'production');
+        $gateway->apply($payment, $data);
+        $this->assertDatabaseCount('subscriptions', 0);
+        $this->app->instance('env', 'local');
+        $gateway->apply($payment->fresh(), $data);
+        $gateway->apply($payment->fresh(), $data);
+        $this->assertDatabaseCount('subscriptions', 1);
+        $credits = app(AiCreditService::class);
+        $this->assertSame(150, $credits->wallet($user)['purchased_credits']);
+        $operation = $credits->reserve($user, 'revamp', (string) Str::uuid(), ['fixture' => true]);
+        $this->app->instance('env', 'production');
+        $this->assertSame('free', app(PlanService::class)->current($user)->slug);
+        $credits->finish($user, $operation->id, null);
+        $this->assertSame(0, $credits->wallet($user)['credits']);
+        $this->assertSame(0, $credits->wallet($user)['purchased_credits']);
+        $this->app->instance('env', 'local');
+        $this->assertSame(150, $credits->wallet($user)['purchased_credits']);
+        $this->assertDatabaseHas('audit_events', ['event' => 'payment.test_credits_activated', 'user_id' => $user->id]);
     }
 
     public function test_audit_page_is_private_and_does_not_expose_other_accounts(): void
@@ -56,7 +115,7 @@ class AccountAuditTest extends TestCase
         $gateway->apply($payment, $data);
         $gateway->apply($payment->fresh(), $data);
         $this->actingAs($user)->get(route('billing.show', $payment->reference))->assertRedirect(route('dashboard'));
-        $this->get(route('dashboard'))->assertOk()->assertSee('Current plan: Monthly')->assertSee('150 credits');
+        $this->get(route('dashboard'))->assertOk()->assertDontSee('Current plan:')->assertSee('150 credits');
         $this->assertDatabaseCount('subscriptions', 1);
         $this->assertSame(1, DB::table('audit_events')->where('event', 'payment.provider_confirmed')->count());
         $this->assertDatabaseHas('audit_events', ['event' => 'credits.subscription_allocation', 'user_id' => $user->id]);
@@ -73,7 +132,8 @@ class AccountAuditTest extends TestCase
             'paid_at' => now()->toIso8601String(), 'customer' => ['customer_code' => 'CUS_TEST', 'email' => $user->email]]);
         $this->actingAs($user)->get(route('billing.show', $payment->reference))->assertRedirect(route('dashboard'))
             ->assertSessionHas('payment_success', fn ($message) => str_contains($message, 'Test payment successful'));
-        $this->get(route('dashboard'))->assertOk()->assertSee('Test payment confirmed')->assertSee('ZAR 77.95')->assertSee('Current plan: Free');
+        $this->get(route('dashboard'))->assertOk()->assertDontSee('Current plan:');
+        $this->get(route('subscription'))->assertOk()->assertSee('Test payment confirmed')->assertSee('ZAR 77.95')->assertSee('Current plan: Free');
         $this->get(route('account.activity'))->assertOk()->assertSee('Test payment confirmed')->assertSee($payment->reference);
         $this->assertDatabaseCount('subscriptions', 0);
         $event = DB::table('audit_events')->where('event', 'payment.provider_confirmed')->first();

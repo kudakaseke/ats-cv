@@ -2,6 +2,7 @@
 
 return [
     'enabled' => env('PAYSTACK_ENABLED', false),
+    'local_test_credits' => env('PAYSTACK_LOCAL_TEST_CREDITS', false),
     'currency' => env('PAYSTACK_CURRENCY', 'ZAR'),
     'pro_amount' => env('PAYSTACK_PRO_AMOUNT_ZAR_CENTS'),
     'topup_amounts' => ['monthly' => env('PAYSTACK_MONTHLY_AMOUNT_ZAR_CENTS')],

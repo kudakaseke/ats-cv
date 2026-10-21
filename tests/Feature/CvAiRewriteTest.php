@@ -29,12 +29,41 @@ class CvAiRewriteTest extends TestCase
         $this->actingAs(User::factory()->create());
     }
 
+    public function test_target_advert_cannot_rename_an_accounting_applicant(): void
+    {
+        $this->setupProvider();
+        $experience = [['title' => 'Accounts Clerk', 'company' => 'Example Ltd', 'period' => '2021 - 2024', 'location' => '', 'responsibilities' => ['Prepared invoices.']]];
+        $draft = ['structured_resume' => $this->structured(['role' => 'Procurement Officer', 'experience' => $experience]), 'changes' => [], 'unsupported_keywords' => []];
+        Http::fake(['generativelanguage.googleapis.com/*' => Http::response(['candidates' => [['finishReason' => 'STOP', 'content' => ['parts' => [['text' => json_encode($draft)]]]]]])]);
+        $this->postJson('/checker/rewrite', ['job_description' => 'Procurement Officer', 'resume_text' => "Alex Morgan\nAccountant\nExperience\nAccounts Clerk\nExample Ltd\n2021 - 2024\nPrepared invoices.", 'confirmed_keywords' => []])
+            ->assertOk()->assertJsonPath('structured_resume.role', 'Accountant')->assertJsonPath('structured_resume.experience', $experience);
+    }
+
+    public function test_word_reference_preserves_grouped_skills_combines_strengths_and_places_referees_last(): void
+    {
+        $mapper = app(CvStructuredResume::class);
+        $data = $mapper->data($this->structured([
+            'skills' => ['Programming: Python, PHP', 'Databases: MySQL'],
+            'core_strengths' => ['Teamwork', 'Communication'], 'competencies' => ['teamwork', 'Organisation'],
+            'references' => "Jane Example|Manager|jane@example.invalid\nSam Example | Lecturer | sam@example.invalid",
+            'custom_sections' => [['title' => 'Relevant Work', 'content' => 'Supported colleagues.']],
+        ]));
+        $this->assertSame("Programming: Python, PHP\nDatabases: MySQL", $data['skills']);
+        $this->assertSame('Teamwork, Communication, Organisation', $data['core_strengths']);
+        $this->assertSame('', $data['competencies']);
+        $text = $mapper->text($data);
+        $this->assertStringNotContainsString('Key Competencies', $text);
+        $this->assertLessThan(strpos($text, 'References'), strpos($text, 'Competencies'));
+        $this->assertLessThan(strpos($text, 'Competencies'), strpos($text, 'Relevant Work'));
+        $this->assertStringEndsWith('sam@example.invalid', $text);
+    }
+
     public function test_ai_returns_a_reviewable_draft_with_server_calculated_scores(): void
     {
         $this->setupProvider();
         $draft = ['structured_resume' => $this->structured(), 'changes' => ['Added confirmed PHP and HTML skills.'], 'unsupported_keywords' => ['CSS']];
         Http::fake(['generativelanguage.googleapis.com/*' => Http::response(['candidates' => [['finishReason' => 'STOP', 'content' => ['parts' => [['text' => json_encode($draft)]]]]]])]);
-        $this->postJson('/checker/rewrite', [...$this->payload(), 'score' => 100])->assertOk()->assertJsonPath('before.score', 0)->assertJsonPath('after.score', 32)->assertJsonPath('after.keyword_score', 67)->assertJsonPath('structured_resume.skills', ['C#', 'Python', 'PHP', 'HTML']);
+        $this->postJson('/checker/rewrite', [...$this->payload(), 'score' => 100])->assertOk()->assertJsonPath('before.score', 0)->assertJsonPath('after.score', 29)->assertJsonPath('after.keyword_score', 67)->assertJsonPath('structured_resume.skills', ['C#', 'Python', 'PHP', 'HTML']);
         Http::assertSent(function ($request) {
             $input = json_decode($request['contents'][0]['parts'][0]['text'], true);
 
@@ -47,6 +76,40 @@ class CvAiRewriteTest extends TestCase
                 && $request['generationConfig']['responseMimeType'] === 'application/json';
         });
         $this->assertFalse(session()->has('cv_builder'));
+    }
+
+    public function test_user_confirmed_skills_are_preserved_if_provider_omits_them_without_inventing_job_duties(): void
+    {
+        $this->setupProvider();
+        $draft = ['structured_resume' => $this->structured(['skills' => ['C#', 'Python']]), 'changes' => ['Reorganised existing skills.'], 'unsupported_keywords' => ['PHP', 'CSS']];
+        Http::fake(['generativelanguage.googleapis.com/*' => Http::response(['candidates' => [['finishReason' => 'STOP', 'content' => ['parts' => [['text' => json_encode($draft)]]]]]])]);
+        $this->postJson('/checker/rewrite', $this->payload())->assertOk()
+            ->assertJsonPath('structured_resume.skills', ['C#', 'Python', 'PHP', 'HTML'])
+            ->assertJsonPath('after.keyword_score', 67)
+            ->assertJsonPath('structured_resume.experience', [])
+            ->assertJsonPath('unsupported_keywords', ['CSS']);
+    }
+
+    public function test_whole_job_skill_phrases_can_be_added_without_claiming_a_missing_qualification(): void
+    {
+        $this->setupProvider();
+        $draft = ['structured_resume' => $this->structured(['skills' => ['Python']]), 'changes' => ['Reorganised skills.'], 'unsupported_keywords' => ['Bachelor of Commerce']];
+        Http::fake(['generativelanguage.googleapis.com/*' => Http::response(['candidates' => [['finishReason' => 'STOP', 'content' => ['parts' => [['text' => json_encode($draft)]]]]]])]);
+        $payload = ['job_description' => "Qualifications\nBachelor of Commerce\nSkills\nIdentifying Sales Opportunities, Oral Communications", 'resume_text' => "Alex Morgan\nEducation\nDiploma in Computing\nSkills\nPython", 'confirmed_keywords' => ['Identifying Sales Opportunities', 'Oral Communications']];
+        $this->postJson('/checker/rewrite', $payload)->assertOk()->assertJsonPath('after.keyword_score', 67)
+            ->assertJsonPath('structured_resume.skills', ['Python', 'Identifying Sales Opportunities', 'Oral Communications'])
+            ->assertJsonPath('structured_resume.education', [])->assertJsonPath('after.missing', ['Bachelor of Commerce']);
+        $this->postJson('/checker/rewrite', [...$payload, 'confirmed_keywords' => ['Bachelor of Commerce']])->assertUnprocessable();
+    }
+
+    public function test_supported_transferable_job_skills_are_retained_even_when_ai_omits_them(): void
+    {
+        $this->setupProvider();
+        $draft = ['structured_resume' => $this->structured(['skills' => ['Python']]), 'changes' => [], 'unsupported_keywords' => []];
+        Http::fake(['generativelanguage.googleapis.com/*' => Http::response(['candidates' => [['finishReason' => 'STOP', 'content' => ['parts' => [['text' => json_encode($draft)]]]]]])]);
+        $this->postJson('/checker/rewrite', ['job_description' => "Skills\nOral communication, Written communication", 'resume_text' => "Alex Example\nExperience\nTrained 12 organisations in budgeting.\nAuthored training manuals for community groups.", 'confirmed_keywords' => []])->assertOk()
+            ->assertJsonPath('structured_resume.skills', ['Python', 'Oral communication', 'Written communication'])
+            ->assertJsonPath('after.keyword_score', 100);
     }
 
     public function test_auth_and_confirmed_keywords_are_checked_before_sending_data(): void
@@ -134,6 +197,9 @@ class CvAiRewriteTest extends TestCase
             $level = $schema['properties']['structured_resume']['properties']['languages']['items']['properties']['level'];
 
             return $request->hasHeader('Authorization', 'Bearer fake-openai-key')
+                && str_contains($request['instructions'], 'template_CV.docx')
+                && str_contains($request['instructions'], 'five skills or competencies across each row')
+                && str_contains($request['instructions'], 'References last')
                 && $request['store'] === false && $request['model'] === 'gpt-4.1-mini'
                 && $request['text']['format']['strict'] === true
                 && $schema['additionalProperties'] === false
@@ -182,5 +248,17 @@ class CvAiRewriteTest extends TestCase
         $this->assertStringContainsString('Jun 2024', $mapper->text($data));
         $legacy = $mapper->data($this->structured(['courses' => [['title' => 'Existing Certificate', 'institution' => 'Actual Provider']]]));
         $this->assertSame('', $legacy['courses'][0]['period']);
+    }
+
+    public function test_education_grade_survives_structured_rewriting_without_inventing_missing_grades(): void
+    {
+        $mapper = app(CvStructuredResume::class);
+        $education = ['degree' => 'Bachelor of Commerce', 'school' => 'Example College', 'period' => '2024', 'location' => '', 'grade' => 'First Class'];
+        $data = $mapper->data($this->structured(['education' => [$education]]));
+        $this->assertSame('First Class', $data['education'][0]['grade']);
+        $this->assertStringContainsString('Degree class/grade: First Class', $mapper->text($data));
+        unset($education['grade']);
+        $legacy = $mapper->data($this->structured(['education' => [$education]]));
+        $this->assertSame('', $legacy['education'][0]['grade']);
     }
 }

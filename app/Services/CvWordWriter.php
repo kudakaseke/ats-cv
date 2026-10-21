@@ -70,6 +70,7 @@ class CvWordWriter
         foreach ($blocks as $block) {
             if ($block['type'] === 'pageBreak') {
                 $xml .= '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
+
                 continue;
             }
             if ($block['type'] === 'paragraph') {
@@ -82,8 +83,9 @@ class CvWordWriter
                 continue;
             }
             $total = array_sum(array_column($cells, 'width')) ?: 1;
-            $widths = array_map(fn ($cell) => max(1, (int) floor($width * $cell['width'] / $total)), $cells);
-            $xml .= '<w:tbl><w:tblPr><w:tblW w:w="'.$width.'" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders></w:tblPr><w:tblGrid>';
+            $tableWidth = isset($block['width']) ? min($width, max(1, $this->space($block['width']))) : $width;
+            $widths = array_map(fn ($cell) => max(1, (int) floor($tableWidth * $cell['width'] / $total)), $cells);
+            $xml .= '<w:tbl><w:tblPr><w:tblW w:w="'.$tableWidth.'" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders></w:tblPr><w:tblGrid>';
             foreach ($widths as $cellWidth) {
                 $xml .= '<w:gridCol w:w="'.$cellWidth.'"/>';
             }
@@ -145,9 +147,9 @@ class CvWordWriter
             $offset = strlen($body);
             $size = strlen($content);
             $crc = crc32($content);
-            $body .= pack('VvvvvvVVVvv', 0x04034b50, 20, 0, 0, 0, 33, $crc, $size, $size, strlen($name), 0).$name.$content;
-            $directory .= pack('VvvvvvvVVVvvvvvVV', 0x02014b50, 20, 20, 0, 0, 0, 33, $crc, $size, $size, strlen($name), 0, 0, 0, 0, 0, $offset).$name;
+            $body .= pack('VvvvvvVVVvv', 0x04034B50, 20, 0, 0, 0, 33, $crc, $size, $size, strlen($name), 0).$name.$content;
+            $directory .= pack('VvvvvvvVVVvvvvvVV', 0x02014B50, 20, 20, 0, 0, 0, 33, $crc, $size, $size, strlen($name), 0, 0, 0, 0, 0, $offset).$name;
         }
-        file_put_contents($path, $body.$directory.pack('VvvvvVVv', 0x06054b50, 0, 0, count($files), count($files), strlen($directory), strlen($body), 0));
+        file_put_contents($path, $body.$directory.pack('VvvvvVVv', 0x06054B50, 0, 0, count($files), count($files), strlen($directory), strlen($body), 0));
     }
 }
