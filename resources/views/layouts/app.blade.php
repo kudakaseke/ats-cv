@@ -32,7 +32,7 @@
         <div class="workspace-main">
             <header class="workspace-topbar">
                 <button class="mobile-menu-button" @click="sidebar = !sidebar" :aria-expanded="sidebar" aria-controls="workspace-navigation" aria-label="Toggle sidebar"><x-icon name="menu" /></button>
-                @php($headerWallet = app(\App\Services\AiCreditService::class)->wallet(auth()->user()))
+                @php($headerWallet = app(\App\Services\AiCreditService::class)->displayWallet(auth()->user()))
                 <a class="purchased-credit-badge" href="{{ route('subscription') }}"
                     x-data="{ credits: @js($headerWallet['purchased_credits']), checking: false,
                         async refreshCredits() {

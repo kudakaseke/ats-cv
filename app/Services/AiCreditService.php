@@ -14,6 +14,7 @@ class AiCreditService
 {
     private function ledger(int $user, string $reference, string $type, int $subscription, int $topup, int $debt = 0): void
     {
+        request()->attributes->remove('display_wallet_'.$user);
         DB::table('ai_credit_transactions')->insert(['user_id' => $user, 'reference' => $reference, 'type' => $type,
             'subscription_delta' => $subscription, 'topup_delta' => $topup, 'debt_delta' => $debt, 'created_at' => now(), 'updated_at' => now()]);
         app(AuditTrail::class)->record($user, 'credits.'.$type, 'CreditTransaction', $reference,
@@ -31,9 +32,11 @@ class AiCreditService
             $this->ledger($user->id, 'welcome:'.$user->id, 'welcome', config('ai_credits.welcome'), 0);
             $wallet = DB::table('ai_wallets')->where('user_id', $user->id)->first();
         }
-        $subscription = $user->subscriptions()->whereIn('status', Subscription::availableStatuses())->where('starts_at', '<=', now())
-            ->where('ends_at', '>', now())->with('plan')->orderByDesc('starts_at')->orderByDesc('id')->first();
-        if ($subscription && ($credits = config('ai_credits.plans.'.$subscription->plan->slug, 0)) > 0 && $subscription->plan->slug !== 'free') {
+        $subscription = $user->subscriptions()->join('subscription_plans', 'subscription_plans.id', '=', 'subscriptions.subscription_plan_id')
+            ->whereIn('subscriptions.status', Subscription::availableStatuses())->where('subscriptions.starts_at', '<=', now())
+            ->where('subscriptions.ends_at', '>', now())->select('subscriptions.*', 'subscription_plans.slug as plan_slug')
+            ->orderByDesc('subscriptions.starts_at')->orderByDesc('subscriptions.id')->first();
+        if ($subscription && ($credits = config('ai_credits.plans.'.$subscription->plan_slug, 0)) > 0 && $subscription->plan_slug !== 'free') {
             $anchor = Carbon::parse($subscription->starts_at);
             $month = 0;
             while ($anchor->copy()->addMonthsNoOverflow($month + 1)->lte(now()) && $month < 120) {
@@ -67,6 +70,18 @@ class AiCreditService
         }
 
         return DB::table('ai_wallets')->where('id', $wallet->id)->first();
+    }
+
+    // Cache presentation reads within this request only. All spending still locks
+    // and reads the authoritative wallet; ledger mutations invalidate this snapshot.
+    public function displayWallet(User $user): array
+    {
+        $key = 'display_wallet_'.$user->id;
+        if (! request()->attributes->has($key)) {
+            request()->attributes->set($key, $this->wallet($user));
+        }
+
+        return request()->attributes->get($key);
     }
 
     public function wallet(User $user): array

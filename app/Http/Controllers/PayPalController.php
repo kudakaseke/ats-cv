@@ -28,6 +28,8 @@ class PayPalController extends Controller
             // A success URL or token is not proof of payment; re-query the stored subscription.
             $service->refresh($payment);
         } catch (\Throwable $exception) {
+            report($exception);
+
             return to_route('billing.show', $payment->reference)->withErrors(['billing' => 'PayPal has returned you to the app, but payment verification is not complete. Please check the status again.']);
         }
 

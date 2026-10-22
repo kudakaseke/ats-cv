@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class CvBuilderController extends Controller
 {
@@ -268,6 +269,8 @@ class CvBuilderController extends Controller
                 $xml = preg_replace('/<w:tab\b[^>]*\/>|<\/w:tc>/', ' ', $xml);
                 $text = html_entity_decode(strip_tags(preg_replace('/<\/w:p>|<\/w:tr>|<w:br\b[^>]*\/>/', "\n", $xml)), ENT_QUOTES | ENT_XML1, 'UTF-8');
             }
+        } catch (HttpExceptionInterface $exception) {
+            throw $exception;
         } catch (\Throwable $exception) {
             throw ValidationException::withMessages(['file' => 'This document could not be read. Try a text-based PDF or DOCX, or start from scratch.']);
         } finally {

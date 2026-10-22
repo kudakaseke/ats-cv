@@ -26,6 +26,7 @@ Homestead.yaml
 Thumbs.db
 /test-results
 /playwright-report
+/load-test-sessions*.json
 /storage/app/sander-reference.html
 
 /.venv-ats

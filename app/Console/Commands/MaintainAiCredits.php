@@ -18,11 +18,15 @@ class MaintainAiCredits extends Command
     {
         // Provider requests time out after 60 seconds. Ten minutes allows ample
         // time for a live worker before treating a reservation as abandoned.
-        foreach (DB::table('ai_operations')->where('status', 'reserved')->where('created_at', '<', now()->subMinutes(10))->get() as $operation) {
-            if ($user = User::find($operation->user_id)) {
-                $credits->finish($user, $operation->id, null);
-            }
-        }
+        DB::table('ai_operations')->where('status', 'reserved')->where('created_at', '<', now()->subMinutes(10))
+            ->orderBy('id')->chunkById(100, function ($operations) use ($credits) {
+                $users = User::whereIn('id', $operations->pluck('user_id')->unique())->get()->keyBy('id');
+                foreach ($operations as $operation) {
+                    if ($user = $users->get($operation->user_id)) {
+                        $credits->finish($user, $operation->id, null);
+                    }
+                }
+            });
         User::whereHas('subscriptions', fn ($q) => $q->whereIn('status', Subscription::availableStatuses()))->chunkById(100, function ($users) use ($credits) {
             foreach ($users as $user) {
                 $credits->wallet($user);

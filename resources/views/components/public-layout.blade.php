@@ -51,7 +51,7 @@
             @unless(request()->routeIs('home', 'about', 'ats.explained', 'features', 'pricing'))
             <div class="reference-footer-top"><div><a class="reference-wordmark" href="{{ route('home') }}"><x-logo-image /></a><p>Your experience.<br>Your next opportunity.</p></div><nav aria-label="Footer navigation"><a href="{{ route('home') }}">Home</a><a href="{{ route('about') }}">About</a><a href="{{ route('ats.explained') }}">ATS Explained</a><a href="{{ route('features') }}">Features</a><a href="{{ route('pricing') }}">Pricing</a><a href="{{ route('contact') }}">Contact</a></nav></div>
             @endunless
-            <div class="reference-footer-bottom"><span>© {{ date('Y') }} atscvdetector · Code Dev Solutions</span><div><a href="{{ route('privacy') }}">Privacy Policy</a><a href="{{ route('terms') }}">Terms and Conditions</a><a href="{{ route('refund') }}">Refund Policy</a></div></div>
+            <div class="reference-footer-bottom"><span>© {{ date('Y') }} atscvdetector</span><div><a href="{{ route('privacy') }}">Privacy Policy</a><a href="{{ route('terms') }}">Terms and Conditions</a><a href="{{ route('refund') }}">Refund Policy</a></div></div>
         </div>
     </footer>
 </body>

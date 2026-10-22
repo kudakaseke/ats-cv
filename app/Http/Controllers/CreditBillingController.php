@@ -47,6 +47,8 @@ class CreditBillingController extends Controller
 
             return redirect()->away($gateway->start($payment, $request->user()->email));
         } catch (\Throwable $exception) {
+            report($exception);
+
             return to_route('billing.show', $payment->reference)->withErrors(['billing' => 'Checkout could not be opened. No credits have been added. Check payment status before retrying.']);
         }
     }
@@ -75,6 +77,8 @@ class CreditBillingController extends Controller
         try {
             return redirect()->away($gateway->start($payment, $request->user()->email));
         } catch (\Throwable $exception) {
+            report($exception);
+
             return to_route('billing.show', $payment->reference)->withErrors(['billing' => 'Checkout could not be confirmed. Check payment status before retrying.']);
         }
     }
@@ -114,6 +118,7 @@ class CreditBillingController extends Controller
                 $gateway->apply($payment, $verified);
             }
         } catch (\Throwable $exception) {
+            report($exception);
             $reference = $request->input('data.reference', $request->input('data.transaction.reference'));
             $payment = is_string($reference) ? BillingPayment::where('provider', 'paystack')->where('reference', $reference)->first() : null;
             app(AuditTrail::class)->record($payment?->user_id, 'webhook.verification_failed', 'BillingPayment', $payment?->id ?? 'unknown',
@@ -131,6 +136,8 @@ class CreditBillingController extends Controller
         try {
             $gateway->cancel($payment);
         } catch (\Throwable $exception) {
+            report($exception);
+
             return back()->withErrors(['billing' => 'Cancellation could not be verified. Please contact support or manage your subscription in Paystack.']);
         }
 

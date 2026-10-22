@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Jobs\RefreshPayment;
 use App\Models\BillingPayment;
 use App\Services\Billing\PaymentService;
 use Illuminate\Console\Command;
@@ -22,7 +23,11 @@ class ReconcilePayments extends Command
         $failures = 0;
         foreach ($payments as $payment) {
             try {
-                $service->refresh($payment);
+                if (config('performance.queue_payment_checks')) {
+                    RefreshPayment::dispatch($payment->id);
+                } else {
+                    $service->refresh($payment);
+                }
             } catch (\Throwable $exception) {
                 $payment->touch();
                 $failures++;

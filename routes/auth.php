@@ -13,8 +13,8 @@ use App\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
-    Route::get('auth/google', [GoogleAuthController::class, 'redirect'])->name('auth.google');
-    Route::get('auth/google/callback', [GoogleAuthController::class, 'callback'])->name('auth.google.callback');
+    Route::get('auth/google', [GoogleAuthController::class, 'redirect'])->middleware('throttle:oauth')->name('auth.google');
+    Route::get('auth/google/callback', [GoogleAuthController::class, 'callback'])->middleware('throttle:oauth')->name('auth.google.callback');
 
     Route::get('register', [RegisteredUserController::class, 'create'])
         ->name('register');

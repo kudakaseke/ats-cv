@@ -1,6 +1,18 @@
 # ATS CV
 
-Laravel 12 / PHP 8.2+, MySQL, Livewire 4, Blade, Tailwind CSS 4, Alpine, and Lucide. The application foundation and guest-first CV builder are implemented; remaining features are documented below.
+Laravel 12, patched PHP (see `composer.json`), MySQL, Livewire 4, Blade, Tailwind CSS 4, Alpine, and Lucide. The application foundation and guest-first CV builder are implemented; remaining features are documented below.
+
+## Security and deployment
+
+Read the [22 October 2026 security review](docs/security-review-2026-10-22.md) before deployment. The local PHP runtime has been updated to 8.2.35, but the older bundled Apache/MariaDB stack is restricted to loopback and must not be published as production infrastructure. Production requires a maintained stack, HTTPS, a `public/` document root, debug disabled, explicit host/proxy settings, rotated provider credentials and a dedicated database account. `.htaccess` protections apply to Apache; configure equivalent access restrictions on other web servers.
+
+Run `php artisan test --filter=SecurityThreatTest` for adversarial request/upload checks and `node scripts/security-browser-smoke.mjs` for malicious CV rendering checks. These complement the full application suite and dependency audits; they do not certify every attack path or an untested hosting environment.
+
+For Hostinger, queues, query/index changes, rate limits, private error reporting and the staged 1,000-user load test, read [Hostinger performance and operations](docs/hostinger-performance-and-operations.md). Run `php artisan app:deployment-check` before launch; it deliberately fails missing production settings, worker heartbeat or document tooling. Hostinger Web/Business needs the separately hosted document service for PDF imports and downloads; the service implementation is prepared but no host has been connected. No 1,000-user hosting-capacity claim has been made.
+
+## Separate document processing
+
+For Hostinger Web/Business, the [document-service setup guide](services/document-service/README.md) explains the prepared remote PDF import/export service. It must be hosted separately and connected before production activation; local mode remains the default.
 
 ## CV builder
 

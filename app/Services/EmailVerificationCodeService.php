@@ -16,10 +16,11 @@ class EmailVerificationCodeService
 {
     public function send(User $user): void
     {
-        if ($user->fresh()->hasVerifiedEmail()) {
+        $account = $user->fresh();
+        if ($account->hasVerifiedEmail()) {
             return;
         }
-        $recipient = hash('sha256', strtolower(trim($user->fresh()->email)));
+        $recipient = hash('sha256', strtolower(trim($account->email)));
         try {
             Cache::lock('verification-send-lock:'.$recipient, 10)->block(3, function () use ($recipient) {
                 $limits = [

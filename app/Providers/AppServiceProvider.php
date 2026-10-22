@@ -15,6 +15,7 @@ use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Console\ServeCommand;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
@@ -28,6 +29,28 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Model::preventLazyLoading(! $this->app->isProduction());
+        RateLimiter::for('oauth', fn (Request $request) => [
+            Limit::perMinute(20)->by('oauth-minute:'.$request->ip()),
+            Limit::perHour(60)->by('oauth-hour:'.$request->ip()),
+        ]);
+        RateLimiter::for('site', fn (Request $request) => Limit::perMinute(600)->by('site-ip:'.$request->ip()));
+        RateLimiter::for('workspace-read', fn (Request $request) => [
+            Limit::perMinute(120)->by('workspace-user:'.$request->user()->id),
+            Limit::perMinute(600)->by('workspace-ip:'.$request->ip()),
+        ]);
+        RateLimiter::for('payment-return', fn (Request $request) => [
+            Limit::perMinute(20)->by('payment-user:'.$request->user()->id),
+            Limit::perMinute(60)->by('payment-ip:'.$request->ip()),
+        ]);
+        RateLimiter::for('cv-export', fn (Request $request) => [
+            Limit::perMinute(5)->by('export-user:'.$request->user()->id),
+            Limit::perMinute(20)->by('export-ip:'.$request->ip()),
+        ]);
+        RateLimiter::for('ai-analysis', fn (Request $request) => [
+            Limit::perMinute(6)->by('analysis-user:'.$request->user()->id),
+            Limit::perMinute(30)->by('analysis-ip:'.$request->ip()),
+        ]);
         foreach ([BillingPayment::class, Subscription::class, User::class, Resume::class, CvAnalysis::class] as $model) {
             $model::observe(ActivityObserver::class);
         }

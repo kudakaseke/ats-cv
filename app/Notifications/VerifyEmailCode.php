@@ -2,12 +2,40 @@
 
 namespace App\Notifications;
 
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeEncrypted;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use Illuminate\Support\Facades\Hash;
 
-class VerifyEmailCode extends Notification
+class VerifyEmailCode extends Notification implements ShouldBeEncrypted, ShouldQueue
 {
-    public function __construct(public readonly string $code) {}
+    use Queueable;
+
+    public int $tries = 3;
+
+    public int $timeout = 30;
+
+    public function __construct(public readonly string $code)
+    {
+        $this->onConnection(config('performance.background_connection'))->onQueue('mail')->afterCommit();
+    }
+
+    public function backoff(): array
+    {
+        return [30, 60];
+    }
+
+    public function shouldSend(object $notifiable, string $channel): bool
+    {
+        $notifiable->refresh();
+
+        return ! $notifiable->hasVerifiedEmail()
+            && $notifiable->email_verification_code_expires_at?->isFuture()
+            && $notifiable->email_verification_code_email === $notifiable->email
+            && Hash::check($this->code, $notifiable->email_verification_code_hash ?? '');
+    }
 
     public function via(object $notifiable): array
     {

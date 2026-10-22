@@ -29,7 +29,7 @@ class WorkspaceController extends Controller
             return redirect()->route('workspace.module', 'checker');
         }
         if ($module === 'resumes') {
-            return view('workspace.resumes', ['resumes' => auth()->user()->resumes()->latest('updated_at')->paginate(12)]);
+            return view('workspace.resumes', ['resumes' => auth()->user()->resumes()->select('id', 'name', 'updated_at')->latest('updated_at')->paginate(12)]);
         }
         if ($module === 'history') {
             return view('workspace.history', ['analyses' => auth()->user()->analyses()->latest()->paginate(15)]);
@@ -40,6 +40,7 @@ class WorkspaceController extends Controller
     public function subscription(Request $request, PlanService $service): View
     {
         $currentPlan = $service->current($request->user());
+        $wallet = app(AiCreditService::class)->displayWallet($request->user());
 
         return view('workspace.subscription', [
             'currentPlan' => $currentPlan,
@@ -51,8 +52,8 @@ class WorkspaceController extends Controller
                 ->leftJoin('subscription_plans', 'subscription_plans.id', '=', 'billing_payments.subscription_plan_id')
                 ->select('billing_payments.*', 'subscription_plans.name as plan_name')
                 ->orderByDesc('billing_payments.id')->paginate(10, ['*'], 'payments'),
-            'remaining' => $service->remainingAnalyses($request->user()),
-            'wallet' => app(AiCreditService::class)->wallet($request->user()),
+            'remaining' => intdiv($wallet['credits'], config('ai_credits.costs.analyse')),
+            'wallet' => $wallet,
             'plans' => SubscriptionPlan::where('is_active', true)->orderBy('price_cents')->get(),
             'paypalSubscriptions' => BillingPayment::where('user_id', $request->user()->id)->where('recurring', true)->where('provider', 'paypal')->latest()->get(),
             'paystackSubscriptions' => BillingPayment::where('user_id', $request->user()->id)->where('recurring', true)->where('provider', 'paystack')->latest()->get(),

@@ -1,0 +1,10 @@
+# Defence in depth when an Apache parent directory exposes the project root.
+# Production must use this application's public/ directory as DocumentRoot.
+Options -Indexes
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(?!public(?:/|$)) - [F,L,NC]
+</IfModule>
+<IfModule !mod_rewrite.c>
+    Require all denied
+</IfModule>

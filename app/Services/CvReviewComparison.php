@@ -20,6 +20,7 @@ class CvReviewComparison
             // Recover an older draft's advert only from the same user's exact
             // cached rewrite and matching saved requirement set, never another account.
             $operations = DB::table('ai_operations')->where('user_id', $userId)->where('feature', 'revamp')->where('status', 'completed')->latest('id')->limit(20)->get();
+            $matching = [];
             foreach ($operations as $operation) {
                 try {
                     $payload = json_decode(Crypt::decryptString($operation->result), true, 64, JSON_THROW_ON_ERROR);
@@ -29,8 +30,21 @@ class CvReviewComparison
                 if (($payload['rewritten_resume'] ?? '') !== $comparison['revised_text']) {
                     continue;
                 }
-                $analyses = CvAnalysis::where('user_id', $userId)->where('created_at', '<=', $operation->created_at)->latest('id')->limit(20)->get();
-                foreach ($analyses as $analysis) {
+                $matching[$operation->id] = $payload;
+            }
+            // One joined query replaces a history query for each matching rewrite.
+            // Rank per operation so each keeps precisely its former latest-20 boundary.
+            if ($matching) {
+                $ranked = DB::table('ai_operations as operations')->join('cv_analyses as checks', function ($join) {
+                    $join->on('checks.user_id', '=', 'operations.user_id')->on('checks.created_at', '<=', 'operations.created_at');
+                })->where('operations.user_id', $userId)->whereIn('operations.id', array_keys($matching))
+                    ->select('checks.*', 'operations.id as operation_id')
+                    ->selectRaw('ROW_NUMBER() OVER (PARTITION BY operations.id ORDER BY checks.id DESC) as match_rank');
+                $groups = CvAnalysis::query()->fromSub($ranked, 'ranked_checks')->where('match_rank', '<=', 20)
+                    ->orderBy('operation_id')->orderBy('match_rank')->get()->groupBy('operation_id');
+            }
+            foreach ($matching as $operationId => $payload) {
+                foreach ($groups->get($operationId, collect()) as $analysis) {
                     if (($analysis->results['matched'] ?? null) === ($payload['before']['matched'] ?? false)
                         && ($analysis->results['missing'] ?? null) === ($payload['before']['missing'] ?? false)) {
                         $job = $analysis->job_description;

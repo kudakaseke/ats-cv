@@ -15,8 +15,8 @@ class PlanService
             : config('cv_access.free_templates');
         // Existing saved CVs remain editable after a subscription ends.
         if ($user) {
-            foreach ($user->resumes()->get(['content']) as $resume) {
-                $ids[] = $resume->content['template'] ?? '';
+            foreach ($user->resumes()->select('content->template as template')->distinct()->get() as $resume) {
+                $ids[] = $resume->template ?? '';
             }
         }
 
@@ -25,13 +25,14 @@ class PlanService
 
     public function current(User $user): SubscriptionPlan
     {
-        $subscription = $user->subscriptions()
-            ->whereIn('status', Subscription::availableStatuses())
-            ->whereNotNull('starts_at')->where('starts_at', '<=', now())
-            ->where(fn ($query) => $query->whereNull('ends_at')->orWhere('ends_at', '>', now()))
-            ->with('plan')->latest()->first();
+        $plan = SubscriptionPlan::query()->join('subscriptions', 'subscriptions.subscription_plan_id', '=', 'subscription_plans.id')
+            ->where('subscriptions.user_id', $user->id)
+            ->whereIn('subscriptions.status', Subscription::availableStatuses())
+            ->whereNotNull('subscriptions.starts_at')->where('subscriptions.starts_at', '<=', now())
+            ->where(fn ($query) => $query->whereNull('subscriptions.ends_at')->orWhere('subscriptions.ends_at', '>', now()))
+            ->select('subscription_plans.*')->orderByDesc('subscriptions.created_at')->orderByDesc('subscriptions.id')->first();
 
-        return $subscription?->plan ?? SubscriptionPlan::where('slug', 'free')->firstOrFail();
+        return $plan ?? SubscriptionPlan::where('slug', 'free')->firstOrFail();
     }
 
     public function remainingAnalyses(User $user): ?int

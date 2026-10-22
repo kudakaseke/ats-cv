@@ -1,0 +1,16 @@
+**
+!scripts/
+!scripts/export-cv.mjs
+!scripts/extract-cv-pdf.py
+!scripts/write-cv-word.php
+!app/
+!app/Services/
+!app/Services/CvWordWriter.php
+!services/
+!services/document-service/
+!services/document-service/**
+**/.env
+**/.env.*
+**/node_modules
+**/nonce-data
+**/tmp

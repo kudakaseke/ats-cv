@@ -15,7 +15,7 @@
                 <p>Free access with {{ count(config('cv_access.free_templates')) }} templates and one saved CV. Your 15 welcome credits are added once.</p>
             @endif
         </div>
-    <x-payment-confirmation />
+    <x-payment-confirmation :current-plan="$currentPlan" />
     <section class="panel credit-summary"><h2>My AI Credits</h2><strong>{{ $wallet['credits'] }} credits</strong><p>{{ $wallet['subscription_credits'] }} subscription/welcome credits &middot; {{ $wallet['topup_credits'] }} purchased credits.</p>@if($wallet['credit_debt'])<p>{{ $wallet['credit_debt'] }} credits deducted from available balance for a refunded purchase already used.</p>@endif<p>Job-to-CV ATS Detector: 5 credits. Revamp: 10 credits. One complete workflow: 15 credits. Manual editing and downloads use no credits.</p><p>Unused subscription credits reset each month. Purchased credits remain in your balance. Free accounts receive 15 welcome credits once.</p></section>
     <div class="panel subscription-info"><x-icon name="info" /><p>Pay securely with Paystack. Subscriptions renew monthly or annually until cancelled. Credits are added after payment is verified, and you return to your dashboard. The checkout shows the exact amount and currency you will pay. @if(\App\Services\Billing\PaystackGateway::localTestCreditsEnabled()) Verified local test subscriptions include test credits. @else Test payments do not activate paid credits. @endif</p></div>
     <x-input-error :messages="$errors->get('billing')" class="my-4" />

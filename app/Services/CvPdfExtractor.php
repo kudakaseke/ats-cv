@@ -9,6 +9,19 @@ class CvPdfExtractor
 {
     public function extract(string $path): array
     {
+        if (config('cv_exports.driver') === 'remote') {
+            try {
+                return app(RemoteDocumentService::class)->extract($path);
+            } catch (ValidationException $exception) {
+                throw $exception;
+            } catch (\Throwable $exception) {
+                report($exception);
+                abort(503, 'Document processing is temporarily unavailable. Please try again shortly.');
+            }
+        }
+        if (config('cv_exports.driver') !== 'local') {
+            abort(503, 'Document processing is not configured.');
+        }
         try {
             $process = new Process([config('cv_exports.python'), base_path('scripts/extract-cv-pdf.py'), $path]);
             $process->setTimeout(20)->mustRun();

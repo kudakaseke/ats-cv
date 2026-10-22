@@ -340,7 +340,11 @@ Alpine.data('cvBuilder', (boot) => ({
             const seconds = Number(response.headers.get('Retry-After'));
             throw new Error(seconds > 0 ? `Too many requests. Wait ${seconds} seconds and try again.` : 'Too many requests. Please wait and try again.');
         }
-        if (!response.ok) throw new Error(Object.values(result.errors || {}).flat()[0] || result.message || fallback);
+        if (!response.ok) {
+            const message = Object.values(result.errors || {}).flat()[0] || result.message || fallback;
+            const reference = result.reference || response.headers?.get?.('X-Error-Reference');
+            throw new Error(message + (/^[0-9a-f-]{36}$/i.test(reference || '') ? ` (Reference: ${reference})` : ''));
+        }
         if (!parsed) throw new Error(fallback);
         return result;
     },

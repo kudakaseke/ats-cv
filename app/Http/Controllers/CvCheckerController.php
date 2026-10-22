@@ -50,6 +50,7 @@ class CvCheckerController extends Controller
                 return $payload;
             });
         } catch (\Throwable $exception) {
+            report($exception);
             $credits->finish($request->user(), $operation->id, null, $ai->lastUsage);
 
             return response()->json(['message' => 'Job-to-CV ATS Detector could not be completed. Your credits were refunded. Please try again.', 'credits_remaining' => $credits->wallet($request->user())['credits']], 503);
@@ -87,6 +88,7 @@ class CvCheckerController extends Controller
                 'credits_used' => config('ai_credits.costs.revamp')];
             $credits->finish($request->user(), $operation->id, $payload, $rewriter->lastUsage);
         } catch (\Throwable $exception) {
+            report($exception);
             $credits->finish($request->user(), $operation->id, null, $rewriter->lastUsage);
 
             return response()->json(['message' => 'AI rewriting is unavailable right now. Your CV is unchanged and your credits were refunded. Please try again.', 'credits_remaining' => $credits->wallet($request->user())['credits']], 503);

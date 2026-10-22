@@ -1,7 +1,13 @@
 import argparse
 import json
 import sys
+import os
 import pymupdf
+
+if os.environ.get('DOCUMENT_SERVICE_LIMITS') == '1' and os.name == 'posix':
+    import resource
+    resource.setrlimit(resource.RLIMIT_AS, (768 * 1024 * 1024, 768 * 1024 * 1024))
+    resource.setrlimit(resource.RLIMIT_CPU, (20, 20))
 
 sys.stdout.reconfigure(encoding='utf-8')
 pymupdf.TOOLS.mupdf_display_errors(False)

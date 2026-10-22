@@ -1,9 +1,19 @@
+Options -Indexes
+
+<FilesMatch "(?i)^(\.|.*\.(?:env|ini|log|sql|sqlite|sqlite3|bak|old|orig|save))$">
+    Require all denied
+</FilesMatch>
+
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>
         Options -MultiViews -Indexes
     </IfModule>
 
     RewriteEngine On
+
+    # Never serve hidden files, source-control metadata or executable uploads.
+    RewriteRule (^|/)\.(?!well-known(?:/|$)) - [F,L]
+    RewriteRule ^storage/.*\.(?:php[0-9]?|phtml|phar)(?:/|$) - [F,L,NC]
 
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .

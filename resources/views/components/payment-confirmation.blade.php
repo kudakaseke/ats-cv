@@ -1,13 +1,15 @@
+@props(['currentPlan' => null])
 @php
-    $lastPayment = \App\Models\BillingPayment::where('user_id', auth()->id())->whereIn('status', ['paid', 'test_paid'])->latest('paid_at')->latest('id')->first();
-    $livePlan = app(\App\Services\PlanService::class)->current(auth()->user());
+    $lastPayment = \App\Models\BillingPayment::leftJoin('subscription_plans', 'subscription_plans.id', '=', 'billing_payments.subscription_plan_id')
+        ->where('billing_payments.user_id', auth()->id())->whereIn('billing_payments.status', ['paid', 'test_paid'])
+        ->select('billing_payments.*', 'subscription_plans.name as plan_name')->latest('billing_payments.paid_at')->latest('billing_payments.id')->first();
+    $livePlan = $currentPlan ?? app(\App\Services\PlanService::class)->current(auth()->user());
 @endphp
 <section class="panel credit-summary" aria-label="Plan and latest payment">
     <h2>Current plan: {{ $livePlan->name }}@if(\App\Services\Billing\PaystackGateway::localTestCreditsEnabled() && $lastPayment?->status === 'test_paid' && $lastPayment?->subscription_id) (test)@endif</h2>
     @if($lastPayment)
-        @php($purchasedPlan = \App\Models\SubscriptionPlan::find($lastPayment->subscription_plan_id))
         <p><strong>{{ $lastPayment->status === 'test_paid' ? 'Test payment confirmed' : 'Payment confirmed' }}</strong>
-            &middot; {{ $lastPayment->kind === 'topup' ? 'Credit top-up' : $purchasedPlan?->name }}
+            &middot; {{ $lastPayment->kind === 'topup' ? 'Credit top-up' : $lastPayment->plan_name }}
             &middot; {{ $lastPayment->currency }} {{ number_format($lastPayment->amount_cents / 100, 2) }}</p>
         @if($lastPayment->status === 'test_paid')
             @if(\App\Services\Billing\PaystackGateway::localTestCreditsEnabled() && $lastPayment->subscription_id)

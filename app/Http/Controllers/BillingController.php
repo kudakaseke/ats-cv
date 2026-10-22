@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\RefreshPayment;
 use App\Models\BillingPayment;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
@@ -60,6 +61,8 @@ class BillingController extends Controller
 
             return redirect()->away($gateway->start($payment, $request->user()->email));
         } catch (\Throwable $exception) {
+            report($exception);
+
             // A timed-out request might exist at the provider. Keep the reference for reconciliation.
             return to_route('billing.show', $payment->reference)->withErrors(['billing' => 'Checkout could not be opened. No access has been activated. Contact support with the payment reference if you were charged.']);
         }
@@ -71,9 +74,10 @@ class BillingController extends Controller
 
         if ($payment->status === 'pending') {
             try {
-                $service->refresh($payment);
+                $this->refreshOrQueue($payment, $service);
                 $payment->refresh();
             } catch (\Throwable $exception) {
+                report($exception);
                 // Keep waiting for provider confirmation; a return URL alone is not proof of payment.
             }
         }
@@ -88,8 +92,9 @@ class BillingController extends Controller
     {
         $payment = BillingPayment::where('reference', $reference)->where('user_id', $request->user()->id)->firstOrFail();
         try {
-            $service->refresh($payment);
+            $this->refreshOrQueue($payment, $service);
         } catch (\Throwable $exception) {
+            report($exception);
             if ($request->expectsJson()) {
                 return response()->json(['message' => 'Payment confirmation is temporarily unavailable. We will try again.'], 503);
             }
@@ -106,6 +111,15 @@ class BillingController extends Controller
         }
 
         return to_route('billing.show', $reference)->with('status', 'Payment status checked.');
+    }
+
+    private function refreshOrQueue(BillingPayment $payment, PaymentService $service): void
+    {
+        if (config('performance.queue_payment_checks')) {
+            RefreshPayment::dispatch($payment->id);
+        } else {
+            $service->refresh($payment);
+        }
     }
 
     private function paidResponse(Request $request, BillingPayment $payment)
@@ -143,6 +157,8 @@ class BillingController extends Controller
         try {
             $service->refresh($payment);
         } catch (\Throwable $exception) {
+            report($exception);
+
             return response('Verification unavailable', 503);
         }
 
@@ -167,6 +183,8 @@ class BillingController extends Controller
                 return response('Invalid notification', 400);
             }
         } catch (\Throwable $exception) {
+            report($exception);
+
             return response('Verification unavailable', 503);
         }
         $agreementId = $request->input('resource.billing_agreement_id', $request->input('resource.id'));
@@ -184,6 +202,8 @@ class BillingController extends Controller
             try {
                 app(PaypalSubscriptions::class)->refresh($recurring, $receipt ? Carbon::parse($receipt->paid_at) : null);
             } catch (\Throwable $exception) {
+                report($exception);
+
                 return response('Verification unavailable', 503);
             }
 
@@ -205,6 +225,8 @@ class BillingController extends Controller
             try {
                 $service->refresh($payment);
             } catch (\Throwable $exception) {
+                report($exception);
+
                 return response('Verification unavailable', 503);
             }
         }
@@ -222,6 +244,8 @@ class BillingController extends Controller
             }
             $gateway->cancel($payment);
         } catch (\Throwable $exception) {
+            report($exception);
+
             return back()->withErrors(['billing' => 'Cancellation could not be confirmed. Please manage the subscription in PayPal or contact support.']);
         }
 

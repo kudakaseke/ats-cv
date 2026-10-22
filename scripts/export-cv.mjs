@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import { chromium } from '@playwright/test';
 const [input, output, layoutPath, format, channel] = process.argv.slice(2);
-const browser = await chromium.launch({ channel: channel || 'chrome', headless: true });
+const browser = await chromium.launch({ ...(channel === 'chromium' ? {} : { channel: channel || 'chrome' }), headless: true, chromiumSandbox: process.env.DOCUMENT_RENDER_SANDBOX === '1' });
+process.once('SIGTERM', () => browser.close().finally(() => process.exit(143)));
 try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1200 } });
     await page.route('**/*', route => route.abort());

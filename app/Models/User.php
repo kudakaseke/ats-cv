@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Jobs\SendPasswordResetMail;
 use App\Services\AiCreditService;
 use App\Services\EmailVerificationCodeService;
 use Database\Factories\UserFactory;
@@ -21,6 +22,11 @@ class User extends Authenticatable implements MustVerifyEmail
     public function sendEmailVerificationNotification(): void
     {
         app(EmailVerificationCodeService::class)->send($this);
+    }
+
+    public function sendPasswordResetNotification($token): void
+    {
+        SendPasswordResetMail::dispatch($this->id, $token);
     }
 
     /** @use HasFactory<UserFactory> */

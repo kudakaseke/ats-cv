@@ -1,6 +1,6 @@
 <div>
     @if(session('payment_success'))<section class="panel" role="status">{{ session('payment_success') }}</section>@endif
-    @php($wallet = app(\App\Services\AiCreditService::class)->wallet(auth()->user()))
+    @php($wallet = app(\App\Services\AiCreditService::class)->displayWallet(auth()->user()))
     <div class="dashboard-action-grid" aria-label="Dashboard tools">
         @foreach ([
             ['Job-to-CV ATS Detector', 'scan-text', route('workspace.module', 'checker'), 'Compare your CV with a job description.'],

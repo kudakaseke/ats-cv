@@ -30,7 +30,9 @@ window.cvChecker = (boot) => ({
         if (response.status === 429) throw new Error('Too many requests. Please wait a moment before trying again.');
         if (!response.ok) {
             if (response.status === 503) this.operations = {};
-            throw new Error(Object.values(body.errors || {}).flat()[0] || body.message || 'Something went wrong. Please try again.');
+            const message = Object.values(body.errors || {}).flat()[0] || body.message || 'Something went wrong. Please try again.';
+            const reference = body.reference || response.headers.get('X-Error-Reference');
+            throw new Error(message + (/^[0-9a-f-]{36}$/i.test(reference || '') ? ` (Reference: ${reference})` : ''));
         }
         if (!response.headers.get('Content-Type')?.includes('application/json')) throw new Error('The server returned an unexpected response. Please reload and try again.');
         return body;

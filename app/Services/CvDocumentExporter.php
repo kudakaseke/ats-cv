@@ -21,7 +21,16 @@ class CvDocumentExporter
             $manifest = json_decode(file_get_contents(public_path('build/manifest.json')), true, 512, JSON_THROW_ON_ERROR);
             $script = file_get_contents(public_path('build/'.$manifest['resources/js/app.js']['file']));
             $css = file_get_contents(resource_path('css/cv-paper.css'));
-            file_put_contents($input, view('exports.cv', compact('data', 'script', 'css'))->render());
+            $html = view('exports.cv', compact('data', 'script', 'css'))->render();
+            if (config('cv_exports.driver') === 'remote') {
+                app(RemoteDocumentService::class)->render($html, $format, $output);
+
+                return $output;
+            }
+            if (config('cv_exports.driver') !== 'local') {
+                throw new \RuntimeException('Document processing is not configured.');
+            }
+            file_put_contents($input, $html);
             $process = new Process([
                 config('cv_exports.node'), base_path('scripts/export-cv.mjs'), $input, $output, $layout, $format, config('cv_exports.browser'),
             ]);
