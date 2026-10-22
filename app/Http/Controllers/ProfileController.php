@@ -28,11 +28,7 @@ class ProfileController extends Controller
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        $request->user()->fill($request->validated());
-
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
-        }
+        $request->user()->fill($request->safe()->only('name'));
 
         $request->user()->save();
 
@@ -45,8 +41,8 @@ class ProfileController extends Controller
     public function destroy(Request $request): RedirectResponse
     {
         if (BillingPayment::where('user_id', $request->user()->id)->where('recurring', true)
-            ->where(fn ($query) => $query->whereNull('recurring_status')->orWhereNotIn('recurring_status', ['CANCELLED', 'EXPIRED', 'SETUP_FAILED']))->exists()) {
-            throw ValidationException::withMessages(['password' => 'Cancel your PayPal automatic renewal on the Subscription page before deleting your account.'])->errorBag('userDeletion');
+            ->where(fn ($query) => $query->whereNull('recurring_status')->orWhereNotIn('recurring_status', ['CANCELLED', 'EXPIRED', 'SETUP_FAILED', 'DISABLED', 'COMPLETE']))->exists()) {
+            throw ValidationException::withMessages(['password' => 'Cancel your automatic renewal on the Subscription page before deleting your account.'])->errorBag('userDeletion');
         }
         $request->validateWithBag('userDeletion', [
             'password' => ['required', 'current_password'],

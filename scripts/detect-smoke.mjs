@@ -10,9 +10,9 @@ let fixture;
 try {
     fixture = await signInTestUser(page, base);
     await page.goto(`${base}/dashboard`);
-    expect(await page.locator('.dashboard-action-card h2').allTextContents()).toEqual(['ATS Scanner', 'Create CV', 'View Templates', 'Plan', 'Settings', 'ATS Detect']);
-    await page.locator('.dashboard-action-card').filter({ has: page.getByRole('heading', { name: 'ATS Detect', exact: true }) }).click();
-    await expect(page.getByRole('heading', { name: 'ATS Detect', exact: true })).toBeVisible();
+    expect(await page.locator('.dashboard-action-card h2').allTextContents()).toEqual(['Job-to-CV ATS Detector', 'Create CV', 'View Templates', 'Plan', 'Settings', 'ATS Checker']);
+    await page.locator('.dashboard-action-card').filter({ has: page.getByRole('heading', { name: 'ATS Checker', exact: true }) }).click();
+    await expect(page.getByRole('heading', { name: 'ATS Checker', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Check ATS readiness' }).click();
     await expect(page.getByRole('alert')).toHaveText('Upload your CV or paste its text first.');
     const text = `Alex Example\nalex@example.com | +27 71 123 4567\nWork Experience\nAnalyst, Example Ltd, 2020 - Present\n${'Delivered accurate financial reports and supported monthly business reporting. '.repeat(12)}\nEducation\nDegree, Example College, 2019\nTechnical Skills\nReporting, Excel`;
@@ -24,10 +24,10 @@ try {
     await page.setViewportSize({ width: 390, height: 844 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.getByRole('link', { name: 'Compare with a job description' }).click();
-    await expect(page.getByRole('heading', { name: 'ATS Scanner', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Job-to-CV ATS Detector', exact: true })).toBeVisible();
     await expect(page.locator('#checker-job')).toBeVisible();
     expect(errors).toEqual([]);
-    console.log('PASS: dashboard card order, ATS Detect upload/results, mobile layout and separate job-description scanner; no AI calls.');
+    console.log('PASS: dashboard card order, ATS Checker upload/results, mobile layout and separate job-description scanner; no AI calls.');
 } finally {
     await browser.close();
     removeTestUser(fixture);

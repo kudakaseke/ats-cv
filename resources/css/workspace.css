@@ -9,7 +9,7 @@ body[data-workspace] {
     color: var(--ink);
     background: #f8f9fb;
 }
-.payment-method-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.payment-method-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
 .payment-method-card { padding: 28px; display: flex; flex-direction: column; gap: 18px; }
 .payment-method-card h2 { font-size: 21px; font-weight: 600; }
 .payment-method-card p, .payment-method-card .billing-consent { font-size: 13px; line-height: 1.8; color: #596372; }
@@ -232,3 +232,10 @@ body[data-workspace] .audit-table summary { cursor: pointer; }
 .subscription-sections a:focus-visible { outline: 3px solid #346de1; outline-offset: 3px; }
 .subscription-section { scroll-margin-top: 24px; margin-bottom: 28px; }
 .subscription-section-heading { font-size: 24px; font-weight: 600; margin-bottom: 18px; }
+
+.payment-method-heading { display: flex; align-items: center; gap: 16px; }
+.payment-method-heading h2 { margin: 0; }
+.payment-provider-icon.payment-provider-paystack,
+.payment-provider-icon.payment-provider-paynow { position: relative; width: 140px; height: 54px; padding: 0; overflow: hidden; background: #fff; flex-shrink: 0; }
+.payment-provider-paystack img,
+.payment-provider-paynow img { position: absolute; width: 100%; height: auto; max-width: none; left: 50%; top: 50%; transform: translate(-50%, -50%); }

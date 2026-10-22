@@ -188,27 +188,21 @@ test('gallery keeps complete template examples when a draft is partially filled'
     assert.equal(JSON.stringify(cv.data), before);
 });
 
-test('builder Back follows its steps and exits review before leaving the CV', async () => {
+test('builder Back returns to Dashboard from every step without changing the draft', async () => {
     const cv = builder();
-    const visited = [];
-    cv.go = async step => visited.push(step);
-    cv.step = 3;
+    const destinations = [];
+    cv.leave = async url => destinations.push(url);
+    for (const step of [1, 2, 3, 4, 5]) {
+        cv.step = step;
+        cv.reviewing = step === 4;
+        await cv.builderBack();
+        assert.equal(destinations.pop(), '/dashboard');
+        assert.equal(cv.step, step);
+    }
+    cv.busy = true;
     await cv.builderBack();
-    assert.equal(visited.pop(), 2);
-    cv.data.imported_text = 'Imported CV';
-    await cv.builderBack();
-    assert.equal(visited.pop(), 5);
-    cv.step = 5;
-    await cv.builderBack();
-    assert.equal(visited.pop(), 1);
-    cv.step = 4;
-    cv.reviewing = true;
-    await cv.builderBack();
-    assert.equal(cv.reviewing, false);
-    await cv.builderBack();
-    assert.equal(visited.pop(), 3);
+    assert.equal(destinations.length, 0);
 });
-
 
 test('the position question opens departments and selects its matching role', async () => {
     const cv = builder();

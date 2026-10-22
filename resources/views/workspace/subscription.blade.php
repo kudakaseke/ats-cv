@@ -51,7 +51,7 @@
                 @if($plan->paystack_amount_cents && $plan->paystack_mode === 'live')<p class="plan-billing-note">{{ config('paystack.currency') }} {{ number_format($plan->paystack_amount_cents / 100, 2) }} charged {{ $plan->billing_interval === 'annually' ? 'once per year' : 'each month' }}.</p>@endif
                 <ul>@foreach($plan->features as $feature)<li><x-icon name="check" /> {{ str_replace(['One complete analysis and CV revamp', 'Analysis history'], ['One complete Job-to-CV ATS Detector check and CV revamp', 'Job-to-CV ATS Detector history'], $feature) }}</li>@endforeach</ul>
                 @if(in_array($plan->slug, ['monthly', 'pro', 'annual'], true))
-                    <a class="btn btn-primary" href="{{ route('subscription.payment-methods', $plan->slug) }}">Continue to Paystack</a>
+                    <a class="btn btn-primary" href="{{ route('subscription.payment-methods', $plan->slug) }}">Choose Payment Method</a>
                 @else
                     <span class="pill">{{ $plan->slug === $currentPlan->slug ? 'Your current plan' : 'Free plan' }}</span>
                 @endif

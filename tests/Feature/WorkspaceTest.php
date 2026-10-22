@@ -37,9 +37,9 @@ class WorkspaceTest extends TestCase
         $this->actingAs(User::factory()->create())->get('/subscription')->assertOk()
             ->assertSee(route('subscription.payment-methods', 'monthly'))->assertSee(route('subscription.payment-methods', 'annual'));
         foreach (['monthly' => '4.75', 'pro' => '6.25', 'annual' => '47.40'] as $plan => $price) {
-            $this->get('/subscription/'.$plan.'/payment-method')->assertOk()->assertSee('Choose payment method')
-                ->assertSee('Paystack')->assertSee('Paynow')->assertSee('PayPal')->assertSee('US$'.$price)
-                ->assertSee('payment-provider-paystack')->assertSee('payment-provider-paynow')->assertSee('payment-provider-paypal');
+            $this->get('/subscription/'.$plan.'/payment-method')->assertOk()->assertSee('Choose Payment Method')
+                ->assertSeeInOrder(['<h2 class="sr-only">Paystack</h2>', '<h2 class="sr-only">Paynow</h2>'], false)->assertSee('US$'.$price)
+                ->assertSee('payment-provider-paystack')->assertSee('payment-provider-paynow')->assertDontSee('payment-provider-paypal');
         }
         $this->get('/subscription/free/payment-method')->assertNotFound();
         $this->assertDatabaseCount('billing_payments', 0);

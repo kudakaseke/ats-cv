@@ -7,10 +7,10 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="builder-body">
-<div x-data="cvBuilder({{ Js::from(['authenticated' => auth()->check(), 'continueUrl' => route('builder.continue'), 'draft' => $draft, 'templates' => $templates, 'allowedTemplateIds' => app(\App\Services\PlanService::class)->templateIds(auth()->user()), 'positionGroups' => config('cv_positions'), 'departments' => config('cv_departments'), 'saveUrl' => route('builder.save'), 'finishUrl' => route('builder.finish'), 'importUrl' => route('builder.import'), 'exportUrl' => route('builder.export'),
+<div x-data="cvBuilder({{ Js::from(['authenticated' => auth()->check(), 'continueUrl' => route('builder.continue'), 'draft' => $draft, 'templates' => $templates, 'allowedTemplateIds' => app(\App\Services\PlanService::class)->templateIds(auth()->user()), 'positionGroups' => config('cv_positions'), 'departments' => config('cv_departments'), 'dashboardUrl' => route('dashboard'), 'pricingUrl' => route('pricing'), 'saveUrl' => route('builder.save'), 'finishUrl' => route('builder.finish'), 'importUrl' => route('builder.import'), 'exportUrl' => route('builder.export'),
         'reviewRequested' => (bool) ($draft['review_ready'] ?? false), 'csrf' => csrf_token(), 'savedAccount' => isset($draft['resume_id']), 'resumeId' => $draft['resume_id'] ?? null]) }})" x-cloak>
     <header class="builder-header">
-        <x-back-button :href="route('home')" @click.prevent="builderBack()" />
+        <x-back-button :href="route('dashboard')" @click.prevent="builderBack()" />
         <button class="builder-template-button" x-show="step === 4" @click="go(3)" :disabled="!!downloading"><x-icon name="layout-template" />Change template</button>
 
         <a class="builder-exit" href="{{ route('dashboard') }}" @click.prevent="leave($el.href)"><x-icon name="layout-dashboard" />Dashboard</a>

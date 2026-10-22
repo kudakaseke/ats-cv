@@ -11,8 +11,8 @@ try {
     const response = await page.goto(`${base}/subscription`);
     expect(response.status()).toBe(200);
     for (const plan of ['monthly', 'annual']) {
-        await page.locator(`#plan-${plan}`).getByRole('link', { name: 'Choose payment method' }).click();
-        await expect(page.getByRole('heading', { name: 'Choose payment method', exact: true })).toBeVisible();
+        await page.locator(`#plan-${plan}`).getByRole('link', { name: 'Choose Payment Method' }).click();
+        await expect(page.getByRole('heading', { name: 'Choose Payment Method', exact: true })).toBeVisible();
         expect(await page.locator('.payment-provider-icon svg').count()).toBe(3);
         await page.setViewportSize({ width: 390, height: 844 });
         await expect.poll(() => page.locator('.workspace-sidebar').evaluate(el => el.getBoundingClientRect().right)).toBeLessThanOrEqual(1);

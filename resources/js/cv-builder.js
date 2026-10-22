@@ -318,16 +318,12 @@ Alpine.data('cvBuilder', (boot) => ({
     get sections() { return [{ id: 'personal', label: 'Personal details' }, { id: 'summary', label: 'Summary' }, { id: 'experience', label: 'Experience' }, { id: 'education', label: 'Education' }, { id: 'skills', label: 'Skills' }, { id: 'achievements', label: 'Achievements' }, { id: 'courses', label: 'Courses' }, { id: 'languages', label: 'Languages' }, { id: 'core_strengths', label: 'Competencies' }, { id: 'references', label: 'References' }, { id: 'custom_sections', label: 'Additional sections' }]; },
     async builderBack() {
         if (this.busy || this.downloading || this.importing) return;
-        if (this.step === 4 && this.reviewing) { this.editCv(); return; }
-        if (this.step === 4) { await this.go(3); return; }
-        if (this.step === 3) { await this.go(this.data.imported_text ? 5 : 2); return; }
-        if (this.step === 2 || this.step === 5) { await this.go(1); return; }
-        await this.leave(this.$root.querySelector('[data-site-back]').href);
+        await this.leave(boot.dashboardUrl || '/dashboard');
     },
     async go(step) { this.downloadMenu = false; if (step !== 4) this.reviewing = false; this.step = step; this.error = ''; await this.save(); window.scrollTo({ top: 0, behavior: 'smooth' }); },
     async choose(template) {
         if (!this.allowedTemplateIds.includes(template.id)) {
-            this.error = 'This template is included with paid plans. Choose an available Free template or upgrade to unlock all designs.';
+            await this.leave(boot.pricingUrl || '/pricing');
             return;
         }
         this.data.template = template.id;

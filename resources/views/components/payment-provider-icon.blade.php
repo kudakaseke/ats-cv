@@ -1,5 +1,8 @@
 @props(['provider'])
 <span class="payment-provider-icon payment-provider-{{ $provider }}" aria-hidden="true">
+    @if(in_array($provider, ['paystack', 'paynow'], true))
+        <img src="{{ asset('images/payment-providers/'.$provider.'.png') }}" alt="" decoding="async">
+    @else
     <svg viewBox="0 0 40 40" fill="currentColor" focusable="false">
         @if($provider === 'paystack')
             <rect x="7" y="6" width="27" height="5" rx="1"/><rect x="7" y="14" width="27" height="5" rx="1"/><rect x="7" y="22" width="27" height="5" rx="1"/><rect x="7" y="30" width="17" height="5" rx="1"/>
@@ -9,4 +12,5 @@
             <path d="M5 10h21l-5-5 4-4 12 12-12 12-4-4 5-5H5zm30 20H14l5 5-4 4L3 27l12-12 4 4-5 5h21z"/>
         @endif
     </svg>
+    @endif
 </span>
