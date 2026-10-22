@@ -4,6 +4,8 @@ Laravel 12, patched PHP (see `composer.json`), MySQL, Livewire 4, Blade, Tailwin
 
 ## Security and deployment
 
+For backend error monitoring, see [Sentry setup](docs/sentry-setup.md). The SDK forwards sanitised incidents only after a private project DSN is configured.
+
 Read the [22 October 2026 security review](docs/security-review-2026-10-22.md) before deployment. The local PHP runtime has been updated to 8.2.35, but the older bundled Apache/MariaDB stack is restricted to loopback and must not be published as production infrastructure. Production requires a maintained stack, HTTPS, a `public/` document root, debug disabled, explicit host/proxy settings, rotated provider credentials and a dedicated database account. `.htaccess` protections apply to Apache; configure equivalent access restrictions on other web servers.
 
 Run `php artisan test --filter=SecurityThreatTest` for adversarial request/upload checks and `node scripts/security-browser-smoke.mjs` for malicious CV rendering checks. These complement the full application suite and dependency audits; they do not certify every attack path or an untested hosting environment.

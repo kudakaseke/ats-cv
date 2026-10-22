@@ -54,5 +54,6 @@
             <div class="reference-footer-bottom"><span>© {{ date('Y') }} atscvdetector</span><div><a href="{{ route('privacy') }}">Privacy Policy</a><a href="{{ route('terms') }}">Terms and Conditions</a><a href="{{ route('refund') }}">Refund Policy</a></div></div>
         </div>
     </footer>
+    <x-cookie-notice />
 </body>
 </html>

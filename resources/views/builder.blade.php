@@ -143,5 +143,6 @@
     </main>
 </div>
 <noscript><p class="builder-alert">Please enable JavaScript to use the CV builder.</p><a href="{{ route('home') }}">Back to home</a></noscript>
+    <x-cookie-notice />
 </body>
 </html>

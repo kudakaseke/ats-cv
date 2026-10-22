@@ -5,6 +5,7 @@ namespace App\Services;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Sentry\EventId;
 use Throwable;
 
 class IncidentReporter
@@ -19,7 +20,7 @@ class IncidentReporter
         return $request->attributes->get('error_reference');
     }
 
-    public function report(Throwable $exception): void
+    public function report(Throwable $exception): ?EventId
     {
         // Exceptions can embed SQL bindings, provider credentials or CV text.
         // Record code locations, never messages, arguments, URLs or request bodies.
@@ -42,6 +43,8 @@ class IncidentReporter
             // Logging failure must not replace the original error or expose secrets.
             error_log('Application incident '.$context['reference'].' ('.$exception::class.')');
         }
+
+        return app(SentryIncidentReporter::class)->report($context);
     }
 
     private function relative(string $file): string

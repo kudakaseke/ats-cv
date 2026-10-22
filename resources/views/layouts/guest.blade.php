@@ -28,5 +28,6 @@
         </main>
         <footer class="auth-footer"><a href="{{ route('contact') }}">Support</a><span>·</span><a href="{{ route('terms') }}">Terms</a><span>·</span><a href="{{ route('privacy') }}">Privacy</a></footer>
     </div>
+    <x-cookie-notice />
 </body>
 </html>

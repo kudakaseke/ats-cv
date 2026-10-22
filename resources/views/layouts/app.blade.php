@@ -70,5 +70,6 @@
         </div>
     </div>
     @livewireScripts
+    <x-cookie-notice />
 </body>
 </html>

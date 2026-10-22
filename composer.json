@@ -10,6 +10,7 @@
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
         "livewire/livewire": "^4.4",
+        "sentry/sentry-laravel": "^4.29",
         "smalot/pdfparser": "^2.13",
         "srmklive/paypal": "^3.2"
     },
