@@ -22,5 +22,5 @@
     @else
         <p>No confirmed payments yet.</p>
     @endif
-    <a class="text-link" href="{{ route('account.activity') }}">View payments and audit trail</a>
+    <a class="text-link" href="{{ route('subscription') }}#payment-history">View payment history</a>
 </section>

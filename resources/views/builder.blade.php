@@ -2,23 +2,26 @@
 <html lang="en">
 <head>
     <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Build your CV · atscvdetector</title><link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
+    <title>Build your CV · atscvdetector</title><link rel="icon" href="{{ asset('favicon.png').'?v=minimal-cv-3' }}" type="image/png"><link rel="icon" href="{{ asset('favicon.svg').'?v=minimal-cv-3' }}" type="image/svg+xml" sizes="any">
     <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="builder-body">
-<div x-data="cvBuilder({{ Js::from(['authenticated' => auth()->check(), 'continueUrl' => route('builder.continue'), 'draft' => $draft, 'templates' => $templates, 'positionGroups' => config('cv_positions'), 'departments' => config('cv_departments'), 'saveUrl' => route('builder.save'), 'finishUrl' => route('builder.finish'), 'importUrl' => route('builder.import'), 'exportUrl' => route('builder.export'),
+<div x-data="cvBuilder({{ Js::from(['authenticated' => auth()->check(), 'continueUrl' => route('builder.continue'), 'draft' => $draft, 'templates' => $templates, 'allowedTemplateIds' => app(\App\Services\PlanService::class)->templateIds(auth()->user()), 'positionGroups' => config('cv_positions'), 'departments' => config('cv_departments'), 'saveUrl' => route('builder.save'), 'finishUrl' => route('builder.finish'), 'importUrl' => route('builder.import'), 'exportUrl' => route('builder.export'),
         'reviewRequested' => (bool) ($draft['review_ready'] ?? false), 'csrf' => csrf_token(), 'savedAccount' => isset($draft['resume_id']), 'resumeId' => $draft['resume_id'] ?? null]) }})" x-cloak>
     <header class="builder-header">
         <x-back-button :href="route('home')" @click.prevent="builderBack()" />
-        <button class="builder-template-button" @click="go(3)" :disabled="!!downloading"><x-icon name="layout-template" />Change template</button>
+        <button class="builder-template-button" x-show="step === 4" @click="go(3)" :disabled="!!downloading"><x-icon name="layout-template" />Change template</button>
+
+        <a class="builder-exit" href="{{ route('dashboard') }}" @click.prevent="leave($el.href)"><x-icon name="layout-dashboard" />Dashboard</a>
+    </header>
+    <nav class="builder-progress-row" aria-label="CV creation steps">
         <ol class="builder-progress" aria-label="CV builder progress">
             <template x-for="(label, i) in ['Starting point', 'Your role', 'Template', 'Your CV']" :key="label">
                 <li :class="{ active: step === i + 1, complete: step > i + 1 }"><span x-text="step > i + 1 ? '\u2713' : i + 1"></span><small x-text="label"></small></li>
             </template>
         </ol>
-        <a class="builder-exit" href="{{ route('dashboard') }}" @click.prevent="leave($el.href)"><x-icon name="layout-dashboard" />Dashboard</a>
-    </header>
+    </nav>
     <main>
         <x-input-error :messages="$errors->get('resume_limit')" class="builder-alert" />
         <div class="builder-success builder-add-success" x-show="successMessage" x-text="successMessage" role="status" aria-live="polite" aria-atomic="true"></div>
@@ -29,7 +32,7 @@
             <span class="builder-eyebrow">LET’S START WITH YOUR STORY</span>
             <h1>Do you have an existing CV<br>to use as a starting point?</h1>
             <p>Bring what you have, or build something new. We’ll guide you from here.</p>
-            <div class="builder-answers"><button class="builder-btn primary" @click="go(5)">Yes, I have a CV <span>&#8599;</span></button><button class="builder-btn secondary" @click="go(2)">No, start from scratch <span>&#8599;</span></button></div>
+            <div class="builder-answers"><button class="builder-btn primary" @click="go(5)">Yes, I have a CV </button><button class="builder-btn secondary" @click="go(2)">No, start from scratch </button></div>
             <small class="builder-privacy">Start without an account. Sign in when you're ready to save.</small>
         </section>
         <section class="builder-question" x-show="step === 5">
@@ -42,15 +45,18 @@
             </div>
         </section>
         <section class="builder-question builder-question-compact" x-show="step === 2">
-            <div class="role-illustration" aria-hidden="true"><span>&#8599;</span><div class="role-document"><i></i><i></i><i></i><i></i></div><b>YOUR NEXT CHAPTER</b></div>
+            <div class="role-illustration" aria-hidden="true"><div class="role-document"><i></i><i></i><i></i><i></i></div><b>YOUR NEXT CHAPTER</b></div>
             <span class="builder-eyebrow">A LITTLE DIRECTION GOES A LONG WAY</span>
             <h1>Please tell me your position<br>so I can recommend templates.</h1><p>We’ll use this as the headline on your CV. You can change it later.</p>
-            <form class="builder-role-form" @submit.prevent="goToPositionTemplates()"><label class="sr-only" for="target-role">Target position</label><input id="target-role" x-model="data.role" maxlength="150" placeholder="e.g. Software Engineer, Marketing Manager" autocomplete="organization-title"><button class="builder-btn primary" type="submit" :disabled="!data.role.trim()">Next &#8594;</button></form>
+            <form class="builder-role-form" @submit.prevent="goToPositionTemplates()"><label class="sr-only" for="target-role">Target position</label><input id="target-role" x-model="data.role" maxlength="150" placeholder="e.g. Software Engineer, Marketing Manager" autocomplete="organization-title"><button class="builder-btn primary" type="submit" :disabled="!data.role.trim()">Next</button></form>
             <button class="builder-text-btn" @click="go(3)">Skip this step</button>
         </section>
         <section class="builder-gallery" x-show="step === 3">
             <span class="builder-eyebrow">A GREAT FIRST IMPRESSION STARTS HERE</span>
             <h1>Choose a template for your CV.<br><span>Make it yours.</span></h1><p>{{ count($templates) }} designs. One career story. You can switch templates at any time without losing your details.</p>
+            @if(!auth()->check() || app(\App\Services\PlanService::class)->current(auth()->user())->slug === 'free')
+                <p>Free includes {{ count(config('cv_access.free_templates')) }} templates. <a href="{{ route('pricing') }}">Upgrade to unlock all {{ count($templates) }} designs.</a></p>
+            @endif
             <div class="builder-filters" x-ref="templateFilters" role="group" aria-label="Template categories"><template x-for="filter in ['All', ...templateCategories, 'By Department']"><button @click="selectCategory(filter)" :class="{ selected: category === filter }" :aria-pressed="category === filter" x-text="filter"></button></template></div>
             <section class="position-gallery department-gallery" x-show="category === 'By Department'" aria-labelledby="departments-heading">
                 <h2 id="departments-heading" class="template-group-heading">By Department <small x-text="departmentExamples.length + ' templates'"></small></h2>
@@ -59,7 +65,7 @@
                     <template x-for="department in departmentExamples" :key="department.id">
                         <article class="template-card department-card">
                             <button type="button" class="department-preview" @click="chooseDepartment(department)" :aria-label="'Preview and choose ' + department.title + ' template'"><span class="template-preview cv-stage" x-html="departmentPreview(department)"></span></button>
-                            <div class="template-caption"><h2 x-text="department.title"></h2></div>
+                            <div class="template-caption"><h2 x-text="department.title"></h2><span class="template-lock" x-show="!allowedTemplateIds.includes(department.template.id)" aria-label="Paid plan template"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Paid plan</span></div>
                             <label class="department-role-label" :for="'department-role-' + department.id">Role</label>
                             <select class="department-role-select" :id="'department-role-' + department.id" :value="departmentRoles[department.id] || ''" @change="departmentRoles[department.id] = $event.target.value">
                                 <option value="">Choose a role</option><template x-for="role in department.roles" :key="role"><option :value="role" x-text="role"></option></template>
@@ -70,7 +76,7 @@
                     </template>
                 </div>
             </section>
-            <template x-for="group in templateGroups" :key="group.category"><section class="template-group" :aria-label="group.category + ' templates'"><h2 class="template-group-heading"><span x-text="group.category"></span> <small x-text="group.templates.length + ' templates'"></small></h2><div class="template-grid"><template x-for="template in group.templates" :key="template.id"><button class="template-card" @click="choose(template)" :aria-label="'Choose ' + template.name + ' template'"><span class="template-recommended" x-show="recommendedIds.includes(template.id)">Suggested for your role</span><div class="template-preview cv-stage" x-html="preview(template, true)"></div><div class="template-caption"><div><h2 x-text="template.name"></h2><p x-text="template.category + ' · ' + (template.columns === 2 ? 'Two columns' : 'One column')"></p></div><span class="template-arrow">&#8599;</span></div></button></template></div></section></template>
+            <template x-for="group in templateGroups" :key="group.category"><section class="template-group" :aria-label="group.category + ' templates'"><h2 class="template-group-heading"><span x-text="group.category"></span> <small x-text="group.templates.length + ' templates'"></small></h2><div class="template-grid"><template x-for="template in group.templates" :key="template.id"><button class="template-card" :class="{ 'template-is-locked': !allowedTemplateIds.includes(template.id) }" @click="choose(template)" :aria-label="'Choose ' + template.name + ' template'"><span class="template-lock" x-show="!allowedTemplateIds.includes(template.id)" aria-label="Paid plan template"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Paid plan</span><span class="template-recommended" x-show="recommendedIds.includes(template.id)">Suggested for your role</span><div class="template-preview cv-stage" x-html="preview(template, true)"></div><div class="template-caption"><div><h2 x-text="template.name"></h2><p x-text="template.category + ' · ' + (allowedTemplateIds.includes(template.id) ? 'Included' : 'Paid plan')"></p></div></div></button></template></div></section></template>
         </section>
         <section class="builder-editor" x-show="step === 4" :class="{ 'is-expanded': editorExpanded, 'is-reviewing': reviewing }">
             <div class="editor-toolbar">

@@ -19,7 +19,7 @@ class SubscriptionCreditDisplayTest extends TestCase
 
     public static function plans(): array
     {
-        return ['Monthly' => ['monthly', 'Monthly', 150, 7795], 'Pro' => ['pro', 'Pro', 225, 10256], 'Annual' => ['annual', 'Annual', 150, 77783]];
+        return ['Monthly' => ['monthly', 'Monthly', 150, 7795], 'Pro' => ['pro', 'Pro', 225, 10256], 'Annual' => ['annual', 'Annual', 200, 77783]];
     }
 
     #[DataProvider('plans')]

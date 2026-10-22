@@ -44,3 +44,15 @@ document.addEventListener('click', event => {
         history.back();
     }
 });
+
+// Protect gallery sample text while leaving the user's editable CV accessible.
+const isTemplatePreview = target => target instanceof Element && target.closest('.template-preview');
+for (const eventName of ['copy', 'cut', 'contextmenu', 'dragstart']) {
+    document.addEventListener(eventName, event => {
+        const selection = window.getSelection();
+        const anchor = selection?.anchorNode;
+        if (isTemplatePreview(event.target) || ((eventName === 'copy' || eventName === 'cut') && isTemplatePreview(anchor instanceof Element ? anchor : anchor?.parentElement))) {
+            event.preventDefault();
+        }
+    });
+}

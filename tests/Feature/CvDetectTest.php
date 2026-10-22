@@ -22,7 +22,7 @@ class CvDetectTest extends TestCase
     {
         Http::preventStrayRequests();
         $user = User::factory()->create();
-        $this->actingAs($user)->get('/workspace/detect')->assertOk()->assertSee('ATS Detect')->assertSee('No job description needed.');
+        $this->actingAs($user)->get('/workspace/detect')->assertOk()->assertSee('ATS Checker')->assertSee('No job description needed.');
         $text = "Alex Example\nalex@example.com | +27 71 123 4567\nWork Experience\nAnalyst, Example Ltd, 2020 - Present\n".str_repeat('Delivered accurate financial reports and supported monthly business reporting. ', 12)."\nEducation\nDegree, Example College, 2019\nTechnical Skills\nReporting, Excel";
         $this->postJson('/checker/detect', ['resume_text' => $text])->assertOk()
             ->assertJsonPath('passed', 7)->assertJsonPath('total', 7)
@@ -43,6 +43,6 @@ class CvDetectTest extends TestCase
     public function test_dashboard_starts_with_requested_tools_before_credit_summary(): void
     {
         $this->actingAs(User::factory()->create())->get('/dashboard')->assertOk()
-            ->assertSeeInOrder(['<h2>ATS Scanner</h2>', '<h2>Create CV</h2>', '<h2>View Templates</h2>', '<h2>Plan</h2>', '<h2>Settings</h2>', '<h2>ATS Detect</h2>', '<h2>Make your next move.</h2>'], false);
+            ->assertSeeInOrder(['<h2>Job-to-CV ATS Detector</h2>', '<h2>Create CV</h2>', '<h2>View Templates</h2>', '<h2>Plan</h2>', '<h2>Settings</h2>', '<h2>ATS Checker</h2>', '<h2>Make your next move.</h2>'], false);
     }
 }

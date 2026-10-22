@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ config('app.name') }} · Workspace</title>
-    <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
+    <link rel="icon" href="{{ asset('favicon.png').'?v=minimal-cv-3' }}" type="image/png"><link rel="icon" href="{{ asset('favicon.svg').'?v=minimal-cv-3' }}" type="image/svg+xml" sizes="any">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@200;300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -17,9 +17,9 @@
     <div class="workspace-shell" x-data="{ sidebar: false, mobile: window.innerWidth <= 900 }" @resize.window.debounce="mobile = window.innerWidth <= 900; if (!mobile) sidebar = false" @keydown.escape.window="sidebar = false">
         <div class="sidebar-overlay" x-cloak x-show="sidebar" @click="sidebar = false"></div>
         <aside id="workspace-navigation" class="workspace-sidebar" :class="{ 'sidebar-open': sidebar }" :inert="mobile && !sidebar ? '' : null">
-            <a class="workspace-brand" href="{{ route('dashboard') }}">atscvdetector<span>CV tools</span></a>
+            <a class="workspace-brand" href="{{ route('dashboard') }}" aria-label="ATS CV Detector dashboard"><x-logo-image /></a>
             <nav aria-label="Workspace navigation">
-                @foreach ([['dashboard', 'layout-dashboard', 'Dashboard', route('dashboard')], ['checker', 'scan-text', 'ATS Scanner', route('workspace.module', 'checker')], ['detect', 'file-check-2', 'ATS Detect', route('workspace.module', 'detect')], ['builder', 'file-plus-2', 'Create CV', route('workspace.module', 'builder')], ['resumes', 'folder-open', 'My CVs', route('workspace.module', 'resumes')], ['subscription', 'credit-card', 'Subscription', route('subscription')], ['account.activity', 'history', 'Audit trail', route('account.activity')]] as $item)
+                @foreach ([['dashboard', 'layout-dashboard', 'Dashboard', route('dashboard')], ['checker', 'scan-text', 'Job-to-CV ATS Detector', route('workspace.module', 'checker')], ['detect', 'file-check-2', 'ATS Checker', route('workspace.module', 'detect')], ['builder', 'file-plus-2', 'Create CV', route('workspace.module', 'builder')], ['resumes', 'folder-open', 'My CVs', route('workspace.module', 'resumes')], ['subscription', 'credit-card', 'Subscription', route('subscription')]] as $item)
                     @php($active = request()->routeIs($item[0]) || request()->route('module') === $item[0])
                     <a class="sidebar-link {{ $active ? 'active' : '' }}" href="{{ $item[3] }}" @click="sidebar = false" @if($active) aria-current="page" @endif><x-icon :name="$item[1]" />{{ $item[2] }}</a>
                 @endforeach
@@ -54,7 +54,6 @@
                 <a class="user-profile" href="{{ route('profile.edit') }}" aria-label="Account settings for {{ auth()->user()->name }}">
                     <span class="avatar">{{ mb_strtoupper(mb_substr(auth()->user()->name, 0, 1)) }}</span>
                     <span>{{ auth()->user()->name }}<small>Account settings</small></span>
-                    <x-icon name="chevron-right" />
                 </a>
             </header>
             <main id="main" class="workspace-content">

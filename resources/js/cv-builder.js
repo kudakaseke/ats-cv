@@ -3,7 +3,13 @@ import Alpine from 'alpinejs';
 const blankExperience = () => ({ title: '', company: '', period: '', location: '', description: '' });
 const blankEducation = () => ({ degree: '', school: '', period: '', location: '', grade: '' });
 const defaults = () => ({ section_titles: {}, hidden_sections: [], section_positions: [], template: 'double-column', role: '', name: '', email: '', phone: '', location: '', website: '', summary: '', skills: '', experience: [blankExperience()], education: [blankEducation()], achievements: [{ title: '', description: '' }], courses: [{ title: '', institution: '' }], languages: [{ name: '', level: 'Fluent' }], competencies: '', core_strengths: '', references: '', custom_sections: [], imported_text: '' });
-const sample = { ...defaults(), name: 'Alex Morgan', role: 'Your next career opportunity', email: 'alex@example.com', phone: '+27 71 234 5678', location: 'Johannesburg, South Africa', website: 'linkedin.com/in/alexmorgan', summary: 'A thoughtful professional who turns complex challenges into practical results. Experienced in building strong relationships, improving processes, and delivering work that makes a difference.', skills: 'Project planning, Communication, Leadership, Problem solving, Research, Collaboration', experience: [{ title: 'Senior Specialist', company: 'Northstar Group', period: '2022 – Present', location: 'Johannesburg', description: 'Led cross-functional projects from idea to delivery.\nImproved team workflows and introduced a clear approach to reporting.\nBuilt lasting relationships with clients and colleagues.' }, { title: 'Specialist', company: 'Bright Futures', period: '2019 – 2022', location: 'Cape Town', description: 'Supported a growing team across daily operations and strategic initiatives.\nDeveloped practical solutions through research and collaboration.' }, { title: 'Associate', company: 'Common Ground', period: '2017 – 2019', location: 'Pretoria', description: 'Coordinated projects and maintained accurate documentation.\nWorked closely with colleagues to deliver excellent service.' }], education: [{ degree: 'Bachelor of Commerce', school: 'University of Johannesburg', period: '2013 – 2016', location: 'Johannesburg' }], achievements: [{ title: 'Making an impact', description: 'Delivered a successful initiative through careful planning and teamwork.' }, { title: 'Recognised for excellence', description: 'Received recognition for consistent work and attention to detail.' }], courses: [{ title: 'Professional Development', institution: 'Continuing Education Institute' }], languages: [{ name: 'English', level: 'Fluent' }, { name: 'Shona', level: 'Native' }] };
+const sample = { ...defaults(), name: 'John Doe', role: 'Your next career opportunity', email: 'john.doe@example.com', phone: '+27 71 234 5678', location: 'Johannesburg, South Africa', website: 'linkedin.com/in/johndoe', summary: 'A thoughtful professional who turns complex challenges into practical results. Experienced in building strong relationships, improving processes, and delivering work that makes a difference.', skills: 'Project planning, Communication, Leadership, Problem solving, Research, Collaboration', experience: [{ title: 'Senior Specialist', company: 'Northstar Group', period: '2022 – Present', location: 'Johannesburg', description: 'Led cross-functional projects from idea to delivery.\nImproved team workflows and introduced a clear approach to reporting.\nBuilt lasting relationships with clients and colleagues.' }, { title: 'Specialist', company: 'Bright Futures', period: '2019 – 2022', location: 'Cape Town', description: 'Supported a growing team across daily operations and strategic initiatives.\nDeveloped practical solutions through research and collaboration.' }, { title: 'Associate', company: 'Common Ground', period: '2017 – 2019', location: 'Pretoria', description: 'Coordinated projects and maintained accurate documentation.\nWorked closely with colleagues to deliver excellent service.' }], education: [{ degree: 'Bachelor of Commerce', school: 'University of Johannesburg', period: '2013 – 2016', location: 'Johannesburg' }], achievements: [{ title: 'Making an impact', description: 'Delivered a successful initiative through careful planning and teamwork.' }, { title: 'Recognised for excellence', description: 'Received recognition for consistent work and attention to detail.' }], courses: [{ title: 'Professional Development', institution: 'Continuing Education Institute' }], languages: [{ name: 'English', level: 'Fluent' }, { name: 'Shona', level: 'Native' }] };
+// These examples belong only to the gallery, never to an applicant's draft.
+for (const entry of sample.experience) {
+    entry.description += '\nPrepared clear progress updates, recorded outstanding actions and followed up with colleagues to keep delivery on track.\nReviewed supporting information for accuracy and helped the team resolve recurring issues before deadlines.';
+}
+sample.summary += ' Combines careful planning with clear communication and consistent follow-through. Works collaboratively to identify practical improvements and maintain dependable service.';
+sample.courses.push({title: 'Communication and Team Development', institution: 'Professional Learning Centre', period: '2021'});
 const escape = (text) => String(text ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 
 const normaliseSections = data => {
@@ -15,7 +21,7 @@ const normaliseSections = data => {
 };
 
 Alpine.data('cvBuilder', (boot) => ({
-    step: boot.draft.step || 1, data: normaliseSections({ ...defaults(), ...(boot.draft.data || {}) }), templates: boot.templates,
+    step: boot.draft.step || 1, data: normaliseSections({ ...defaults(), ...(boot.draft.data || {}) }), templates: boot.templates, allowedTemplateIds: boot.allowedTemplateIds || boot.templates.map(template => template.id),
     inlineSections: [], addSectionId: 'achievements',
     reviewZoom: 100, reviewing: Boolean(boot.savedAccount || boot.reviewRequested), editorExpanded: false, downloadMenu: false, downloading: '',
     departments: boot.departments || [], departmentRoles: {},
@@ -238,19 +244,22 @@ Alpine.data('cvBuilder', (boot) => ({
     departmentExample(template, role = '') {
         const p = template.department_profile;
         const department = this.departments.find(item => item.template === template.id);
-        return {...defaults(), name: 'Alex Morgan', role: role || department?.roles[0] || template.name,
-            email: 'alex.morgan@example.com', phone: '+27 71 234 5678', location: 'Johannesburg, South Africa',
-            summary: `Professional with experience in ${p.focus}. Organised, collaborative and committed to accurate, dependable work.`,
+        return {...defaults(), name: 'John Doe', role: role || department?.roles[0] || template.name,
+            email: 'john.doe@example.com', phone: '+27 71 234 5678', location: 'Johannesburg, South Africa',
+            summary: `Professional with experience in ${p.focus}. Organised, collaborative and committed to accurate, dependable work. Combines practical knowledge with clear communication, careful planning and consistent follow-through. Works with colleagues to resolve outstanding issues, maintain reliable records and improve the quality of everyday service.`,
             skills: p.skill_sample,
-            experience: [{title: role || department?.roles[0] || template.name, company: 'Example Organisation', period: 'Jan 2022 - Present', location: 'Johannesburg', description: p.work},
-                {title: 'Trainee — ' + template.name, company: 'Example Services', period: 'Jan 2020 - Dec 2021', location: 'Pretoria', description: `Supported the team with ${p.focus}.\nMaintained accurate records and communicated outstanding actions to colleagues.`}],
+            experience: [{title: role || department?.roles[0] || template.name, company: 'Example Organisation', period: 'Jan 2022 - Present', location: 'Johannesburg', description: p.work + '\nPrepared clear progress updates, documented outstanding actions and followed up with the responsible colleagues.\nReviewed completed work for accuracy and helped the team introduce a consistent approach to recurring tasks.'},
+                {title: 'Assistant — ' + template.name, company: 'Example Services', period: 'Jan 2020 - Dec 2021', location: 'Pretoria', description: `Supported the team with ${p.focus}.\nMaintained accurate records and communicated outstanding actions to colleagues.\nOrganised supporting documents, checked information for completeness and resolved routine enquiries.\nWorked with colleagues to meet deadlines and improve the reliability of departmental records.`},
+                {title: 'Trainee — ' + template.name, company: 'Example Training Organisation', period: 'Jan 2018 - Dec 2019', location: 'Pretoria', description: `Gained supervised practical experience in ${p.focus}.\nAssisted with routine departmental tasks and maintained an organised record of completed work.\nApplied feedback from supervisors to improve accuracy, communication and professional practice.`}],
             education: [{degree: p.degree, school: 'Example College', period: 'Jan 2017 - Dec 2019', location: 'South Africa'}],
             courses: [{title: p.training, institution: 'Example Training Provider', period: 'Jun 2023'}],
-            achievements: [{title: p.outcome, description: 'Introduced a consistent checklist and clearer records to support reliable team delivery.'}],
-            languages: [], custom_sections: p.project ? [{title: p.project, content: p.project_sample}] : [],
+            achievements: [{title: p.outcome, description: 'Introduced a consistent checklist and clearer records to support reliable team delivery. Helped colleagues identify missing information earlier and keep outstanding actions visible.'}],
+            core_strengths: 'Attention to detail, Organisation, Communication, Teamwork, Problem solving, Accountability, Adaptability, Time management, Professionalism, Reliability',
+            languages: [{name: 'English', level: 'Fluent'}], custom_sections: p.project ? [{title: p.project, content: p.project_sample}] : [],
         };
     },
     async chooseDepartment(department) {
+        if (!this.allowedTemplateIds.includes(department.template.id)) { await this.choose(department.template); return; }
         const role = this.departmentRoles[department.id];
         if (role) this.data.role = role;
         await this.choose(department.template);
@@ -291,6 +300,7 @@ Alpine.data('cvBuilder', (boot) => ({
         return this.preview(position.template, false, example);
     },
     async choosePosition(position) {
+        if (!this.allowedTemplateIds.includes(position.template.id)) { await this.choose(position.template); return; }
         this.data.role = position.title;
         await this.choose(position.template);
     },
@@ -316,6 +326,10 @@ Alpine.data('cvBuilder', (boot) => ({
     },
     async go(step) { this.downloadMenu = false; if (step !== 4) this.reviewing = false; this.step = step; this.error = ''; await this.save(); window.scrollTo({ top: 0, behavior: 'smooth' }); },
     async choose(template) {
+        if (!this.allowedTemplateIds.includes(template.id)) {
+            this.error = 'This template is included with paid plans. Choose an available Free template or upgrade to unlock all designs.';
+            return;
+        }
         this.data.template = template.id;
         this.reviewing = false;
         await this.go(4);
@@ -449,7 +463,7 @@ Alpine.data('cvBuilder', (boot) => ({
     move(section, index, direction) { const next = index + direction; if (next < 0 || next >= this.data[section].length) return; const rows = this.data[section]; [rows[index], rows[next]] = [rows[next], rows[index]]; },
     atsExample(template) {
         const image = template.id !== 'ats-professional';
-        const base = { ...sample, name: image ? 'First Last' : 'Alex Morgan', role: image ? '' : 'DATA SCIENCE GRADUATE | WEB DEVELOPER | IT PROFESSIONAL', location: image ? 'London, UK' : 'Harare, Zimbabwe', summary: image ? '' : sample.summary, achievements: [], courses: [], languages: [], custom_sections: [] };
+        const base = { ...sample, name: 'John Doe', role: image ? '' : 'DATA SCIENCE GRADUATE | WEB DEVELOPER | IT PROFESSIONAL', location: image ? 'London, UK' : 'Harare, Zimbabwe', summary: image ? '' : sample.summary, achievements: [], courses: [], languages: [], custom_sections: [] };
         const responsibility = image ? 'Coordinated cross-functional projects across multiple departments and locations, working with analysts, managers and operational teams to improve service delivery.\nIntroduced clearer reporting and practical workflows through research and collaboration, reducing manual work and improving the accuracy of business information.\nSupported team development through training, documentation and knowledge sharing, helping colleagues adopt new processes and deliver consistent results.' : 'Coordinated cross-functional projects, working with colleagues across departments to improve service delivery.\nIntroduced clearer reporting and practical workflows, reducing manual work and improving accuracy.\nSupported team development through training, documentation and regular knowledge sharing.';
         base.experience = [
             { title: image ? 'Senior Analyst, Business Development & Operations' : 'Freelance Web Developer', company: image ? (template.id === 'ats-compact' ? 'NORTHSTAR & CO.' : 'Northstar & Co.') : '', period: 'Apr 2017 - Present', location: image ? 'London, United Kingdom' : '', description: responsibility + '\nDelivered reliable solutions through research, planning and collaboration with stakeholders.' },

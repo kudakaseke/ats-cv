@@ -12,6 +12,9 @@ use App\Http\Controllers\WorkspaceController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', HomeController::class)->name('home');
+Route::view('/features', 'features')->name('features');
+Route::get('/pricing', [HomeController::class, 'pricing'])->name('pricing');
+Route::view('/about', 'about')->name('about');
 Route::view('/ats-explained', 'ats-explained')->name('ats.explained');
 Route::get('/get-started', [CvBuilderController::class, 'show'])->name('builder.start');
 Route::post('/get-started/draft', [CvBuilderController::class, 'save'])->middleware(['throttle:builder-save'])->block(10, 3)->name('builder.save');

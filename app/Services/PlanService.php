@@ -8,6 +8,21 @@ use App\Models\User;
 
 class PlanService
 {
+    public function templateIds(?User $user): array
+    {
+        $ids = $user && $this->current($user)->slug !== 'free'
+            ? array_column(config('cv_templates'), 'id')
+            : config('cv_access.free_templates');
+        // Existing saved CVs remain editable after a subscription ends.
+        if ($user) {
+            foreach ($user->resumes()->get(['content']) as $resume) {
+                $ids[] = $resume->content['template'] ?? '';
+            }
+        }
+
+        return array_values(array_unique(array_filter($ids)));
+    }
+
     public function current(User $user): SubscriptionPlan
     {
         $subscription = $user->subscriptions()

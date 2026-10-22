@@ -25,7 +25,7 @@ class PaystackPlansTest extends TestCase
         $annual = SubscriptionPlan::where('slug', 'annual')->firstOrFail();
         $this->assertSame(4740, $annual->price_cents);
         $this->assertSame('3.95', $annual->displayPrice());
-        $this->get('/')->assertOk()->assertSee('$3.95')->assertSee('US$47.40')->assertSee('150 credits')->assertSee('exact charge and currency');
+        $this->get('/pricing')->assertOk()->assertSee('$3.95')->assertSee('US$47.40')->assertSee('200 credits')->assertSee('exact charge and currency');
     }
 
     public function test_missing_amounts_do_not_contact_paystack(): void

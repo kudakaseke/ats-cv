@@ -8,6 +8,7 @@ $templates = [
     ['id' => 'minimal', 'name' => 'Minimal', 'layout' => 'single', 'accent' => '#384552', 'font' => 'sans', 'columns' => 1, 'category' => 'Simple'],
     ['id' => 'executive', 'name' => 'Executive', 'layout' => 'double', 'accent' => '#20375e', 'font' => 'serif', 'columns' => 2, 'category' => 'Traditional'],
     ['id' => 'studio', 'name' => 'Studio', 'layout' => 'banner', 'accent' => '#7455ba', 'font' => 'sans', 'columns' => 1, 'category' => 'Creative'],
+    ['id' => 'student', 'name' => 'Student', 'layout' => 'single', 'accent' => '#346de1', 'font' => 'sans', 'columns' => 1, 'category' => 'Simple', 'section_order' => ['education', 'skills', 'experience', 'custom_sections', 'achievements', 'courses', 'languages']],
     ['id' => 'graduate', 'name' => 'Graduate', 'layout' => 'single', 'accent' => '#346de1', 'font' => 'sans', 'columns' => 1, 'category' => 'Simple'],
     ['id' => 'horizon', 'name' => 'Horizon', 'layout' => 'sidebar', 'accent' => '#2563a8', 'font' => 'sans', 'columns' => 2, 'category' => 'Modern'],
     ['id' => 'editorial', 'name' => 'Editorial', 'layout' => 'centered', 'accent' => '#983f48', 'font' => 'serif', 'columns' => 2, 'category' => 'Creative'],

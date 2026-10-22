@@ -350,3 +350,7 @@
     .cv-document-pages > .cv-paper.cv-document-page { page:cv-department; width:215.9mm; height:279.4mm; min-height:279.4mm; box-shadow:none; break-after:page; break-inside:avoid; }
     .cv-document-pages > .cv-paper.cv-document-page:last-child { break-after:auto; }
 }
+
+/* Narrow gallery sidebars need readable skill labels, not five squeezed tracks. */
+.template-preview .cv-paper .cv-side .cv-skills { grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; gap: 5px 10px; }
+.template-preview .cv-paper .cv-side .cv-skills > span { overflow-wrap: normal; word-break: normal; }

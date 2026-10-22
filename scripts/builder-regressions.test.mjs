@@ -179,7 +179,7 @@ test('gallery keeps complete template examples when a draft is partially filled'
     const before = JSON.stringify(cv.data);
     const template = {id:'elegant',layout:'sidebar',font:'sans',accent:'#233e56',category:'Modern'};
     const gallery = cv.preview(template, true);
-    assert.match(gallery, /Alex Morgan/);
+    assert.match(gallery, /John Doe/);
     assert.match(gallery, /Northstar Group/);
     assert.match(gallery, /University of Johannesburg/);
     assert.match(gallery, /template-elegant layout-sidebar/);

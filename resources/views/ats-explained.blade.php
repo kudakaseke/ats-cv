@@ -76,7 +76,10 @@
             <span class="reference-eyebrow">YOUR NEXT STEP</span>
             <h2 id="ats-next-step">Build a CV that tells your story clearly.</h2>
             <p>Use atscvdetector to build your document or compare your existing CV with a job description. Keep your experience accurate, review your changes and check the final file before you apply.</p>
-            <div class="ats-guide-actions"><a class="reference-start" href="{{ route('builder.start') }}">Create My CV <span><x-icon name="arrow-up-right" /></span></a><a class="reference-inline-link" href="{{ auth()->check() ? route('workspace.module', 'checker') : route('login') }}">Check My CV <x-icon name="arrow-up-right" /></a></div>
+            <div class="ats-guide-actions">
+                <a class="ats-guide-button" href="{{ route('builder.start') }}">Create My CV</a>
+                <a class="ats-guide-button ats-guide-button-secondary" href="{{ auth()->check() ? route('workspace.module', 'checker') : route('login') }}">Check My CV</a>
+            </div>
         </section>
     </article>
 </x-public-layout>

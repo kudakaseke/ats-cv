@@ -9,6 +9,11 @@ class HomeController extends Controller
 {
     public function __invoke(): View
     {
-        return view('welcome', ['plans' => SubscriptionPlan::where('is_active', true)->orderBy('price_cents')->get()]);
+        return view('welcome');
+    }
+
+    public function pricing(): View
+    {
+        return view('pricing', ['plans' => SubscriptionPlan::where('is_active', true)->orderBy('price_cents')->get()]);
     }
 }

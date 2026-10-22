@@ -26,7 +26,7 @@ class CvCompatibilityChecker
             'passed' => $passed,
             'total' => count($checks),
             'summary' => $passed === count($checks) ? 'Your CV passes the basic text and structure checks.' : 'Some parts of your CV need a closer look.',
-            'scope' => 'This checks the readable text and section headings. It does not assess the original page layout or predict acceptance by an employer’s ATS. Use ATS Scanner to compare your CV with a specific job.',
+            'scope' => 'This checks the readable text and section headings. It does not assess the original page layout or predict acceptance by an employer’s ATS. Use Job-to-CV ATS Detector to compare your CV with a specific job.',
         ];
     }
 }

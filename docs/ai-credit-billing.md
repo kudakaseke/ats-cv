@@ -52,7 +52,7 @@ Local checkout now enables Paystack and disables new Paynow/PayPal purchases. Ex
 Approved fixed ZAR prices, using the owner-provided USD/ZAR rate of 16.41 and rounding to cents:
 - Monthly: R77.95, 150 credits/month (`PAYSTACK_MONTHLY_AMOUNT_ZAR_CENTS=7795`).
 - Pro: R102.56, 225 credits/month (`PAYSTACK_PRO_AMOUNT_ZAR_CENTS=10256`).
-- Annual: R777.83/year, 150 credits released each month (`PAYSTACK_ANNUAL_AMOUNT_ZAR_CENTS=77783`).
+- Annual: R777.83/year, 200 credits released each month (`PAYSTACK_ANNUAL_AMOUNT_ZAR_CENTS=77783`).
 - One-time top-up: R77.95 for 150 credits, using the Monthly amount.
 
 These are fixed merchant prices, not automatic foreign-exchange conversions. Set `PAYSTACK_SECRET_KEY` privately in `.env`, then run `php artisan config:clear` and `php artisan paystack:sync-plans`. The sync command creates/reuses plans without charging customers. Set the Paystack webhook to your public HTTPS application URL followed by `/webhooks/paystack`. Checkout supplies an account-linked return URL automatically. Test keys do not grant live paid credits. No Paystack key was present when this change was prepared, so remote plans and live checkout remain unverified.

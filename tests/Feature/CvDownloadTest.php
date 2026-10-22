@@ -19,7 +19,7 @@ class CvDownloadTest extends TestCase
     }
     private function data(): array
     {
-        return ['name' => 'Alex Morgan', 'template' => 'elegant', 'experience' => [], 'education' => [], 'achievements' => [], 'courses' => [], 'languages' => []];
+        return ['name' => 'Alex Morgan', 'template' => 'essential', 'experience' => [], 'education' => [], 'achievements' => [], 'courses' => [], 'languages' => []];
     }
 
     public function test_download_requires_a_name_and_supported_format(): void

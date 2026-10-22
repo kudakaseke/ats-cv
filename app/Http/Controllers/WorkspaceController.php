@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\BillingPayment;
 use App\Models\CvAnalysis;
+use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Services\AiCreditService;
 use App\Services\PlanService;
@@ -38,8 +39,18 @@ class WorkspaceController extends Controller
 
     public function subscription(Request $request, PlanService $service): View
     {
+        $currentPlan = $service->current($request->user());
+
         return view('workspace.subscription', [
-            'currentPlan' => $service->current($request->user()),
+            'currentPlan' => $currentPlan,
+            'activeSubscription' => $request->user()->subscriptions()->where('subscription_plan_id', $currentPlan->id)
+                ->whereIn('status', Subscription::availableStatuses())
+                ->whereNotNull('starts_at')->where('starts_at', '<=', now())
+                ->where(fn ($query) => $query->whereNull('ends_at')->orWhere('ends_at', '>', now()))->latest()->first(),
+            'payments' => BillingPayment::where('user_id', $request->user()->id)
+                ->leftJoin('subscription_plans', 'subscription_plans.id', '=', 'billing_payments.subscription_plan_id')
+                ->select('billing_payments.*', 'subscription_plans.name as plan_name')
+                ->orderByDesc('billing_payments.id')->paginate(10, ['*'], 'payments'),
             'remaining' => $service->remainingAnalyses($request->user()),
             'wallet' => app(AiCreditService::class)->wallet($request->user()),
             'plans' => SubscriptionPlan::where('is_active', true)->orderBy('price_cents')->get(),

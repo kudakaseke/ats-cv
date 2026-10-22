@@ -165,6 +165,7 @@ class CvBuilderController extends Controller
         $rules['format'] = ['required', Rule::in(['pdf', 'word'])];
         $rules['data.name'] = ['required', 'string', 'max:150'];
         $validated = $request->validate($rules);
+        $this->checkTemplateAccess($request, $validated['data']['template']);
         try {
             $path = $exporter->create($validated['data'], $validated['format']);
         } catch (\Throwable $exception) {
@@ -182,6 +183,7 @@ class CvBuilderController extends Controller
     public function save(Request $request)
     {
         $validated = $request->validate($this->draftRules());
+        $this->checkTemplateAccess($request, $validated['data']['template']);
         $previous = $request->session()->get('cv_builder', []);
         $resumeId = array_key_exists('resume_id', $validated) ? $validated['resume_id'] : ($previous['resume_id'] ?? null);
         if ($resumeId !== null) {
@@ -201,6 +203,7 @@ class CvBuilderController extends Controller
         if (! $draft || empty($draft['data']['name'])) {
             return redirect()->route('builder.start');
         }
+        $this->checkTemplateAccess($request, $draft['data']['template'] ?? '');
         if (isset($draft['resume_id'])) {
             $resume = $request->user()->resumes()->findOrFail($draft['resume_id']);
         } else {
@@ -218,6 +221,13 @@ class CvBuilderController extends Controller
         }
 
         return redirect()->route('builder.edit', $resume)->with('status', 'Your CV has been saved to your account.');
+    }
+
+    private function checkTemplateAccess(Request $request, string $template): void
+    {
+        if (! in_array($template, app(PlanService::class)->templateIds($request->user()), true)) {
+            throw ValidationException::withMessages(['data.template' => 'This template is included with paid plans. Choose a Free template or upgrade to unlock all designs.']);
+        }
     }
 
     public function import(Request $request)

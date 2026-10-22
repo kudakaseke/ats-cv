@@ -25,7 +25,10 @@ class WorkspaceTest extends TestCase
     {
         SubscriptionPlan::where('slug', 'monthly')->update(['price_cents' => 500]);
         $this->get('/')->assertOk()->assertSee('Make Your CV')->assertSee('Sign In')
-            ->assertSee('Sign Up')->assertSee('$5')->assertSee('AI ATS')->assertSee('Your Journey');
+            ->assertSee('Sign Up')->assertDontSee('id="pricing"', false)->assertDontSee('id="features"', false);
+        $this->get('/pricing')->assertOk()->assertSee('$5')->assertSee('7 selected CV templates');
+        $this->get('/features')->assertOk()->assertSee('Find the gaps.');
+        $this->get('/about')->assertOk()->assertSee('Your Journey');
     }
 
     public function test_paid_plans_link_to_a_private_payment_selection_page(): void
@@ -59,9 +62,9 @@ class WorkspaceTest extends TestCase
         $owner->analyses()->create(['resume_id' => $ownResume->id, 'job_description' => 'Own job', 'status' => 'completed', 'score' => 72]);
         $other->analyses()->create(['resume_id' => $otherResume->id, 'job_description' => 'Other job', 'status' => 'completed', 'score' => 99]);
         Livewire::actingAs($owner)->test(Dashboard::class)
-            ->assertSee('ATS Scanner')->assertSee('Create CV')->assertSee('View Templates')->assertSee('Plan')->assertSee('Settings')
+            ->assertSee('Job-to-CV ATS Detector')->assertSee('Create CV')->assertSee('View Templates')->assertSee('Plan')->assertSee('Settings')
             ->assertDontSee('My personal CV')->assertDontSee('Private other CV')->assertDontSee('Recent CVs');
-        $this->actingAs($owner)->get('/dashboard')->assertOk()->assertSee('ATS Scanner')->assertDontSee('Private other CV');
+        $this->actingAs($owner)->get('/dashboard')->assertOk()->assertSee('Job-to-CV ATS Detector')->assertDontSee('Private other CV');
     }
 
     public function test_new_accounts_are_free_and_viewing_plans_never_activates_payment(): void

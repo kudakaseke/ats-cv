@@ -11,6 +11,7 @@ use App\Services\CvResumeFormat;
 use App\Services\CvReviewComparison;
 use App\Services\CvStructuredResume;
 use App\Services\CvTextParser;
+use App\Services\PlanService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -51,7 +52,7 @@ class CvCheckerController extends Controller
         } catch (\Throwable $exception) {
             $credits->finish($request->user(), $operation->id, null, $ai->lastUsage);
 
-            return response()->json(['message' => 'ATS Detect could not be completed. Your credits were refunded. Please try again.', 'credits_remaining' => $credits->wallet($request->user())['credits']], 503);
+            return response()->json(['message' => 'Job-to-CV ATS Detector could not be completed. Your credits were refunded. Please try again.', 'credits_remaining' => $credits->wallet($request->user())['credits']], 503);
         }
 
         return response()->json([...$payload, 'credits_remaining' => $credits->wallet($request->user())['credits']]);
@@ -147,7 +148,7 @@ class CvCheckerController extends Controller
         }
         $content ??= $parser->parse($data['resume_text']);
         $content = CvResumeFormat::builder($content);
-        $content['template'] = 'ats-professional';
+        $content['template'] = in_array('ats-professional', app(PlanService::class)->templateIds($request->user()), true) ? 'ats-professional' : 'essential';
         $content['imported_text'] = $data['resume_text'];
         $draft = ['step' => 4, 'data' => $content];
         if ($request->boolean('generated')) {

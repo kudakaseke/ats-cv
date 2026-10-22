@@ -77,20 +77,20 @@ class AiCreditsTest extends TestCase
         $this->assertSame(50, $this->credits()->wallet($user)['topup_credits']);
     }
 
-    public function test_annual_credits_are_monthly_not_1800_upfront_and_stop_at_paid_term_end(): void
+    public function test_annual_credits_are_monthly_not_2400_upfront_and_stop_at_paid_term_end(): void
     {
         $this->travelTo(now()->setDate(2026, 1, 31)->startOfDay());
         $user = User::factory()->create();
         $this->paid($user, 'annual');
-        $this->assertSame(150, $this->credits()->wallet($user)['credits']);
+        $this->assertSame(200, $this->credits()->wallet($user)['credits']);
         $this->useCredits($user);
         $this->travelTo(now()->setDate(2026, 2, 28));
-        $this->assertSame(150, $this->credits()->wallet($user)['credits']);
+        $this->assertSame(200, $this->credits()->wallet($user)['credits']);
         $this->useCredits($user);
         $this->travelTo(now()->setDate(2026, 3, 30));
-        $this->assertSame(140, $this->credits()->wallet($user)['credits']);
+        $this->assertSame(190, $this->credits()->wallet($user)['credits']);
         $this->travelTo(now()->setDate(2026, 3, 31));
-        $this->assertSame(150, $this->credits()->wallet($user)['credits']);
+        $this->assertSame(200, $this->credits()->wallet($user)['credits']);
         $this->credits()->topup($user, 100, 'annual-topup');
         $this->travelTo(now()->setDate(2027, 1, 31));
         $this->assertSame(100, $this->credits()->wallet($user)['credits']);
@@ -124,9 +124,9 @@ class AiCreditsTest extends TestCase
         $this->paid($user, 'annual');
         $operation = $this->credits()->reserve($user, 'revamp', (string) Str::uuid(), []);
         $this->travel(32)->days();
-        $this->assertSame(150, $this->credits()->wallet($user)['credits']);
+        $this->assertSame(200, $this->credits()->wallet($user)['credits']);
         $this->credits()->finish($user, $operation->id, null);
-        $this->assertSame(150, $this->credits()->wallet($user)['credits']);
+        $this->assertSame(200, $this->credits()->wallet($user)['credits']);
         $this->assertSame(0, $this->credits()->wallet($user)['topup_credits']);
     }
 

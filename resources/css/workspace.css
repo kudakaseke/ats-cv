@@ -225,3 +225,10 @@ body[data-workspace] .audit-table th, body[data-workspace] .audit-table td { pad
 body[data-workspace] .audit-table th { background: #edf5ff; font-weight: 600; }
 body[data-workspace] .audit-table pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; max-width: 460px; }
 body[data-workspace] .audit-table summary { cursor: pointer; }
+
+.subscription-sections { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 24px; }
+.subscription-sections a { padding: 10px 16px; border: 1px solid #cbd8e8; border-radius: 8px; background: #fff; color: #2459b9; font-weight: 600; font-size: 14px; }
+.subscription-sections a:hover { background: #edf4ff; }
+.subscription-sections a:focus-visible { outline: 3px solid #346de1; outline-offset: 3px; }
+.subscription-section { scroll-margin-top: 24px; margin-bottom: 28px; }
+.subscription-section-heading { font-size: 24px; font-weight: 600; margin-bottom: 18px; }

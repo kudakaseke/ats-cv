@@ -1,7 +1,7 @@
 <x-app-layout>
     <section class="ats-checker" x-data="cvChecker({{ Js::from(['csrf' => csrf_token(), 'scanUrl' => route('checker.scan'), 'uploadUrl' => route('checker.upload'), 'rewriteUrl' => route('checker.rewrite'), 'credits' => app(\App\Services\AiCreditService::class)->wallet(auth()->user())['credits']]) }})">
-        <header class="scanner-compact-header"><h1>ATS Scanner</h1><div><span><strong x-text="credits"></strong> credits</span><a class="text-link" href="{{ route('subscription') }}#credit-topups">Top up</a></div></header>
-        <p class="scanner-costs">ATS Detect &middot; 5 credits <span aria-hidden="true">/</span> Revamp &middot; 10 credits</p>
+        <header class="scanner-compact-header"><h1>Job-to-CV ATS Detector</h1><div><span><strong x-text="credits"></strong> credits</span><a class="text-link" href="{{ route('subscription') }}#credit-topups">Top up</a></div></header>
+        <p class="scanner-costs">Job-to-CV ATS Detector &middot; 5 credits <span aria-hidden="true">/</span> Revamp &middot; 10 credits</p>
         <ol class="checker-steps" aria-label="Resume scan progress">
             <template x-for="(label, index) in ['Job description', 'Upload resume', 'ATS scan', 'View results']" :key="label">
                 <li :class="{ active: step === index + 1, complete: step > index + 1 }" :aria-current="step === index + 1 ? 'step' : null"><span x-text="index + 1"></span><strong x-text="label"></strong></li>
@@ -11,7 +11,7 @@
         <section x-show="step === 1" class="checker-job-section">
             <h2>Paste the job description</h2>
             <label class="sr-only" for="checker-job">Job description</label><textarea id="checker-job" x-model="job" rows="3" maxlength="20000" placeholder="Paste the responsibilities, requirements and skills here..."></textarea>
-            <div class="checker-actions"><button type="button" class="btn btn-primary" @click="nextJob()">Next: Upload resume <x-icon name="arrow-right" /></button></div>
+            <div class="checker-actions"><button type="button" class="btn btn-primary" @click="nextJob()">Next: Upload resume</button></div>
             <p class="scanner-basic-link">No job description? <a class="text-link" href="{{ route('workspace.module', 'detect') }}">Try a free basic CV check</a>.</p>
         </section>
         <section x-show="step === 2" x-cloak>
@@ -22,7 +22,7 @@
                 <p x-show="filename" x-text="filename" class="checker-filename" role="status"></p>
             </div>
             <details class="checker-paste" :open="!!resumeText"><summary>Or paste resume text</summary><label for="checker-resume">Resume text &mdash; review or paste your CV</label><textarea id="checker-resume" x-model="resumeText" rows="12" maxlength="20000" placeholder="Paste your CV text here..."></textarea></details>
-            <div class="checker-actions"><button class="btn btn-outline" @click="step = 1; error = ''" :disabled="busy">Back</button><button class="btn btn-primary" @click="nextResume()" :disabled="busy">Next: ATS scan <x-icon name="arrow-right" /></button></div>
+            <div class="checker-actions"><button class="btn btn-outline" @click="step = 1; error = ''" :disabled="busy">Back</button><button class="btn btn-primary" @click="nextResume()" :disabled="busy">Next: ATS scan</button></div>
         </section>
         <section x-show="step === 3" x-cloak class="checker-panel checker-scan">
             <span class="checker-upload-icon"><x-icon name="scan-text" /></span><h2>Compare your CV to the job</h2><p>We will find matching and missing keywords from your job description.</p>
@@ -48,7 +48,7 @@
                 <h2 id="checker-result-title" x-text="busy ? 'Creating your tailored CV' : 'Your ATS scan result'"></h2>
                 <div class="checker-dialog-score" x-text="(result?.keyword_score ?? 0) + '/100'"></div>
                 <p x-show="!busy">Qualifications, skills and competencies matched to your CV.</p>
-                <p x-show="!busy"><strong x-text="result?.matched.length"></strong> of <strong x-text="result?.total"></strong> requirements matched (<span x-text="(result?.base_requirement_score ?? result?.keyword_score ?? 0) + '%'"></span>). <span x-text="matchLevel()"></span></p>
+                <p x-show="!busy"><strong x-text="result?.matched.length"></strong> of <strong x-text="result?.total"></strong> requirements matched (<span x-text="(result?.base_requirement_score ?? result?.keyword_score ? ?? 0) + '%'"></span>). <span x-text="matchLevel()"></span></p>
                 @include('workspace.partials.qualification-green-flags')
                 <section class="checker-experience-warning" x-show="!busy && result?.experience_check?.required_years != null"><h3 x-text="result?.experience_check?.shortfall ? 'Experience gap to review' : 'Experience requirement'"></h3><p x-text="result?.experience_check?.message"></p><small x-text="result?.experience_check?.note"></small></section>
                 <div class="checker-requirement-groups" x-show="!busy && result?.requirement_groups"><template x-for="[category, entries] in Object.entries(result?.requirement_groups ?? {})" :key="category"><section class="checker-panel"><h3 x-text="({qualifications:'Qualifications',skills:'Skills',competencies:'Competencies'})[category]"></h3><ul><template x-for="item in entries" :key="item.requirement"><li><strong x-text="item.matched ? 'Found: ' : 'Review: '"></strong><span x-text="item.requirement"></span></li></template></ul></section></template></div>

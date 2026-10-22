@@ -91,7 +91,7 @@ class AuditRegressionTest extends TestCase
     {
         $this->assertSame(475, SubscriptionPlan::where('slug', 'monthly')->firstOrFail()->price_cents);
         $this->actingAs(User::factory()->create())->get('/dashboard')->assertOk();
-        $this->get('/')->assertOk()->assertSee('$3.95');
+        $this->get('/pricing')->assertOk()->assertSee('$3.95');
     }
 
     public function test_scan_allowance_is_enforced_and_results_are_saved_without_creating_cvs(): void
@@ -125,7 +125,7 @@ class AuditRegressionTest extends TestCase
     {
         $user = User::factory()->create();
         $user->resumes()->create(['name' => 'Existing CV']);
-        $draft = ['step' => 4, 'data' => ['name' => 'New draft', 'template' => 'elegant']];
+        $draft = ['step' => 4, 'data' => ['name' => 'New draft', 'template' => 'essential']];
         $this->actingAs($user)->withSession(['cv_builder' => $draft])->get('/get-started/finish')
             ->assertSessionHasErrors('resume_limit')->assertSessionHas('cv_builder.data.name', 'New draft');
         $this->assertSame('Existing CV', $user->resumes()->sole()->name);

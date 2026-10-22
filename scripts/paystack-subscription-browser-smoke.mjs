@@ -11,7 +11,7 @@ const browser = await chromium.launch({channel:'chrome',headless:true});
 fs.mkdirSync('storage/app/subscription-tests',{recursive:true});
 const results=[];
 try {
-    for (const [plan,name,credits,amount] of [['monthly','Monthly',150,'77.95'],['pro','Pro',225,'102.56'],['annual','Annual',150,'777.83']]) {
+    for (const [plan,name,credits,amount] of [['monthly','Monthly',150,'77.95'],['pro','Pro',225,'102.56'],['annual','Annual',200,'777.83']]) {
         const context = await browser.newContext({viewport:{width:1360,height:1000}});
         const page = await context.newPage();
         let fixture;
