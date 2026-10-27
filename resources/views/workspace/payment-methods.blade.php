@@ -4,8 +4,13 @@
     <div class="payment-method-grid">
         <article class="panel payment-method-card">
             <div class="payment-method-heading"><x-payment-provider-icon provider="paystack" /><h2 class="sr-only">Paystack</h2></div>
-            @if(config('paystack.enabled') && filled(config('paystack.secret_key')) && $plan->paystack_plan_code && $plan->paystack_amount_cents > 0 && $plan->paystack_mode === (str_starts_with((string) config('paystack.secret_key'), 'sk_live_') ? 'live' : 'test'))
-                <p>{{ config('paystack.currency') }} {{ number_format($plan->paystack_amount_cents/100,2) }} {{ $plan->billing_interval==='annually' ? 'per year' : 'per month' }}. {{ config('ai_credits.plans.'.$plan->slug) }} credits released monthly during your paid term.</p>
+            @if(config('paystack.test_payment_pages.'.$plan->slug.'.url') && config('paystack.enabled') && str_starts_with((string) config('paystack.secret_key'), 'sk_test_'))
+                <p>ZAR {{ number_format(config('paystack.test_payment_pages.'.$plan->slug.'.amount_cents') / 100, 2) }} {{ $plan->billing_interval === 'annually' ? 'per year' : 'per month' }}. @if($plan->slug === 'annual')2,400 credits added after payment, valid for the paid year.@else{{ config('ai_credits.plans.'.$plan->slug) }} credits per paid month.@endif</p>
+                @php($checkoutUrl = config('paystack.test_payment_pages.'.$plan->slug.'.url').'?'.http_build_query(['email' => auth()->user()->email, 'read-only' => 'email'], '', '&', PHP_QUERY_RFC3986))
+                <p>Credits will be added to your account: <strong>{{ auth()->user()->email }}</strong>.</p>
+                <a class="btn btn-primary" href="{{ $checkoutUrl }}">Subscribe with Paystack (test)</a>
+            @elseif(config('paystack.enabled') && filled(config('paystack.secret_key')) && $plan->paystack_plan_code && $plan->paystack_amount_cents > 0 && $plan->paystack_mode === (str_starts_with((string) config('paystack.secret_key'), 'sk_live_') ? 'live' : 'test'))
+                <p>{{ config('paystack.currency') }} {{ number_format($plan->paystack_amount_cents/100,2) }} {{ $plan->billing_interval==='annually' ? 'per year' : 'per month' }}. {{ config('ai_credits.plans.'.$plan->slug) }} credits per {{ $plan->slug === 'annual' ? 'paid year' : 'paid month' }}.</p>
                 <form method="POST" action="{{ route('paystack.subscribe',$plan->slug) }}">@csrf<label class="billing-consent"><input type="checkbox" name="billing_consent" value="1" required> I authorise this recurring payment until cancelled and agree to the <a href="{{ route('terms') }}">Terms</a> and <a href="{{ route('refund') }}">Refund Policy</a>.</label><button class="btn btn-primary">Subscribe with Paystack{{ $plan->paystack_mode==='test' ? ' (test)' : '' }}</button></form>
             @else
                 <p>Paystack checkout is not available yet.</p>

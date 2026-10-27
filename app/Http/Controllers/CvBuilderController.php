@@ -43,7 +43,11 @@ class CvBuilderController extends Controller
             $draft['professional_title_checked'] = true;
         }
         if (isset($draft['checker_result'])) {
-            $draft['checker_result'] = app(CvReviewComparison::class)->refreshForUser($draft['checker_result'], $request->user()?->id);
+            $draft['checker_result'] = app(CvReviewComparison::class)->refreshForUser($draft['checker_result'], $request->user()?->id, $request->session()->get('cv_checker.generated'));
+            [$draft, $generated] = app(\App\Services\CvRevampReviewRepair::class)->repair($draft, $request->session()->get('cv_checker.generated'));
+            if ($generated) {
+                $request->session()->put('cv_checker.generated', $generated);
+            }
             $request->session()->put('cv_builder', $draft);
         }
         if ($request->boolean('questions')) {

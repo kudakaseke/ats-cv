@@ -21,7 +21,7 @@ class PaystackGateway
 
     private function fundsCredits(BillingPayment $payment): bool
     {
-        return $payment->mode === 'live' || ($payment->mode === 'test' && $payment->kind !== 'topup' && self::localTestCreditsEnabled());
+        return $payment->mode === 'live' || ($payment->mode === 'test' && self::localTestCreditsEnabled());
     }
 
     private function fundedSubscription(BillingPayment $payment, User $user, Carbon $paid): Subscription
@@ -100,7 +100,7 @@ class PaystackGateway
 
     public function refresh(BillingPayment $payment): void
     {
-        $this->apply($payment, $this->verified($payment->reference));
+        $this->apply($payment, $this->verified($payment->hosted_reference ?? $payment->reference));
         // Reconcile previously observed receipts too (refunds/reversals).
         foreach (DB::table('paystack_receipts')->where('billing_payment_id', $payment->id)->where('reference', '!=', $payment->reference)->pluck('reference') as $reference) {
             $this->apply($payment, $this->verified($reference));
@@ -131,12 +131,12 @@ class PaystackGateway
             empty($data['id']) || ! is_string($data['reference'] ?? null)) {
             throw new \RuntimeException('Verified payment details mismatch.');
         }
-        $initial = $data['reference'] === $payment->reference;
+        $initial = $data['reference'] === ($payment->hosted_reference ?? $payment->reference);
         $customer = data_get($data, 'customer.customer_code');
         if (! $initial && (! $payment->recurring || ! $payment->provider_customer_id || $customer !== $payment->provider_customer_id)) {
             throw new \RuntimeException('Customer mismatch.');
         }
-        if ($payment->kind !== 'topup' && $this->planCode($data) !== $payment->provider_plan_id) {
+        if ($payment->kind !== 'topup' && (! $payment->hosted_reference || $this->planCode($data)) && $this->planCode($data) !== $payment->provider_plan_id) {
             throw new \RuntimeException('Plan mismatch.');
         }
         if ($initial && ($payment->provider_customer_id
@@ -145,6 +145,10 @@ class PaystackGateway
             throw new \RuntimeException('Checkout identity mismatch.');
         }
         $status = $data['status'] ?? '';
+        if ($initial && in_array($status, ['failed', 'abandoned'], true)) {
+            BillingPayment::whereKey($payment->id)->whereIn('status', ['pending', 'failed', 'abandoned'])->update(['status' => $status]);
+            return;
+        }
         if (! in_array($status, ['success', 'reversed'], true)) {
             return;
         }
@@ -161,18 +165,22 @@ class PaystackGateway
             }
             if ($receipt) {
                 if ($status === 'success' && $receipt->status === 'success' && ! $receipt->subscription_id && $locked->mode === 'test' && $this->fundsCredits($locked)) {
-                    $subscription = $this->fundedSubscription($locked, $user, $paid);
-                    DB::table('paystack_receipts')->where('id', $receipt->id)->update(['subscription_id' => $subscription->id, 'updated_at' => now()]);
-                    $locked->update(['subscription_id' => $subscription->id]);
+                    if ($locked->kind === 'topup') {
+                        app(AiCreditService::class)->topup($user, $locked->credits, 'payment:'.$data['reference']);
+                    } else {
+                        $subscription = $this->fundedSubscription($locked, $user, $paid);
+                        DB::table('paystack_receipts')->where('id', $receipt->id)->update(['subscription_id' => $subscription->id, 'updated_at' => now()]);
+                        $locked->update(['subscription_id' => $subscription->id]);
+                    }
                     app(AiCreditService::class)->wallet($user);
                     app(AuditTrail::class)->record($user->id, 'payment.test_credits_activated', 'BillingPayment', $locked->id,
-                        ['mode' => 'test', 'credits' => $locked->credits, 'subscription_id' => $subscription->id], 'test-activation:'.$receipt->id);
+                        ['mode' => 'test', 'credits' => $locked->credits, 'subscription_id' => $locked->subscription_id], 'test-activation:'.$receipt->id);
                 }
                 if ($status === 'reversed' && $receipt->status !== 'reversed') {
                     if ($receipt->subscription_id && ! DB::table('paystack_receipts')->where('subscription_id', $receipt->subscription_id)->where('id', '!=', $receipt->id)->where('status', 'success')->exists()) {
                         Subscription::whereKey($receipt->subscription_id)->update(['status' => 'cancelled']);
                     }
-                    if ($locked->kind === 'topup' && $locked->mode === 'live') {
+                    if ($locked->kind === 'topup' && $this->fundsCredits($locked)) {
                         app(AiCreditService::class)->reverseTopup($user, $locked->credits, 'reverse:'.$data['reference']);
                     }
                     DB::table('paystack_receipts')->where('id', $receipt->id)->update(['status' => 'reversed', 'updated_at' => now()]);

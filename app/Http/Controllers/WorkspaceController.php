@@ -31,6 +31,13 @@ class WorkspaceController extends Controller
         if ($module === 'resumes') {
             return view('workspace.resumes', ['resumes' => auth()->user()->resumes()->select('id', 'name', 'updated_at')->latest('updated_at')->paginate(12)]);
         }
+        if ($module === 'drafts') {
+            return view('workspace.drafts', [
+                'drafts' => auth()->user()->resumes()->where('status', 'draft')
+                    ->select('id', 'name', 'updated_at')->latest('updated_at')->paginate(12),
+                'currentDraft' => session('cv_builder'),
+            ]);
+        }
         if ($module === 'history') {
             return view('workspace.history', ['analyses' => auth()->user()->analyses()->latest()->paginate(15)]);
         }
@@ -64,6 +71,18 @@ class WorkspaceController extends Controller
     {
         abort_unless($analysis->user_id === $request->user()->id, 404);
 
+        $results = $analysis->results;
+        if (isset($results['experience_check'])) {
+            $results['experience_check'] = app(\App\Services\CvExperienceMatcher::class)->reconcile($results['experience_check'], $results['assessment'] ?? $results['ai_analysis']['assessment'] ?? null);
+        }
+        if (($results['scoring_basis'] ?? '') !== \App\Services\CvJobRequirements::VERSION) {
+            // Saved checks do not retain the original CV wording. Do not pretend
+            // their old keyword counts were produced by the new weighted method.
+            $results['legacy_wording_score'] = $results['keyword_score'] ?? $analysis->score;
+            $results['keyword_score'] = null;
+            $results['certificate_bonus'] = 0;
+        }
+        $analysis->results = app(\App\Services\CvCompatibilityScore::class)->scan($results);
         return view('workspace.analysis', compact('analysis'));
     }
 

@@ -218,8 +218,8 @@ html:has(.public-site) { scroll-padding-top: clamp(96px, 8.8vw, 169px); }
     margin-bottom: 70px;
 }
 .public-site .reference-section-heading > p { line-height: 1.85; font-size: clamp(18px, 1.25vw, 24px); margin-bottom: 6px; }
-.public-site .reference-feature-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2.85vw; }
-.public-site .reference-feature-card {
+:is(.public-site, .workspace-dashboard) .reference-feature-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2.85vw; }
+:is(.public-site, .workspace-dashboard) .reference-feature-card {
     --feature-accent: #346de1;
     --feature-tint: #cbe5ff;
     border: 1px solid var(--reference-border);
@@ -231,9 +231,9 @@ html:has(.public-site) { scroll-padding-top: clamp(96px, 8.8vw, 169px); }
     flex-direction: column;
     box-shadow: none;
 }
-.public-site .feature-checker { --feature-accent: #fa9600; --feature-tint: #f8f7f4; }
-.public-site .feature-revamp { --feature-accent: #346de1; --feature-tint: #eff6ff; }
-.public-site .feature-category {
+:is(.public-site, .workspace-dashboard) .feature-checker { --feature-accent: #fa9600; --feature-tint: #f8f7f4; }
+:is(.public-site, .workspace-dashboard) .feature-revamp { --feature-accent: #346de1; --feature-tint: #eff6ff; }
+:is(.public-site, .workspace-dashboard) .feature-category {
     font-size: clamp(17px, 1.2vw, 23px);
     font-weight: 400;
     line-height: 1.45;
@@ -242,7 +242,7 @@ html:has(.public-site) { scroll-padding-top: clamp(96px, 8.8vw, 169px); }
     background: var(--feature-tint);
     padding: 0 12px;
 }
-.public-site .reference-feature-card h3 {
+:is(.public-site, .workspace-dashboard) .reference-feature-card :is(h2, h3) {
     font-size: clamp(28px, 2.08vw, 40px);
     line-height: 1.18;
     font-weight: 400;
@@ -251,14 +251,14 @@ html:has(.public-site) { scroll-padding-top: clamp(96px, 8.8vw, 169px); }
     margin: 36px 0;
     min-height: 2.36em;
 }
-.public-site .feature-meta { display: grid; gap: 10px; color: var(--reference-blue); font-size: clamp(17px, 1.2vw, 23px); font-weight: 400; line-height: 1.5; }
-.public-site .feature-meta > span { display: flex; align-items: flex-start; gap: 18px; }
-.public-site .feature-meta .icon { width: 25px; height: 28px; margin-top: 3px; color: var(--feature-accent); }
-.public-site .feature-highlight { color: var(--reference-blue); font-weight: 400; font-size: clamp(17px, 1.2vw, 23px); line-height: 1.65; margin-top: 32px; }
-.public-site .feature-details { list-style: none; padding: 0; margin: 35px 0 40px; font-size: clamp(17px, 1.1875vw, 22.8px); font-weight: 300; line-height: 1.92; }
-.public-site .feature-details li { margin: 0; }
-.public-site .feature-card-footer { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.public-site .feature-card-footer > a,
+:is(.public-site, .workspace-dashboard) .feature-meta { display: grid; gap: 10px; color: var(--reference-blue); font-size: clamp(17px, 1.2vw, 23px); font-weight: 400; line-height: 1.5; }
+:is(.public-site, .workspace-dashboard) .feature-meta > span { display: flex; align-items: flex-start; gap: 18px; }
+:is(.public-site, .workspace-dashboard) .feature-meta .icon { width: 25px; height: 28px; margin-top: 3px; color: var(--feature-accent); }
+:is(.public-site, .workspace-dashboard) .feature-highlight { color: var(--reference-blue); font-weight: 400; font-size: clamp(17px, 1.2vw, 23px); line-height: 1.65; margin-top: 32px; }
+:is(.public-site, .workspace-dashboard) .feature-details { list-style: none; padding: 0; margin: 35px 0 40px; font-size: clamp(17px, 1.1875vw, 22.8px); font-weight: 300; line-height: 1.92; }
+:is(.public-site, .workspace-dashboard) .feature-details li { margin: 0; }
+:is(.public-site, .workspace-dashboard) .feature-card-footer { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+:is(.public-site, .workspace-dashboard) .feature-card-footer > a,
 .public-site .reference-plan-link {
     display: inline-flex;
     align-items: center;
@@ -267,13 +267,13 @@ html:has(.public-site) { scroll-padding-top: clamp(96px, 8.8vw, 169px); }
     font-weight: 400;
     color: var(--reference-blue);
 }
-.public-site .feature-card-footer > a > span,
+:is(.public-site, .workspace-dashboard) .feature-card-footer > a > span,
 .public-site .reference-plan-link > span { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--reference-border); border-radius: 50%; }
-.public-site .feature-card-footer .icon,
+:is(.public-site, .workspace-dashboard) .feature-card-footer .icon,
 .public-site .reference-plan-link .icon { width: 19px; height: 19px; stroke-width: 1.3; }
-.public-site .feature-card-footer > a:hover > span,
+:is(.public-site, .workspace-dashboard) .feature-card-footer > a:hover > span,
 .public-site .reference-plan-link:hover > span { background: #eaf3ff; }
-.public-site .feature-card-footer > p { font-size: clamp(13px, .83vw, 16px); font-weight: 300; line-height: 1.9; text-align: right; }
+:is(.public-site, .workspace-dashboard) .feature-card-footer > p { font-size: clamp(13px, .83vw, 16px); font-weight: 300; line-height: 1.9; text-align: right; }
 .public-site .reference-release-note { font-size: clamp(14px, .83vw, 16px); line-height: 1.8; color: #52636a; margin-top: 32px; }
 .public-site .reference-process { padding-top: 30px; }
 .public-site .reference-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 36px; padding: 0; list-style: none; margin-top: 70px; }
@@ -351,14 +351,14 @@ body .dashboard-bottom, body .sidebar-tip { background: #fff; }
     .public-site .reference-start { min-height: 64px; padding-left: 26px; }
     .public-site .reference-start > span { width: 48px; height: 48px; }
     .public-site .reference-check { min-height: 66px; padding: 18px 26px; gap: 15px; }
-    .public-site .reference-feature-grid { gap: 24px; }
-    .public-site .reference-feature-card { padding: 26px; }
-    .public-site .feature-category { font-size: 16px; padding-inline: 8px; }
-    .public-site .feature-meta { font-size: 16px; }
-    .public-site .feature-meta > span { gap: 10px; }
-    .public-site .feature-highlight, .public-site .feature-details { font-size: 17px; }
-    .public-site .feature-card-footer { flex-wrap: wrap; }
-    .public-site .feature-card-footer > p { text-align: left; font-size: 13px; }
+    :is(.public-site, .workspace-dashboard) .reference-feature-grid { gap: 24px; }
+    :is(.public-site, .workspace-dashboard) .reference-feature-card { padding: 26px; }
+    :is(.public-site, .workspace-dashboard) .feature-category { font-size: 16px; padding-inline: 8px; }
+    :is(.public-site, .workspace-dashboard) .feature-meta { font-size: 16px; }
+    :is(.public-site, .workspace-dashboard) .feature-meta > span { gap: 10px; }
+    :is(.public-site, .workspace-dashboard) .feature-highlight, :is(.public-site, .workspace-dashboard) .feature-details { font-size: 17px; }
+    :is(.public-site, .workspace-dashboard) .feature-card-footer { flex-wrap: wrap; }
+    :is(.public-site, .workspace-dashboard) .feature-card-footer > p { text-align: left; font-size: 13px; }
     .public-site .reference-about { padding-left: 8%; padding-right: 4%; gap: 8vw; grid-template-columns: minmax(0, 1fr) 28vw; }
     .public-site .reference-about-stat { min-height: 30vw; gap: 35px; }
     .public-site .reference-about-copy :is(h1, h2) { margin-top: 45px; }
@@ -374,13 +374,13 @@ body .dashboard-bottom, body .sidebar-tip { background: #fff; }
     .public-site .reference-explore { order: 3; width: 100%; }
     .public-site .reference-check { margin-left: auto; }
     .public-site .reference-section-heading { align-items: flex-start; flex-direction: column; gap: 30px; margin-bottom: 50px; }
-    .public-site .reference-feature-grid { grid-template-columns: 1fr; gap: 35px; }
-    .public-site .reference-feature-card { min-height: 0; border-radius: 0 80px 0 80px; padding: 36px; }
-    .public-site .reference-feature-card h3 { font-size: 36px; margin-block: 30px; }
-    .public-site .feature-category { font-size: 20px; }
-    .public-site .feature-meta, .public-site .feature-highlight { font-size: 20px; }
-    .public-site .feature-details { font-size: 19px; margin-block: 25px 35px; }
-    .public-site .feature-card-footer > p { text-align: right; }
+    :is(.public-site, .workspace-dashboard) .reference-feature-grid { grid-template-columns: 1fr; gap: 35px; }
+    :is(.public-site, .workspace-dashboard) .reference-feature-card { min-height: 0; border-radius: 0 80px 0 80px; padding: 36px; }
+    :is(.public-site, .workspace-dashboard) .reference-feature-card :is(h2, h3) { font-size: 36px; margin-block: 30px; }
+    :is(.public-site, .workspace-dashboard) .feature-category { font-size: 20px; }
+    :is(.public-site, .workspace-dashboard) .feature-meta, :is(.public-site, .workspace-dashboard) .feature-highlight { font-size: 20px; }
+    :is(.public-site, .workspace-dashboard) .feature-details { font-size: 19px; margin-block: 25px 35px; }
+    :is(.public-site, .workspace-dashboard) .feature-card-footer > p { text-align: right; }
     .public-site .reference-steps { grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 50px; }
     .public-site .reference-about { grid-template-columns: 1fr; gap: 50px; padding: 50px 8% 80px; }
     .public-site .reference-about-copy :is(h1, h2) { font-size: 64px; }
@@ -419,16 +419,16 @@ body .dashboard-bottom, body .sidebar-tip { background: #fff; }
     .public-site .reference-features, .public-site .reference-pricing, .public-site .reference-faq { padding-block: 64px; }
     .public-site .reference-section-heading { gap: 24px; margin-bottom: 36px; }
     .public-site .reference-section-heading > p { font-size: 18px; line-height: 1.8; }
-    .public-site .reference-feature-card { border-radius: 0 65px 0 65px; padding: 28px; }
-    .public-site .feature-category { font-size: 17px; }
-    .public-site .reference-feature-card h3 { font-size: 32px; line-height: 1.25; margin-block: 28px; }
-    .public-site .feature-meta, .public-site .feature-highlight { font-size: 17px; line-height: 1.6; }
-    .public-site .feature-meta > span { gap: 12px; }
-    .public-site .feature-meta .icon { width: 21px; height: 24px; }
-    .public-site .feature-highlight { margin-top: 27px; }
-    .public-site .feature-details { font-size: 17px; line-height: 1.85; margin-block: 26px 32px; }
-    .public-site .feature-card-footer > a { font-size: 23px; }
-    .public-site .feature-card-footer > p { font-size: 12px; }
+    :is(.public-site, .workspace-dashboard) .reference-feature-card { border-radius: 0 65px 0 65px; padding: 28px; }
+    :is(.public-site, .workspace-dashboard) .feature-category { font-size: 17px; }
+    :is(.public-site, .workspace-dashboard) .reference-feature-card :is(h2, h3) { font-size: 32px; line-height: 1.25; margin-block: 28px; }
+    :is(.public-site, .workspace-dashboard) .feature-meta, :is(.public-site, .workspace-dashboard) .feature-highlight { font-size: 17px; line-height: 1.6; }
+    :is(.public-site, .workspace-dashboard) .feature-meta > span { gap: 12px; }
+    :is(.public-site, .workspace-dashboard) .feature-meta .icon { width: 21px; height: 24px; }
+    :is(.public-site, .workspace-dashboard) .feature-highlight { margin-top: 27px; }
+    :is(.public-site, .workspace-dashboard) .feature-details { font-size: 17px; line-height: 1.85; margin-block: 26px 32px; }
+    :is(.public-site, .workspace-dashboard) .feature-card-footer > a { font-size: 23px; }
+    :is(.public-site, .workspace-dashboard) .feature-card-footer > p { font-size: 12px; }
     .public-site .reference-release-note { font-size: 13px; line-height: 1.9; margin-top: 25px; }
     .public-site .reference-process { padding-block: 20px 64px; }
     .public-site .reference-steps { grid-template-columns: 1fr; gap: 32px; margin-top: 40px; }
@@ -540,7 +540,8 @@ html:has(.public-site) { scroll-padding-top: 88px; }
 .public-site .reference-pricing .reference-plan ul { gap: 10px; font-size: 14px; line-height: 1.5; margin: 18px 0 20px; }
 .public-site .reference-pricing .reference-plan li { gap: 8px; }
 .public-site .reference-pricing .reference-plan li .icon { width: 16px; height: 16px; margin-top: 3px; flex-shrink: 0; }
-.public-site .reference-pricing .reference-plan-link { font-size: 15px; gap: 8px; }
+.public-site .reference-pricing .reference-plan-link { font-size: 15px; gap: 8px; width: 100%; justify-content: center; border: 1px solid var(--reference-blue); border-radius: 999px; padding: 12px 18px; margin-top: 20px; text-decoration: none; }
+.public-site .reference-pricing .reference-plan-link:hover { background: var(--reference-blue); color: #fff; }
 .public-site .reference-pricing .reference-plan > small { font-size: 12px; line-height: 1.5; margin-top: 12px; }
 .public-site .reference-pricing .reference-release-note { font-size: 12px; line-height: 1.5; margin-top: 20px; }
 @media (min-width: 1024px) { .public-site .reference-pricing .reference-plan-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }

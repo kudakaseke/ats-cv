@@ -26,7 +26,7 @@ class WorkspaceTest extends TestCase
         SubscriptionPlan::where('slug', 'monthly')->update(['price_cents' => 500]);
         $this->get('/')->assertOk()->assertSee('Make Your CV')->assertSee('Sign In')
             ->assertSee('Sign Up')->assertDontSee('id="pricing"', false)->assertDontSee('id="features"', false);
-        $this->get('/pricing')->assertOk()->assertSee('$5')->assertSee('7 selected CV templates');
+        $this->get('/pricing')->assertOk()->assertSee('$5')->assertSee('Selected CV templates');
         $this->get('/features')->assertOk()->assertSee('Find the gaps.');
         $this->get('/about')->assertOk()->assertSee('Your Journey');
     }

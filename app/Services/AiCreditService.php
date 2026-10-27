@@ -39,20 +39,29 @@ class AiCreditService
         if ($subscription && ($credits = config('ai_credits.plans.'.$subscription->plan_slug, 0)) > 0 && $subscription->plan_slug !== 'free') {
             $anchor = Carbon::parse($subscription->starts_at);
             $month = 0;
-            while ($anchor->copy()->addMonthsNoOverflow($month + 1)->lte(now()) && $month < 120) {
+            while ($subscription->plan_slug !== 'annual' && $anchor->copy()->addMonthsNoOverflow($month + 1)->lte(now()) && $month < 120) {
                 $month++;
             }
             $start = $anchor->copy()->addMonthsNoOverflow($month);
-            $end = $anchor->copy()->addMonthsNoOverflow($month + 1)->min(Carbon::parse($subscription->ends_at));
-            $reference = 'subscription:'.$subscription->id.':'.$start->format('YmdHis');
+            $end = $subscription->plan_slug === 'annual' ? Carbon::parse($subscription->ends_at)
+                : $anchor->copy()->addMonthsNoOverflow($month + 1)->min(Carbon::parse($subscription->ends_at));
+            $reference = 'subscription:'.$subscription->id.':'.($subscription->plan_slug === 'annual' ? 'annual:' : '').$start->format('YmdHis');
             if ($wallet->allocation_reference !== $reference && ! DB::table('ai_credit_transactions')->where('reference', $reference)->exists()) {
+                if ($subscription->plan_slug === 'annual') {
+                    $previous = DB::table('ai_operations')->where('user_id', $user->id)
+                        ->where('allocation_reference', 'like', 'subscription:'.$subscription->id.':%');
+                    $credits = max(0, $credits - (clone $previous)->whereIn('status', ['reserved', 'completed'])->sum('subscription_spent'));
+                    // Keep in-flight refunds attached to the replacement yearly allowance.
+                    (clone $previous)->where('status', 'reserved')->update(['allocation_reference' => $reference]);
+                }
                 $this->ledger($user->id, $reference, 'subscription_allocation', $credits - $wallet->subscription_credits, 0);
                 DB::table('ai_wallets')->where('id', $wallet->id)->update(['subscription_credits' => $credits,
                     'allocation_reference' => $reference, 'expires_at' => $end, 'updated_at' => now()]);
             } elseif ($subscription->status === 'test_active' && $wallet->allocation_reference === 'expired:'.$reference) {
                 // Recover only the unspent balance if local test configuration was temporarily removed.
                 // Prior operations remain authoritative, so restoring configuration cannot refill spent credits.
-                $spent = DB::table('ai_operations')->where('user_id', $user->id)->where('allocation_reference', $reference)
+                $spent = DB::table('ai_operations')->where('user_id', $user->id)
+                    ->when($subscription->plan_slug === 'annual', fn ($q) => $q->where('allocation_reference', 'like', 'subscription:'.$subscription->id.':%'), fn ($q) => $q->where('allocation_reference', $reference))
                     ->whereIn('status', ['reserved', 'completed'])->sum('subscription_spent');
                 $remaining = max(0, $credits - $spent);
                 $this->ledger($user->id, 'restore:'.$reference.':'.Str::uuid(), 'subscription_restored', $remaining - $wallet->subscription_credits, 0);

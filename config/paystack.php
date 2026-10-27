@@ -10,10 +10,10 @@ return [
     // Explicit fixed charge amounts in ZAR cents; never infer an exchange rate.
     'monthly_amount' => env('PAYSTACK_MONTHLY_AMOUNT_ZAR_CENTS'),
     'annual_amount' => env('PAYSTACK_ANNUAL_AMOUNT_ZAR_CENTS'),
-    // These pages were inspected and explicitly identify themselves as TEST pages.
-    // Never expose them as live customer checkout links.
+    // Merchant-supplied hosted pages used by subscription buttons in test mode.
     'test_payment_pages' => [
-        'monthly' => ['url' => 'https://paystack.shop/pay/rehfdbdk33', 'amount_cents' => 8300],
-        'annual' => ['url' => 'https://paystack.shop/pay/5l1ff9py-9', 'amount_cents' => 78000],
+        'monthly' => ['url' => 'https://paystack.shop/pay/c-wsx14uqq', 'amount_cents' => 7875, 'page_id' => 2231950],
+        'pro' => ['url' => 'https://paystack.shop/pay/72tl73quol', 'amount_cents' => 10400, 'page_id' => 2231953],
+        'annual' => ['url' => 'https://paystack.shop/pay/c19kk2wpb7', 'amount_cents' => 78600, 'page_id' => 2231960],
     ],
 ];

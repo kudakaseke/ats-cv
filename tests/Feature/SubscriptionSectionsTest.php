@@ -39,7 +39,7 @@ class SubscriptionSectionsTest extends TestCase
         $user->subscriptions()->create(['subscription_plan_id' => SubscriptionPlan::where('slug', 'annual')->firstOrFail()->id,
             'status' => 'active', 'starts_at' => now()->subDay(), 'ends_at' => now()->addYear()]);
         $this->actingAs($user)->get('/subscription')->assertOk()->assertSee('Active subscription')
-            ->assertSee('Paid access until')->assertSee('200 credits per monthly release.')
+            ->assertSee('Paid access until')->assertSee('2400 credits per paid year.')
             ->assertSee('No payments yet.')->assertSee('Card details are not stored or displayed');
     }
 }

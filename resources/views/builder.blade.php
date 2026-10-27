@@ -101,8 +101,14 @@
             @if(isset($draft['checker_result']))
                 @php($comparison = $draft['checker_result'])
                 <section class="checker-comparison" aria-label="CV improvement results">
-                    <p class="checker-generated-score" role="status">Your tailored CV is ready. CV and job requirements match: <strong>{{ $comparison['keyword_before'] ?? $comparison['before'] }}/100 &rarr; {{ $comparison['keyword_after'] ?? $comparison['after'] }}/100</strong>.</p>
-                    <p>The score checks how well your CV covers the listed requirements. Review your new CV below, then download as PDF or Word.</p>
+                    <p class="checker-generated-score" role="status">Your tailored CV is ready. Compare each score with its original below.</p>
+                    <x-score-pair :wording="$comparison['keyword_after'] ?? null" :wording-before="$comparison['keyword_before'] ?? null" :compatibility="$comparison['compatibility_after'] ?? null" :compatibility-before="$comparison['compatibility_before'] ?? null" />
+                    @if(isset($comparison['compatibility_before'], $comparison['compatibility_after']) && ($comparison['keyword_after'] ?? 0) > ($comparison['keyword_before'] ?? 0))
+                        @php($wordingGain = $comparison['keyword_after'] - $comparison['keyword_before'])
+                        <p>Wording Match increased by {{ $wordingGain }} points, contributing {{ round($wordingGain * 0.2, 2) }} points to the ATS Compatibility change. Qualifications and experience are assessed separately.</p>
+                    @endif
+                    @if(isset($comparison['assessment']))<details open><summary>Job requirements and recommendations</summary><x-ai-assessment :assessment="$comparison['assessment']" :revised="true" /></details>@endif
+                    <p>These scores measure different things. Review your new CV below, then download as PDF or Word.</p>
                     <p class="checker-comparison-note">Scores and comparisons describe the AI-generated version before manual edits.</p>
                     @if(!empty($comparison['green_flags']))<div class="checker-green-flags"><h3>Qualification strengths</h3><ul>@foreach($comparison['green_flags'] as $flag)<li>{{ $flag }}</li>@endforeach</ul>@if($comparison['certificate_bonus'] ?? 0)<p>Includes {{ $comparison['certificate_bonus'] }} additional certificate bonus points.</p>@endif</div>@endif
                     @if(!empty($comparison['added_keywords']))<p><strong>Requirements added:</strong> {{ implode(', ', $comparison['added_keywords']) }}</p>@endif
@@ -116,7 +122,7 @@
                             <p>Add these only where you have supporting skills or experience.</p>
                         </details>
                     @endif
-                    @if(($comparison['keyword_after'] ?? $comparison['after']) <= ($comparison['keyword_before'] ?? $comparison['before']))<p>The requirements match has not increased. Review the remaining requirements; only add skills and experience you can support.</p>@endif
+                    @if(($comparison['keyword_after'] ?? $comparison['after']) <= ($comparison['keyword_before'] ?? $comparison['before']))<p>Wording Match has not increased. This does not mean ATS Compatibility is unchanged; compare its original and revamped scores above. Only add skills and experience you can support.</p>@endif
                     @if(isset($comparison['original_text'], $comparison['revised_text']))<details><summary>Compare original and tailored text</summary><div class="checker-text-comparison"><div><h3>Original CV</h3><pre>{{ $comparison['original_text'] }}</pre></div><div><h3>Tailored CV</h3><pre>{{ $comparison['revised_text'] }}</pre></div></div></details>@endif
                 </section>
             @endif

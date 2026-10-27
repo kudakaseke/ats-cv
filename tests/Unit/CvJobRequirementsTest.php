@@ -7,6 +7,34 @@ use PHPUnit\Framework\TestCase;
 
 class CvJobRequirementsTest extends TestCase
 {
+    public function test_long_skill_lists_are_individual_requirements_and_deadlines_are_excluded(): void
+    {
+        $job = "Skills\nCloud Platform, Database Development, Data Engineering, Data Integration, Python (Programming Language), Software Development, Structured Query Language (SQL)\nClosing Date\n29 October 2026, 23:59";
+        $result = (new CvKeywordMatcher)->compare($job, "Skills\nData Engineering\nData Integration\nSoftware Development\nStructured Query Language (SQL)");
+        $this->assertSame(7, $result['total']);
+        $this->assertContains('Data Engineering', $result['matched']);
+        $this->assertContains('Data Integration', $result['matched']);
+        $this->assertSame(57, $result['keyword_score']);
+        $this->assertNotContains('Closing Date', $result['missing']);
+    }
+
+    public function test_personal_attributes_after_education_are_not_treated_as_qualifications(): void
+    {
+        $job = "Qualifications\n▪ Bachelor of Accounting\nPersonal Attributes\n▪ Teamwork\n▪ Communication\nKey Responsibilities\nPrepare reports";
+        $result = (new CvKeywordMatcher)->compare($job, "Alex Example\nEducation\nBachelor of Accounting\nStrengths\nTeamwork, Communication");
+        $this->assertCount(1, $result['requirement_groups']['qualifications']);
+        $this->assertCount(2, $result['requirement_groups']['competencies']);
+        $this->assertSame(100, $result['keyword_score']);
+    }
+
+    public function test_unicode_punctuation_at_requirement_edges_does_not_crash(): void
+    {
+        $items = (new \App\Services\CvJobRequirements)->extract("Skills\n• ‘Customer service’ •", new CvKeywordMatcher);
+
+        $this->assertCount(1, $items);
+        $this->assertSame('‘Customer service’', $items[0]['requirement']);
+    }
+
     public function test_long_advert_prose_does_not_create_comma_fragments_or_miss_social_sciences(): void
     {
         $job = "Required education level:\nBachelor's degree in Nutrition, Public Health, Social Sciences, Health promotion\nCompetencies and values:\nAccountability\nSkills and experience:\nBackground in Nutrition, Public Health, or a related field; experience in youth engagement is an asset.\nExcellent oral and written communication skills, including drafting, formulation, and reporting abilities.\nComputer literacy, including proficiency in Microsoft Office applications (Word, Excel, etc.), email, and internet use; familiarity with database management and office technology.\nStudy Diplomacy\nArea(s) of expertise:\nCommunication, Nutrition\nDriving license:";
@@ -73,13 +101,13 @@ class CvJobRequirementsTest extends TestCase
         }
     }
 
-    public function test_grade_levels_and_preferred_extras_do_not_create_false_matches_or_penalties(): void
+    public function test_grade_levels_and_preferred_extras_have_distinct_weights(): void
     {
         $job = "Qualifications\nGrade 12\nPreferred skills\nPython";
         $result = (new CvKeywordMatcher)->compare($job, "Education\nGrade 10");
-        $this->assertSame(1, $result['total']);
+        $this->assertSame(2, $result['total']);
         $this->assertSame(0, $result['keyword_score']);
-        $this->assertSame(100, (new CvKeywordMatcher)->compare($job, "Education\nGrade 12")['keyword_score']);
+        $this->assertSame(67, (new CvKeywordMatcher)->compare($job, "Education\nGrade 12")['keyword_score']);
     }
 
     public function test_certifications_are_checked_alongside_education(): void
@@ -99,14 +127,14 @@ class CvJobRequirementsTest extends TestCase
         }
     }
 
-    public function test_relevant_additional_certificates_add_explicit_bonus_without_hiding_gaps(): void
+    public function test_extra_certificates_do_not_add_wording_bonus_points(): void
     {
         $job = "Qualifications\nDiploma in Accounting\nSkills\nExcel, Python";
         $cv = "Education\nBachelor of Accounting\nSkills\nExcel\nCertifications\nExcel Certificate - Example Institute - 2024\nExcel Certificate\nCooking Certificate";
         $result = (new CvKeywordMatcher)->compare($job, $cv);
         $this->assertSame(67, $result['base_requirement_score']);
-        $this->assertSame(2, $result['certificate_bonus']);
-        $this->assertSame(69, $result['keyword_score']);
+        $this->assertSame(0, $result['certificate_bonus']);
+        $this->assertSame(67, $result['keyword_score']);
         $this->assertSame(['Python'], $result['missing']);
     }
 

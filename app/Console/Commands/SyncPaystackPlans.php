@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Http;
 
 class SyncPaystackPlans extends Command
 {
-    protected $signature = 'paystack:sync-plans {--dry-run : Preview without contacting Paystack}';
+    protected $signature = 'paystack:sync-plans {--dry-run : Preview without contacting Paystack} {--replace-mismatched : Select a matching plan or create a new one, leaving the old remote plan unchanged}';
 
     protected $description = 'Create or reuse the Monthly, Pro and Annual ZAR plans without subscribing or charging customers';
 
@@ -50,12 +50,18 @@ class SyncPaystackPlans extends Command
                 if ($plan->paystack_plan_code && $plan->paystack_mode === $mode) {
                     $result = $http->get('https://api.paystack.co/plan/'.$plan->paystack_plan_code)->throw()->json();
                     $remote = $result['data'] ?? [];
-                    if (! ($result['status'] ?? false) || ! $this->matches($remote, $payload)) {
+                    if ((! ($result['status'] ?? false) || ! $this->matches($remote, $payload)) && ! $this->option('replace-mismatched')) {
                         $this->error('Stored '.$plan->name.' plan differs from the requested price or interval. No existing subscriptions were changed.');
 
                         return self::FAILURE;
                     }
+                    if (! ($result['status'] ?? false) || ! $this->matches($remote, $payload)) {
+                        $remote = null;
+                    }
                 } else {
+                    $remote = null;
+                }
+                if (! $remote) {
                     // Find a matching plan first, including after an interrupted previous run.
                     $remote = null;
                     $page = 1;

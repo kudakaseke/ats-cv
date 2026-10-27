@@ -4,69 +4,109 @@ namespace App\Services;
 
 class CvJobRequirements
 {
+    public const VERSION = 'weighted-requirements-v5';
+    public const WEIGHTS = ['mandatory' => 3, 'required' => 2, 'preferred' => 1];
+
     public function extract(string $job, CvKeywordMatcher $matcher): array
     {
         $category = null;
+        $importance = 'required';
+        $excluded = false;
         $items = [];
-        $job = preg_replace('/\b(Qualifications|Skills|Competencies|Strengths)\s*:/iu', "\n$1:", $job);
+        $job = preg_replace('/\b((?:(?:mandatory|required|essential|minimum|key|technical|core|preferred|desirable|optional)\s+)?(?:qualifications|skills|competencies|strengths|requirements)|mandatory|preferred|desirable|optional)\s*:/iu', "\n$1:", $job);
         foreach (preg_split('/\R/u', $job) as $line) {
-            $line = trim(preg_replace('/^\s*(?:\d+[.)]|[•*\-])\s*/u', '', $line), " \t#*");
-            if (preg_match('/^(?:Required education level|Education level)\s*:\s*(.*)$/iu', $line, $special)) {
-                $category = 'qualifications';
-                $line = trim($special[1]);
-            } elseif (preg_match('/^Competencies and values\s*:\s*(.*)$/iu', $line, $special)) {
-                $category = 'competencies';
-                $line = trim($special[1]);
-            } elseif (preg_match('/^(?:Study Diplomacy|Area\(s\) of expertise|Driving licen[cs]e|Languages|Nationality|Eligibility criteria|Assignment requirements|Relevant experience|Required experience)\s*:?$/iu', $line)) {
+            $line = trim(preg_replace('/^\s*(?:\d+[.)]|[\x{2022}\x{25AA}\x{25CF}\x{25E6}\x{2023}\x{25A0}*\-])\s*/u', '', $line), " \t#*");
+            if (preg_match('/^(?:about the role|purpose of (?:the )?(?:position|role)|full job description)\s*:?$/iu', $line)) {
                 $category = null;
-
+                $excluded = true;
                 continue;
             }
-            if (preg_match('/^(?:preferred|desirable|optional)(?:\s+(?:qualifications|skills|competencies|requirements))?\s*:?$/iu', $line)) {
-                $category = null;
-
+            if (preg_match('/^key performance areas\s*:?$/iu', $line)) {
+                $category = 'skills';
+                $importance = 'required';
+                $excluded = false;
                 continue;
-            } elseif (preg_match('/^(?:(?:minimum|key|essential)\s+)?(?:requirements|qualifications\s*(?:and|&)\s*experience|experience\s*(?:and|&)\s*qualifications|skills\s*(?:and|&)\s*experience)\s*(?::\s*(.*))?$/iu', $line, $general)) {
+            }
+            if (preg_match('/^(?:(?:key|main|core|specific)\s+)?(?:closing date|application deadline|applications close|job reference|requisition id|benefits|company overview|company description|about us|about the company|about the employer|who we are|our mission|how to apply|application process|application instructions|applications (?:must|should|close)|apply now|submit your|send your|contact details|equal opportunit\w*|salary|location|employment type|what we offer|responsibilities|duties|study diplomacy|area\(s\) of expertise|nationality|assignment requirements)\b/iu', $line)) {
+                $category = null;
+                $excluded = true;
+                continue;
+            }
+            if (preg_match('/^(?:(mandatory|required|essential|minimum|preferred|desirable|optional|key|technical|core)\s+)?(qualifications?|education|skills?|competencies|competences|strengths|personal attributes|personal qualities|personal strengths|core attributes|competencies and values|strengths\s*(?:and|&|or)\s*competencies|competencies\s*(?:and|&|or)\s*strengths)(?:\s+required)?\s*(?::\s*(.*))?$/iu', $line, $heading)) {
+                $category = preg_match('/^(?:qualifications?|education)$/i', $heading[2]) ? 'qualifications' : (preg_match('/^skills?$/i', $heading[2]) ? 'skills' : 'competencies');
+                $importance = $this->importance($heading[1] ?? '', 'required');
+                $line = trim($heading[3] ?? '');
+            } elseif (preg_match('/^(?:(minimum|key|essential|required|mandatory|preferred|desirable|optional)\s+)?(?:requirements|qualifications\s*(?:and|&)\s*experience|experience\s*(?:and|&)\s*qualifications|skills\s*(?:and|&)\s*experience|person specification|essential criteria|what you bring|what we are looking for|about you)\s*(?::\s*(.*))?$/iu', $line, $heading)) {
                 $category = 'general';
-                $line = trim($general[1] ?? '');
-            } elseif (preg_match('/^(?:(?:required|key|essential|technical|core|minimum)\s+)?(qualifications?|education|skills?|competencies|competences|strengths|strengths\s*(?:and|&|or)\s*competencies|competencies\s*(?:and|&|or)\s*strengths)(?:\s+required)?\s*(?::\s*(.*))?$/iu', $line, $heading)) {
-                $category = match (strtolower($heading[1])) {
-                    'qualification', 'qualifications', 'education' => 'qualifications',
-                    'skill', 'skills' => 'skills',
-                    default => 'competencies',
-                };
+                $importance = $this->importance($heading[1] ?? '', 'required');
                 $line = trim($heading[2] ?? '');
-            } elseif (preg_match('/^(?:experience|responsibilities|duties|benefits|about us|about the company|how to apply|salary|what we offer)\s*:?(?:\s.*)?$/iu', $line)) {
-                $category = null;
+            } elseif (preg_match('/^(mandatory|required|essential|preferred|desirable|optional)\s*:\s*(.*)$/iu', $line, $heading)) {
+                $category = 'general';
+                $importance = $this->importance($heading[1], 'required');
+                $line = trim($heading[2]);
+            } elseif (preg_match('/^(?:required education level|education level)\s*:\s*(.*)$/iu', $line, $heading)) {
+                $category = 'qualifications';
+                $importance = str_starts_with(strtolower($line), 'required') ? 'mandatory' : 'required';
+                $line = trim($heading[1]);
             }
-            if ($category === null || $line === '') {
+            if (preg_match('/^(?:experience|relevant experience|required experience)\s*:?$/iu', $line)) {
+                $category = null;
+                $excluded = true;
                 continue;
             }
+            if ($line === '') continue;
+            if ($category !== null) $excluded = false;
+            // Without a requirements section, only explicit requirement statements
+            // are eligible. Never turn all company prose into scored keywords.
             $lineCategory = $category;
-            if ($category === 'general') {
-                if (preg_match('/\b\d+\s*\+?\s*years?\b.*\bexperience\b/iu', $line)) {
-                    continue;
-                }
-                $lineCategory = preg_match('/\b(?:degree|bachelor|bachelors|bcom|bsc|diploma|certificate|certification|certified|registered|registration|licen[cs]e|licensed|grade|masters?|doctorate|phd|qualification)\b/iu', $line) ? 'qualifications'
-                    : (preg_match('/\b(?:teamwork|integrity|adaptability|resilience|attention to detail|initiative|strengths?|competenc)/iu', $line) ? 'competencies' : 'skills');
+            if ($lineCategory === null) {
+                if ($excluded || ! preg_match('/\b(?:must|requires?|required|essential|mandatory|preferred|desirable|proficiency in|knowledge of|ability to|experience (?:in|with)|bachelor|diploma|certification|licen[cs]e)\b/iu', $line)) continue;
+                $lineCategory = 'general';
             }
-            foreach ((new CvRequirementPhrases)->split($line, $lineCategory) as $phrase) {
-                $phrase = trim($phrase, " \t.:-•*");
-                $phrase = preg_replace('/^(?:(?:minimum|at least)\s+)?\d+\s*\+?\s*years?\s*(?:of\s+)?(?:relevant\s+)?experience\s*(?:(?:in|with|of)\s+)?/iu', '', $phrase);
-                $terms = $matcher->tokens($phrase);
-                if (! $terms) {
-                    continue;
+            $clauses = [];
+            foreach (preg_split('/;|(?<=[.!?])\s+(?=[A-Z])/u', $line) as $sentence) {
+                $hasItemModifiers = preg_match('/\b(?:required|mandatory|essential|preferred|desirable|optional)\b/iu', $sentence);
+                $keepProse = $lineCategory === 'qualifications' || preg_match('/\b(?:degree|diploma|bachelor|including|such as|or)\b/iu', $sentence);
+                $clauses = [...$clauses, ...($hasItemModifiers && ! $keepProse ? preg_split('/,\s*/u', $sentence) : [$sentence])];
+            }
+            foreach ($clauses as $clause) {
+                if (preg_match('/\b(?:\d+|\w+\s*\(\d+\))\s*\+?\s*years?\b.*\bexperience\b/iu', $clause)) continue;
+                $itemImportance = $this->importance($clause, $importance);
+                // Employers often put skills under a broad "Qualifications"
+                // heading. Do not limit those skills to the CV's education text.
+                $clauseCategory = $lineCategory;
+                if ($clauseCategory === 'qualifications' && preg_match('/^(?:sound\s+)?(?:knowledge|proficiency|experience|ability|familiarity)\b/iu', trim($clause))) {
+                    $clauseCategory = 'skills';
                 }
-                // Compact lists of technology names remain individual requirements.
-                $compact = ! preg_match('/\bor\b/i', $phrase) && count($terms) > 0 && count(array_filter($terms, fn ($term) => preg_match('/^(?:PHP|HTML|CSS|JavaScript|TypeScript|SQL|MySQL|Python|Java|C#|C\+\+|\.NET|Excel|Word|AWS|Git)$/i', $term))) === count($terms);
-                foreach ($compact ? array_values($terms) : [$phrase] as $label) {
-                    $key = implode(' ', array_keys($matcher->tokens($label)));
-                    $items[$key] = ['category' => $lineCategory, 'requirement' => $label];
+                $clause = preg_replace('/^(?:(?:candidates?|applicants?)\s+(?:must|should)\s+(?:have|hold)|must\s+(?:have|hold)|we\s+require|(?:proficiency|knowledge|experience)\s+(?:in|of|with)|(?:required|mandatory|essential|preferred|desirable|optional)\s*:)\s*/iu', '', trim($clause));
+                $clause = preg_replace('/\s*(?:\((?:required|mandatory|essential|preferred|desirable|optional)\)|(?:is |are )?(?:required|mandatory|essential|preferred|desirable|optional|advantageous)|is an asset)\s*[.!]?$/iu', '', $clause);
+                $clause = preg_replace('/^professional certifications?\s+(?:such as|including)\s+(.+?)\s+(?:are|is|will be)\s+(?:an?\s+)?added advantage[.!]?$/iu', '$1', $clause);
+                $actualCategory = $clauseCategory === 'general' ? (preg_match('/\b(?:degree|bachelor|bachelors|bcom|bsc|diploma|certificate|certification|certified|registered|registration|licen[cs]e|grade|masters?|doctorate|phd|qualification)\b/iu', $clause) ? 'qualifications' : (preg_match('/\b(?:teamwork|integrity|adaptability|resilience|attention to detail|initiative|strengths?|competenc)/iu', $clause) ? 'competencies' : 'skills')) : $clauseCategory;
+                foreach ((new CvRequirementPhrases)->split($clause, $actualCategory) as $phrase) {
+                    $phrase = preg_replace('/^[\s.:\-\x{2022}*]+|[\s.:\-\x{2022}*]+$/u', '', $phrase);
+                    $terms = $matcher->tokens($phrase);
+                    if (! $terms) continue;
+                    $compact = ! preg_match('/\bor\b/i', $phrase) && count(array_filter($terms, fn ($term) => preg_match('/^(?:PHP|HTML|CSS|JavaScript|TypeScript|SQL|MySQL|Python|Java|C#|C\+\+|\.NET|Excel|Word|AWS|Git)$/i', $term))) === count($terms);
+                    foreach ($compact ? array_values($terms) : [$phrase] as $label) {
+                        $keys = array_keys($matcher->tokens($label));
+                        sort($keys);
+                        $key = implode(' ', $keys);
+                        $weight = self::WEIGHTS[$itemImportance];
+                        if (! isset($items[$key]) || $weight > $items[$key]['weight']) {
+                            $items[$key] = ['category' => $actualCategory, 'requirement' => $label, 'importance' => $itemImportance, 'weight' => $weight];
+                        }
+                    }
                 }
             }
         }
-
         return array_slice(array_values($items), 0, 100);
+    }
+
+    private function importance(string $text, string $default): string
+    {
+        if (preg_match('/\b(?:must|mandatory|essential|requires?|required|minimum)\b/iu', $text)) return 'mandatory';
+        if (preg_match('/\b(?:preferred|preferable|desirable|optional|advantageous|added advantage|nice.to.have)\b|\b(?:is|be)\s+an\s+asset\b/iu', $text)) return 'preferred';
+        return $default;
     }
 
     public function compare(array $items, string $resume, CvKeywordMatcher $matcher): array
@@ -82,7 +122,12 @@ class CvJobRequirements
         $matched = [];
         $missing = [];
         $greenFlags = [];
+        $matchedWeight = 0;
+        $totalWeight = 0;
         foreach ($items as $item) {
+            $item['importance'] ??= 'required';
+            $item['weight'] = self::WEIGHTS[$item['importance']] ?? 2;
+            $totalWeight += $item['weight'];
             $alternatives = preg_split('/\s+or\s+/iu', $item['requirement']);
             if ($item['category'] === 'qualifications' && (count($alternatives) > 1 || str_contains($item['requirement'], ','))) {
                 $alternatives = preg_split('/\s+or\s+|,\s*/iu', $item['requirement']);
@@ -131,52 +176,20 @@ class CvJobRequirements
             $groups[$item['category']][] = [...$item, 'matched' => $found];
             if ($found) {
                 $matched[] = $item['requirement'];
+                $matchedWeight += $item['weight'];
             } else {
                 $missing[] = $item['requirement'];
             }
         }
 
-        $baseScore = count($items) ? (int) round(count($matched) / count($items) * 100) : 0;
-        $certificates = [];
-        $jobTerms = $matcher->tokens(implode(' ', array_column($items, 'requirement')));
-        $generic = array_flip(['certificate', 'certification', 'certified', 'professional', 'degree', 'bachelor', 'diploma', 'national', 'course', 'training', 'completion']);
-        foreach ($parsed['custom_sections'] ?? [] as $section) {
-            if (! in_array(strtolower($section['title']), ['courses', 'certifications', 'certificates', 'training'], true)) {
-                continue;
-            }
-            foreach (preg_split('/\R/u', $section['content']) as $line) {
-                $line = preg_split('/\s+(?:-|\|)\s+/u', $line, 2)[0];
-                if (preg_match('/\b(?:no|not|pursuing|studying|expired|university|college|institute|provider)\b/i', $line)) {
-                    continue;
-                }
-                $terms = array_diff_key($matcher->tokens($line), $generic);
-                if (! $terms || ! array_intersect_key($terms, array_diff_key($jobTerms, $generic))) {
-                    continue;
-                }
-                $alreadyRequired = false;
-                foreach ($groups['qualifications'] ?? [] as $qualification) {
-                    $requiredTerms = $matcher->tokens($qualification['requirement']);
-                    if ($qualification['matched'] && ! array_diff_key($requiredTerms, $matcher->tokens($line))) {
-                        $alreadyRequired = true;
-                    }
-                }
-                if (! $alreadyRequired) {
-                    $certificates[implode(' ', array_keys($terms))] = trim($line);
-                }
-            }
-        }
-        $ceiling = $missing ? 99 : 100;
-        $bonus = min(6, count($certificates) * 2, max(0, $ceiling - $baseScore));
-        $score = min($ceiling, $baseScore + $bonus);
-        foreach ($certificates as $certificate) {
-            $greenFlags[] = 'Additional relevant certificate: '.$certificate;
-        }
+        $baseScore = min($missing ? 99 : 100, $totalWeight ? (int) round($matchedWeight / $totalWeight * 100) : 0);
+        $score = $baseScore;
 
         return ['matched' => $matched, 'missing' => $missing, 'requirement_groups' => $groups,
             'confirmable_skills' => array_values(array_map(fn ($item) => $item['requirement'], array_filter($groups['skills'] ?? [], fn ($item) => ! $item['matched'] && mb_strlen($item['requirement']) <= 200))),
             'total' => count($items), 'keyword_score' => $score, 'base_requirement_score' => $baseScore,
-            'certificate_bonus' => $bonus, 'green_flags' => array_values(array_unique($greenFlags)),
-            'scoring_basis' => 'requirements-v2'];
+            'certificate_bonus' => 0, 'matched_weight' => $matchedWeight, 'total_weight' => $totalWeight, 'green_flags' => array_values(array_unique($greenFlags)),
+            'scoring_basis' => self::VERSION];
     }
 
     private function academicLevel(string $value): int

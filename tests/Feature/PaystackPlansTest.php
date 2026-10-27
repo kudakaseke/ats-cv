@@ -13,6 +13,41 @@ class PaystackPlansTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_completed_local_test_purchase_without_renewal_does_not_block_checkout(): void
+    {
+        $this->app->instance('env', 'local');
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
+        config(['paystack.enabled' => true, 'paystack.secret_key' => 'sk_test_fixture', 'paystack.local_test_credits' => true, 'paystack.currency' => 'ZAR']);
+        $user = User::factory()->create();
+        $plan = SubscriptionPlan::where('slug', 'monthly')->firstOrFail();
+        $plan->update(['paystack_plan_code' => 'PLN_fixture', 'paystack_amount_cents' => 9000, 'paystack_mode' => 'test']);
+        $payment = \App\Models\BillingPayment::create(['reference' => (string) \Illuminate\Support\Str::uuid(), 'user_id' => $user->id,
+            'subscription_plan_id' => $plan->id, 'provider' => 'paystack', 'mode' => 'test', 'status' => 'test_paid',
+            'amount_cents' => 9000, 'currency' => 'ZAR', 'billing_interval' => 'monthly', 'recurring' => true]);
+        Http::fake(function ($request) {
+            return Http::response(['status' => true, 'data' => $request->method() === 'GET'
+                ? ['plan_code' => 'PLN_fixture', 'domain' => 'test', 'amount' => 9000, 'currency' => 'ZAR', 'interval' => 'monthly']
+                : ['reference' => $request['reference'], 'authorization_url' => 'https://checkout.paystack.com/fixture']]);
+        });
+        $this->actingAs($user)->get(route('subscription'))->assertOk()->assertDontSee('Pay securely with Paystack.')->assertDontSee('Cancel automatic renewal');
+        $this->post(route('paystack.subscribe', 'monthly'), ['billing_consent' => 1])->assertRedirect('https://checkout.paystack.com/fixture');
+        $this->assertDatabaseCount('billing_payments', 2);
+
+        // Retry resumes the existing checkout without creating another payment.
+        $this->post(route('paystack.subscribe', 'monthly'), ['billing_consent' => 1])->assertRedirect('https://checkout.paystack.com/fixture');
+        $this->assertDatabaseCount('billing_payments', 2);
+        Http::assertSentCount(2);
+        $this->assertNull($payment->fresh()->recurring_status);
+        \App\Models\BillingPayment::where('id', '!=', $payment->id)->delete();
+        $payment->update(['provider_reference' => 'SUB_fixture']);
+        $this->post(route('paystack.subscribe', 'monthly'), ['billing_consent' => 1])->assertRedirect(route('subscription.payment-methods', 'monthly'))->assertSessionHasNoErrors();
+        $this->assertDatabaseCount('billing_payments', 1);
+        $payment->update(['provider_reference' => null]);
+        $this->app->instance('env', 'production');
+        $this->post(route('paystack.subscribe', 'monthly'), ['billing_consent' => 1])->assertRedirect(route('subscription.payment-methods', 'monthly'))->assertSessionHasNoErrors();
+        $this->assertDatabaseCount('billing_payments', 1);
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -25,7 +60,7 @@ class PaystackPlansTest extends TestCase
         $annual = SubscriptionPlan::where('slug', 'annual')->firstOrFail();
         $this->assertSame(4740, $annual->price_cents);
         $this->assertSame('3.95', $annual->displayPrice());
-        $this->get('/pricing')->assertOk()->assertSee('$3.95')->assertSee('US$47.40')->assertSee('200 credits')->assertSee('exact charge and currency');
+        $this->get('/pricing')->assertOk()->assertSee('$3.95')->assertSee('US$47.40')->assertSee('2,400 credits')->assertSee('exact charge and currency');
     }
 
     public function test_missing_amounts_do_not_contact_paystack(): void
@@ -94,6 +129,24 @@ class PaystackPlansTest extends TestCase
         Http::fake(['*' => Http::response(['status' => true, 'data' => ['amount' => 1, 'currency' => 'ZAR', 'interval' => 'monthly']])]);
         $this->artisan('paystack:sync-plans')->assertFailed();
         Http::assertSentCount(1);
+    }
+
+    public function test_replacement_selects_new_plans_without_modifying_old_remote_plans(): void
+    {
+        $this->configure();
+        SubscriptionPlan::where('slug', 'monthly')->update(['paystack_plan_code' => 'PLN_old', 'paystack_mode' => 'test']);
+        Http::fake(function ($request) {
+            if (str_ends_with($request->url(), '/plan/PLN_old')) {
+                return Http::response(['status' => true, 'data' => ['amount' => 1, 'currency' => 'ZAR', 'interval' => 'monthly']]);
+            }
+            if ($request->method() === 'POST') {
+                return Http::response(['status' => true, 'data' => [...$request->data(), 'plan_code' => 'PLN_new_'.$request['amount']]]);
+            }
+            return Http::response(['status' => true, 'data' => [], 'meta' => ['pageCount' => 1]]);
+        });
+        $this->artisan('paystack:sync-plans --replace-mismatched')->assertSuccessful();
+        $this->assertSame('PLN_new_9000', SubscriptionPlan::where('slug', 'monthly')->first()->paystack_plan_code);
+        Http::assertNotSent(fn ($request) => in_array($request->method(), ['PUT', 'PATCH', 'DELETE'], true));
     }
 
     private function configure(): void

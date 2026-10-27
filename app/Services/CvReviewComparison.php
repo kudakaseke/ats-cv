@@ -8,12 +8,18 @@ use Illuminate\Support\Facades\DB;
 
 class CvReviewComparison
 {
-    public const VERSION = 5;
+    public const VERSION = 11;
 
-    public function refreshForUser(array $comparison, ?int $userId): array
+    public function refreshForUser(array $comparison, ?int $userId, ?array $generated = null): array
     {
+        if (isset($generated['assessment'], $generated['text'], $generated['original_text'], $generated['job_description'], $comparison['original_text'], $comparison['revised_text'], $comparison['job_description'])
+            && CvDocumentIdentity::same($generated['text'], $comparison['revised_text'])
+            && CvDocumentIdentity::same($generated['original_text'], $comparison['original_text'])
+            && CvDocumentIdentity::same($generated['job_description'], $comparison['job_description'])) {
+            $comparison['assessment'] = $generated['assessment'];
+        }
         if (($comparison['comparison_version'] ?? 0) === self::VERSION || ! isset($comparison['original_text'], $comparison['revised_text'])) {
-            return $comparison;
+            return $this->withExperienceAssessment($comparison);
         }
         $job = $comparison['job_description'] ?? null;
         if (! $job && $userId) {
@@ -54,7 +60,28 @@ class CvReviewComparison
             }
         }
 
-        return $job ? $this->make($job, $comparison['original_text'], $comparison['revised_text'], $comparison['changes'] ?? []) : $comparison;
+        if (! $job) {
+            return $comparison;
+        }
+        $refreshed = $this->make($job, $comparison['original_text'], $comparison['revised_text'], $comparison['changes'] ?? []);
+        if (isset($comparison['assessment'])) {
+            $refreshed['assessment'] = $comparison['assessment'];
+        }
+        return $this->withExperienceAssessment($refreshed);
+    }
+
+    private function withExperienceAssessment(array $comparison): array
+    {
+        if (isset($comparison['experience_check'], $comparison['assessment'])) {
+            $comparison['experience_check'] = app(CvExperienceMatcher::class)->reconcile($comparison['experience_check'], $comparison['assessment']);
+            $comparison['warnings'] = [];
+            $check = $comparison['experience_check'];
+            if ($check['required_years'] !== null && ($check['shortfall'] || $check['cv_years'] === null || ($check['source'] ?? '') === 'ai_evidence_assessment' && $check['relevant_years'] === null)) {
+                $comparison['warnings'][] = $check['message'];
+            }
+            foreach ($check['assessment_date_warnings'] ?? [] as $warning) $comparison['warnings'][] = $warning;
+        }
+        return app(CvCompatibilityScore::class)->review($comparison);
     }
 
     public function make(string $job, string $original, string $revised, array $changes = []): array

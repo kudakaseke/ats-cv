@@ -19,7 +19,7 @@
         <aside id="workspace-navigation" class="workspace-sidebar" :class="{ 'sidebar-open': sidebar }" :inert="mobile && !sidebar ? '' : null">
             <a class="workspace-brand" href="{{ route('dashboard') }}" aria-label="ATS CV Detector dashboard"><x-logo-image /></a>
             <nav aria-label="Workspace navigation">
-                @foreach ([['dashboard', 'layout-dashboard', 'Dashboard', route('dashboard')], ['checker', 'scan-text', 'Job-to-CV ATS Detector', route('workspace.module', 'checker')], ['detect', 'file-check-2', 'ATS Checker', route('workspace.module', 'detect')], ['builder', 'file-plus-2', 'Create CV', route('workspace.module', 'builder')], ['resumes', 'folder-open', 'My CVs', route('workspace.module', 'resumes')], ['subscription', 'credit-card', 'Subscription', route('subscription')]] as $item)
+                @foreach ([['dashboard', 'layout-dashboard', 'Dashboard', route('dashboard')], ['checker', 'scan-text', 'Job-to-CV ATS Detector', route('workspace.module', 'checker')], ['detect', 'file-check-2', 'ATS Checker', route('workspace.module', 'detect')], ['builder', 'file-plus-2', 'Create CV', route('workspace.module', 'builder')], ['drafts', 'file-pen-line', 'Drafts', route('workspace.module', 'drafts')], ['resumes', 'folder-open', 'My CVs', route('workspace.module', 'resumes')], ['subscription', 'credit-card', 'Subscription', route('subscription')]] as $item)
                     @php($active = request()->routeIs($item[0]) || request()->route('module') === $item[0])
                     <a class="sidebar-link {{ $active ? 'active' : '' }}" href="{{ $item[3] }}" @click="sidebar = false" @if($active) aria-current="page" @endif><x-icon :name="$item[1]" />{{ $item[2] }}</a>
                 @endforeach
@@ -33,23 +33,24 @@
             <header class="workspace-topbar">
                 <button class="mobile-menu-button" @click="sidebar = !sidebar" :aria-expanded="sidebar" aria-controls="workspace-navigation" aria-label="Toggle sidebar"><x-icon name="menu" /></button>
                 @php($headerWallet = app(\App\Services\AiCreditService::class)->displayWallet(auth()->user()))
-                <a class="purchased-credit-badge" href="{{ route('subscription') }}"
-                    x-data="{ credits: @js($headerWallet['purchased_credits']), checking: false,
+                <a class="purchased-credit-badge" href="{{ route('subscription.payment-methods', 'monthly') }}"
+                    x-data="{ credits: @js($headerWallet['purchased_credits']), available: @js($headerWallet['credits']), checking: false,
                         async refreshCredits() {
                             if (this.checking) return;
                             this.checking = true;
                             try {
                                 const response = await fetch(@js(route('ai.credits')), { headers: { Accept: 'application/json' } });
-                                if (response.ok) this.credits = (await response.json()).purchased_credits;
+                                if (response.ok) { const wallet = await response.json(); this.credits = wallet.purchased_credits; this.available = wallet.credits; }
                             } catch (error) { /* Keep the last known balance. */ }
                             finally { this.checking = false; }
                         }
                     }"
                     @focus.window="refreshCredits()" @credits-updated.window="refreshCredits()"
-                    :aria-label="credits + ' purchased credits remaining. View your plan.'"
+                    :aria-label="available + ' credits available. Top up credits.'"
                     title="Purchased credits remaining">
                     <strong x-text="credits">{{ $headerWallet['purchased_credits'] }}</strong>
                     <span>Credits</span>
+                    <span x-show="available <= 20" @if($headerWallet['credits'] > 20) x-cloak @endif>Top up</span>
                 </a>
                 <a class="user-profile" href="{{ route('profile.edit') }}" aria-label="Account settings for {{ auth()->user()->name }}">
                     <span class="avatar">{{ mb_strtoupper(mb_substr(auth()->user()->name, 0, 1)) }}</span>
@@ -57,6 +58,7 @@
                 </a>
             </header>
             <main id="main" class="workspace-content">
+                @if(request()->routeIs('dashboard'))<x-input-error :messages="$errors->get('billing')" class="my-4" />@endif
                 @unless(request()->routeIs('dashboard'))
                     <div class="workspace-back-row"><x-back-button /></div>
                 @endunless

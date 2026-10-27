@@ -9,7 +9,7 @@ class CvTextParser
         $data = [];
         $aliases = [
             'summary' => ['summary', 'professional summary', 'personal profile', 'profile', 'career objective', 'objective', 'about me'],
-            'experience' => ['experience', 'work experience', 'professional experience', 'employment history', 'employment', 'career history'],
+            'experience' => ['experience', 'work experience', 'professional experience', 'employment history', 'employment', 'career history', 'work history', 'professional background', 'professional experiences', 'working experience', 'employment record'],
             'education' => ['education', 'qualifications', 'academic qualifications', 'education and qualifications', 'educational background'],
             'skills' => ['skills', 'technical skills', 'professional skills'],
             'competencies' => ['key competency', 'key competencies', 'core competencies', 'competencies', 'areas of expertise'],
@@ -118,7 +118,7 @@ class CvTextParser
                         continue;
                     }
                     // Keep the role or qualification when dates share the same line.
-                    $datePattern = '/\b(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+)?(?:19|20)\d{2}\s*(?:[-\x{2013}\x{2014}]|to)\s*(?:(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+)?(?:19|20)\d{2}|present|current)\b/iu';
+                    $datePattern = CvExperienceMatcher::periodPattern();
                     if (! $row['period'] && ! preg_match('/^(?:[\x{2022}*\-]|responsibilities:|duties:)/iu', $line) && preg_match($datePattern, $line, $date)) {
                         $row['period'] = $date[0];
                         $line = trim(str_replace($date[0], '', $line), " \t|,-");

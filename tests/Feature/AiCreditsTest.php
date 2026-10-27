@@ -20,6 +20,74 @@ class AiCreditsTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_existing_annual_allowance_preserves_spending_and_pending_refunds_on_upgrade(): void
+    {
+        $user = User::factory()->create();
+        $subscription = $this->paid($user, 'annual');
+        config(['ai_credits.plans.annual' => 200]);
+        $this->credits()->wallet($user);
+        $this->useCredits($user);
+        $operation = $this->credits()->reserve($user, 'revamp', (string) Str::uuid(), []);
+        $oldReference = 'subscription:'.$subscription->id.':'.$subscription->starts_at->format('YmdHis');
+        DB::table('ai_wallets')->where('user_id', $user->id)->update(['allocation_reference' => $oldReference]);
+        DB::table('ai_operations')->where('user_id', $user->id)->update(['allocation_reference' => $oldReference]);
+        DB::table('ai_credit_transactions')->where('reference', 'like', 'subscription:'.$subscription->id.':%')->delete();
+        config(['ai_credits.plans.annual' => 2400]);
+        $this->assertSame(2380, $this->credits()->wallet($user)['credits']);
+        $this->credits()->finish($user, $operation->id, null);
+        $this->assertSame(2390, $this->credits()->wallet($user)['credits']);
+        $this->assertSame(2390, $this->credits()->wallet($user)['credits']);
+    }
+
+    public function test_verified_local_test_topups_grant_once_and_reverse_without_creating_subscriptions(): void
+    {
+        $this->app->instance('env', 'local');
+        config(['paystack.local_test_credits' => true]);
+        $user = User::factory()->create();
+        $payment = $this->payment($user, 'topup', 'test');
+        $gateway = app(PaystackGateway::class);
+        $receipt = $this->receipt($payment);
+        $gateway->apply($payment, $receipt);
+        $gateway->apply($payment->fresh(), $receipt);
+        $this->assertSame(65, $this->credits()->wallet($user)['credits']);
+        $this->assertDatabaseCount('subscriptions', 0);
+        $gateway->apply($payment->fresh(), [...$receipt, 'status' => 'reversed']);
+        $gateway->apply($payment->fresh(), [...$receipt, 'status' => 'reversed']);
+        $this->assertSame(15, $this->credits()->wallet($user)['credits']);
+    }
+
+    public function test_test_topups_do_not_grant_credits_in_production(): void
+    {
+        $this->app->instance('env', 'production');
+        config(['paystack.local_test_credits' => true]);
+        $user = User::factory()->create();
+        $payment = $this->payment($user, 'topup', 'test');
+        app(PaystackGateway::class)->apply($payment, $this->receipt($payment));
+        $this->assertSame(15, $this->credits()->wallet($user)['credits']);
+        $this->assertDatabaseCount('subscriptions', 0);
+    }
+
+    public function test_paystack_topup_is_available_at_twenty_credits_with_an_active_subscription(): void
+    {
+        $user = User::factory()->create();
+        $this->paid($user);
+        $this->credits()->wallet($user);
+        DB::table('ai_wallets')->where('user_id', $user->id)->update(['subscription_credits' => 20]);
+        config(['paystack.enabled' => true, 'paystack.secret_key' => 'sk_live_fixture', 'paystack.currency' => 'ZAR', 'paystack.topup_amounts.monthly' => 7795]);
+        Http::fake(function ($request) {
+            return Http::response(['status' => true, 'data' => ['reference' => $request['reference'], 'authorization_url' => 'https://checkout.paystack.com/topup-fixture']]);
+        });
+        $this->assertSame(20, $this->credits()->wallet($user)['credits']);
+        $this->payment($user)->update(['status' => 'pending']);
+        config(['paystack.secret_key' => 'sk_live_fixture']);
+        $this->actingAs($user)->get(route('subscription'))->assertOk()->assertSee('Top up')->assertDontSee('Buy more credits');
+        $this->get(route('subscription.payment-methods', 'monthly'))->assertOk()->assertDontSee('Already have a plan? Top up credits')->assertDontSee('Top up 150 credits with Paystack');
+        $this->post(route('credits.topup'), ['pack' => 'monthly', 'provider' => 'paystack', 'billing_consent' => 1])
+            ->assertRedirect('https://checkout.paystack.com/topup-fixture');
+        $this->assertDatabaseHas('billing_payments', ['user_id' => $user->id, 'kind' => 'topup', 'credits' => 150, 'recurring' => false]);
+        $this->assertSame(20, $this->credits()->wallet($user)['credits']);
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -77,20 +145,20 @@ class AiCreditsTest extends TestCase
         $this->assertSame(50, $this->credits()->wallet($user)['topup_credits']);
     }
 
-    public function test_annual_credits_are_monthly_not_2400_upfront_and_stop_at_paid_term_end(): void
+    public function test_annual_credits_are_2400_upfront_without_monthly_refills_and_expire_at_term_end(): void
     {
         $this->travelTo(now()->setDate(2026, 1, 31)->startOfDay());
         $user = User::factory()->create();
         $this->paid($user, 'annual');
-        $this->assertSame(200, $this->credits()->wallet($user)['credits']);
+        $this->assertSame(2400, $this->credits()->wallet($user)['credits']);
         $this->useCredits($user);
         $this->travelTo(now()->setDate(2026, 2, 28));
-        $this->assertSame(200, $this->credits()->wallet($user)['credits']);
+        $this->assertSame(2390, $this->credits()->wallet($user)['credits']);
         $this->useCredits($user);
         $this->travelTo(now()->setDate(2026, 3, 30));
-        $this->assertSame(190, $this->credits()->wallet($user)['credits']);
+        $this->assertSame(2380, $this->credits()->wallet($user)['credits']);
         $this->travelTo(now()->setDate(2026, 3, 31));
-        $this->assertSame(200, $this->credits()->wallet($user)['credits']);
+        $this->assertSame(2380, $this->credits()->wallet($user)['credits']);
         $this->credits()->topup($user, 100, 'annual-topup');
         $this->travelTo(now()->setDate(2027, 1, 31));
         $this->assertSame(100, $this->credits()->wallet($user)['credits']);
@@ -124,9 +192,9 @@ class AiCreditsTest extends TestCase
         $this->paid($user, 'annual');
         $operation = $this->credits()->reserve($user, 'revamp', (string) Str::uuid(), []);
         $this->travel(32)->days();
-        $this->assertSame(200, $this->credits()->wallet($user)['credits']);
+        $this->assertSame(2390, $this->credits()->wallet($user)['credits']);
         $this->credits()->finish($user, $operation->id, null);
-        $this->assertSame(200, $this->credits()->wallet($user)['credits']);
+        $this->assertSame(2400, $this->credits()->wallet($user)['credits']);
         $this->assertSame(0, $this->credits()->wallet($user)['topup_credits']);
     }
 

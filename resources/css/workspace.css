@@ -7,7 +7,7 @@ body[data-workspace] {
     font-family: var(--font);
     font-size: 14px;
     color: var(--ink);
-    background: #f8f9fb;
+    background: #fff;
 }
 .payment-method-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
 .payment-method-card { padding: 28px; display: flex; flex-direction: column; gap: 18px; }
@@ -22,7 +22,7 @@ body[data-workspace] {
 .payment-provider-paynow { color: #296c3c; background: #edf7ef; }
 .payment-provider-paypal { color: #003087; background: #edf2fc; }
 @media (max-width: 1100px) { .payment-method-grid { grid-template-columns: 1fr; } }
-body[data-workspace] .workspace-shell { background: #f8f9fb; }
+body[data-workspace] .workspace-shell { background: #fff; }
 body[data-workspace] .workspace-sidebar { width: 232px; padding: 30px 16px 18px; background: #fff; border-right: 1px solid var(--line); }
 body[data-workspace] .workspace-brand { display: block; padding: 0 12px 32px; font-size: 22px; font-weight: 650; letter-spacing: -.7px; color: #242a33; }
 body[data-workspace] .workspace-brand span { display: block; font-size: 12px; letter-spacing: 0; font-weight: 400; color: var(--muted); margin-top: 6px; }
@@ -189,16 +189,7 @@ body[data-workspace] .checker-steps { background: transparent; border: 0; border
 body[data-workspace] .checker-job-section { border: 0; border-radius: 0; background: transparent; padding: 0; }
 body[data-workspace] .ats-checker #checker-job { width: 100%; min-height: 220px; height: clamp(220px, 36vh, 380px); max-height: max(220px, 80vh); overflow-y: scroll; scrollbar-gutter: stable; resize: vertical; }
 
-body[data-workspace] .dashboard-action-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
-body[data-workspace] .dashboard-action-card { position: relative; display: block; min-height: 210px; padding: 28px; background: white; border: 1px solid #dfe6ef; border-radius: 14px; transition: border-color .18s, box-shadow .18s, transform .18s; }
-body[data-workspace] .dashboard-action-card:hover { border-color: #346de1; box-shadow: 0 8px 24px #346de112; transform: translateY(-3px); }
-body[data-workspace] .dashboard-action-icon { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 12px; background: #edf3ff; color: #346de1; margin-bottom: 22px; }
-body[data-workspace] .dashboard-action-icon .icon { width: 25px; height: 25px; }
-body[data-workspace] .dashboard-action-card h2 { margin: 0 0 10px; font-size: 19px; font-weight: 600; letter-spacing: -.4px; }
-body[data-workspace] .dashboard-action-card p { margin: 0; max-width: 260px; font-size: 13px; line-height: 1.7; color: #69717c; }
-body[data-workspace] .dashboard-action-arrow { position: absolute; top: 28px; right: 24px; color: #346de1; }
-@media (max-width: 1100px) { body[data-workspace] .dashboard-action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 600px) { body[data-workspace] .dashboard-action-grid { grid-template-columns: 1fr; gap: 16px; } body[data-workspace] .dashboard-action-card { min-height: 180px; padding: 24px; } }
+
 
 body[data-workspace] .purchased-credit-badge {
     width: 58px; height: 58px; flex: 0 0 58px; border-radius: 50%;
@@ -239,3 +230,29 @@ body[data-workspace] .audit-table summary { cursor: pointer; }
 .payment-provider-icon.payment-provider-paynow { position: relative; width: 140px; height: 54px; padding: 0; overflow: hidden; background: #fff; flex-shrink: 0; }
 .payment-provider-paystack img,
 .payment-provider-paynow img { position: absolute; width: 100%; height: auto; max-width: none; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+
+/* Dashboard shares the public Features cards and typography. */
+body[data-workspace] .workspace-dashboard { --reference-blue:#346de1; --reference-ink:#0c272f; --reference-border:#c4ddff; color:var(--reference-ink); font-weight:300; }
+.dashboard-welcome { display:flex; justify-content:space-between; align-items:flex-end; gap:32px; margin:10px 0 44px; }
+.dashboard-welcome>div>span { font-size:13px; font-weight:400; color:#346de1; }
+.dashboard-welcome h1 { margin:16px 0 0; font-size:clamp(38px,3.8vw,58px); font-weight:400; letter-spacing:-.04em; line-height:1.12; }
+.dashboard-welcome h1 em { font-style:normal; color:#346de1; }
+.dashboard-welcome>p { margin:0 0 4px; font-size:15px; font-weight:300; line-height:1.9; }
+body[data-workspace] .workspace-dashboard .dashboard-action-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:24px; }
+body[data-workspace] .workspace-dashboard .dashboard-tool-card { padding:30px; min-height:360px; border-radius:0 64px 0 64px; background:#fff; }
+body[data-workspace] .workspace-dashboard .feature-category { padding:0; background:#fff; font-size:12px; font-weight:400; color:#52636a; }
+body[data-workspace] .workspace-dashboard .dashboard-tool-card h2 { font-size:clamp(25px,2.1vw,32px); font-weight:400; line-height:1.2; letter-spacing:-.03em; margin:24px 0 20px; min-height:2.4em; overflow-wrap:break-word; }
+.dashboard-tool-symbol { display:block; color:var(--feature-accent); margin-bottom:18px; }
+.dashboard-tool-symbol .icon { width:27px; height:27px; stroke-width:1.4; }
+body[data-workspace] .workspace-dashboard .dashboard-tool-card>p { font-size:14px; font-weight:300; line-height:1.9; margin:0 0 28px; }
+body[data-workspace] .workspace-dashboard .feature-card-footer>a { font-size:16px; font-weight:400; line-height:1.5; }
+body[data-workspace] .workspace-dashboard .feature-card-footer>a>span { flex-shrink:0; }
+body[data-workspace] .workspace-dashboard .dashboard-credit-card { background:#fff; border:1px solid #c4ddff; border-radius:0 64px 0 64px; padding:36px; margin-top:36px; box-shadow:none; }
+body[data-workspace] .workspace-dashboard .dashboard-credit-label { font-size:11px; font-weight:400; letter-spacing:1px; }
+body[data-workspace] .workspace-dashboard .dashboard-credit-intro h2 { font-size:30px; font-weight:400; letter-spacing:-.03em; }
+body[data-workspace] .workspace-dashboard .dashboard-credit-intro p { font-size:14px; line-height:1.8; margin:14px 0 24px; }
+body[data-workspace] .workspace-dashboard .dashboard-credit-balance>strong { font-weight:400; }
+body[data-workspace] .workspace-dashboard .dashboard-credit-rates strong { font-weight:500; }
+body[data-workspace] .workspace-dashboard .btn { font-weight:400; border-radius:0 20px 0 20px; padding:12px 22px; }
+@media(max-width:1150px) { body[data-workspace] .workspace-dashboard .dashboard-action-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.dashboard-welcome { align-items:flex-start; }.dashboard-welcome>p { max-width:240px; }.dashboard-welcome>p br { display:none; } }
+@media(max-width:600px) { .dashboard-welcome { display:block; margin-bottom:30px; }.dashboard-welcome>p { max-width:100%; margin-top:22px; }body[data-workspace] .workspace-dashboard .dashboard-action-grid { grid-template-columns:1fr; gap:24px; }body[data-workspace] .workspace-dashboard .dashboard-tool-card { padding:28px; min-height:320px; }body[data-workspace] .workspace-dashboard .dashboard-tool-card h2 { font-size:30px; min-height:0; margin:26px 0 22px; }body[data-workspace] .workspace-dashboard .dashboard-credit-card { padding:28px; gap:28px; } }

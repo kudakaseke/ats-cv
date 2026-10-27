@@ -16,6 +16,28 @@ use Illuminate\Validation\Rule;
 
 class CreditBillingController extends Controller
 {
+    public function callback(Request $request, \App\Services\Billing\HostedPaystackPayments $hosted)
+    {
+        $data = $request->validate(['reference' => ['required', 'string', 'max:255', 'regex:/^[a-zA-Z0-9._=-]+$/']]);
+        try {
+            $payment = $hosted->reconcile($data['reference'], $request->user());
+            if (! in_array($payment->status, ['paid', 'test_paid'], true)) {
+                return to_route('dashboard')->withErrors(['billing' => 'Payment was declined or has not completed. No credits were added.']);
+            }
+            return app(BillingController::class)->show($request, $payment->reference, app(\App\Services\Billing\PaymentService::class));
+        } catch (\DomainException) {
+            return to_route('dashboard')->withErrors(['billing' => 'Payment was declined or has not completed. No credits were added.']);
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $exception) {
+            if ($exception->getStatusCode() !== 403) {
+                throw $exception;
+            }
+            return to_route('dashboard')->withErrors(['billing' => 'This payment uses a different account email. Do not pay again. Contact support with the payment reference to recover it.']);
+        } catch (\Throwable $exception) {
+            report($exception);
+            return to_route('dashboard')->withErrors(['billing' => 'Payment could not be confirmed. No credits were added. Please check payment status or contact support.']);
+        }
+    }
+
     public function topup(Request $request)
     {
         $data = $request->validate(['pack' => ['required', Rule::in(array_keys(config('ai_credits.topups')))], 'provider' => ['required', 'in:paystack,paynow,paypal'], 'billing_consent' => ['accepted']]);
@@ -63,8 +85,25 @@ class CreditBillingController extends Controller
         abort_unless($offer->paystack_plan_code && $offer->paystack_amount_cents > 0 && $offer->paystack_mode === $gateway->mode(), 503, 'Paystack plan is not configured.');
         $payment = DB::transaction(function () use ($request, $offer, $gateway) {
             $user = User::whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
-            if ($user->subscriptions()->where('status', 'active')->where('ends_at', '>', now())->exists() || BillingPayment::where('user_id', $user->id)->where('mode', $gateway->mode())->where('recurring', true)->where(fn ($q) => $q->whereNull('recurring_status')->orWhereNotIn('recurring_status', ['CANCELLED', 'EXPIRED', 'SETUP_FAILED', 'DISABLED', 'COMPLETE']))->exists()) {
+            $renewals = BillingPayment::where('user_id', $user->id)->where('mode', $gateway->mode())->where('recurring', true)
+                ->where(fn ($q) => $q->whereNull('recurring_status')->orWhereNotIn('recurring_status', ['CANCELLED', 'EXPIRED', 'SETUP_FAILED', 'DISABLED', 'COMPLETE']));
+            if (PaystackGateway::localTestCreditsEnabled()) {
+                // A completed local test purchase without a renewal agreement must not block later tests.
+                $renewals->where(fn ($q) => $q->where('provider', '!=', 'paystack')->orWhere('status', '!=', 'test_paid')
+                    ->orWhereNotNull('recurring_status')->orWhere('provider_reference', 'like', 'SUB_%'));
+            }
+            if ($user->subscriptions()->where('status', 'active')->where('ends_at', '>', now())->exists()) {
                 return null;
+            }
+            $open = $renewals->lockForUpdate()->get();
+            if ($open->isNotEmpty()) {
+                if ($open->count() !== 1) {
+                    return null;
+                }
+                $existing = $open->first();
+                return $existing->provider === 'paystack' && $existing->status === 'pending'
+                    && $existing->subscription_plan_id === $offer->id && $existing->recurring_status === null
+                    && ! str_starts_with($existing->provider_reference ?? '', 'SUB_') ? $existing : null;
             }
 
             return BillingPayment::create(['reference' => (string) Str::uuid(), 'user_id' => $user->id, 'subscription_plan_id' => $offer->id,
@@ -72,7 +111,15 @@ class CreditBillingController extends Controller
                 'billing_interval' => $offer->billing_interval, 'recurring' => true, 'provider_plan_id' => $offer->paystack_plan_code, 'credits' => config('ai_credits.plans.'.$offer->slug)]);
         });
         if (! $payment) {
-            return to_route('subscription')->withErrors(['billing' => 'Manage your existing subscription before starting another one.']);
+            return redirect()->to(route('subscription.payment-methods', 'monthly'));
+        }
+        if ($payment->checkout_url) {
+            $url = $payment->checkout_url;
+            if (parse_url($url, PHP_URL_SCHEME) === 'https' && parse_url($url, PHP_URL_HOST) === 'checkout.paystack.com') {
+                return redirect()->away($url);
+            }
+
+            return to_route('billing.show', $payment->reference)->withErrors(['billing' => 'Check this payment status before retrying checkout.']);
         }
         try {
             return redirect()->away($gateway->start($payment, $request->user()->email));
@@ -106,7 +153,12 @@ class CreditBillingController extends Controller
                     return response('OK');
                 }
                 $verified = $gateway->verified($reference);
-                $payment = BillingPayment::where('provider', 'paystack')->where('reference', $reference)->first();
+                $payment = BillingPayment::where('provider', 'paystack')->where('mode', $gateway->mode())
+                    ->where(fn ($q) => $q->where('reference', $reference)->orWhere('hosted_reference', $reference))->first();
+                if (! $payment && data_get($verified, 'metadata.referrer')) {
+                    app(\App\Services\Billing\HostedPaystackPayments::class)->applyVerified($verified);
+                    return response('OK');
+                }
                 if (! $payment) {
                     $matches = BillingPayment::where('provider', 'paystack')->where('mode', $gateway->mode())->where('recurring', true)
                         ->where('provider_customer_id', data_get($verified, 'customer.customer_code'))->where('provider_plan_id', $gateway->planCode($verified))->get();

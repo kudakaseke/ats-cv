@@ -7,6 +7,41 @@ use Tests\TestCase;
 
 class CvExperienceMatcherTest extends TestCase
 {
+    public function test_ai_evidence_resolves_unknown_local_dates_and_separates_relevant_experience(): void
+    {
+        $matcher = app(CvExperienceMatcher::class);
+        $local = $matcher->compare('4 years of experience required.', 'CV without readable dates');
+        $result = $matcher->reconcile($local, ['experience' => ['documented_relevant_years' => 10, 'total_professional_years' => 13, 'date_warnings' => []]]);
+        $this->assertEquals(13, $result['cv_years']);
+        $this->assertEquals(10, $result['relevant_years']);
+        $this->assertFalse($result['shortfall']);
+        $this->assertStringNotContainsString('could not estimate', $result['message']);
+        $this->assertStringContainsString('meets the stated minimum', $result['message']);
+        $result = $matcher->reconcile($local, ['experience' => ['documented_relevant_years' => 2, 'total_professional_years' => 13]]);
+        $this->assertTrue($result['shortfall']);
+        $this->assertStringContainsString('below the stated minimum', $result['message']);
+    }
+
+    public function test_total_experience_does_not_confirm_relevant_experience_and_invalid_estimates_are_ignored(): void
+    {
+        $matcher = app(CvExperienceMatcher::class);
+        $local = $matcher->compare('4 years of experience required.', 'CV');
+        $result = $matcher->reconcile($local, ['experience' => ['total_professional_years' => 13, 'documented_relevant_years' => null]]);
+        $this->assertStringContainsString('Relevant experience could not be confirmed', $result['message']);
+        $this->assertFalse($result['shortfall']);
+        $this->assertSame($local, $matcher->reconcile($local, ['experience' => ['total_professional_years' => 2, 'documented_relevant_years' => 13]]));
+        $this->assertSame($local, $matcher->reconcile($local, null));
+    }
+
+    public function test_numeric_month_year_and_iso_month_periods_are_read_without_splitting_inside_dates(): void
+    {
+        foreach (['01/2013 - 12/2022', '2013-01 - 2022-12', 'January 2013 to December 2022'] as $period) {
+            $result = app(CvExperienceMatcher::class)->compare('4 years of experience', "Work History\nPosition: Procurement Officer\nPeriod: {$period}\nEducation\nDegree: Diploma\nPeriod: 2009 - 2012");
+            $this->assertEquals(10, $result['cv_years'], $period);
+            $this->assertFalse($result['shortfall']);
+        }
+    }
+
     public function test_multiline_year_requirements_and_unreadable_cv_dates_remain_explicit(): void
     {
         $result = app(CvExperienceMatcher::class)->compare("Required experience:\n1 month\nRelevant experience:\n1 year", "Experience\nPosition: Manager\nPeriod: 00/2000 - Present");

@@ -39,7 +39,14 @@
         @elseif($payment->status === 'paid')
             <p>Payment verified. Your purchase has been added to your account. Credits are available on your Subscription page. {{ $payment->recurring ? 'This subscription renews automatically until cancelled. Manage renewal on the Subscription page.' : 'This payment does not renew automatically.' }}</p>
         @elseif($payment->status === 'pending')
+            @if($payment->provider === 'paystack' && $payment->checkout_url && parse_url($payment->checkout_url, PHP_URL_SCHEME) === 'https' && parse_url($payment->checkout_url, PHP_URL_HOST) === 'checkout.paystack.com')
+                <p><a class="btn btn-primary mt-4" href="{{ $payment->checkout_url }}">Continue to Paystack checkout</a></p>
+            @endif
             <p>Confirming your payment automatically. Once confirmed, you will go to your dashboard with your updated credits. You can also check the status below.</p>
+        @elseif($payment->status === 'failed')
+            <p>Payment declined. No credits were added. Try another card or payment method.</p>
+        @elseif($payment->status === 'abandoned')
+            <p>Payment was not completed. No credits were added.</p>
         @else
             <p>This payment is {{ $payment->status }}. Contact support if you need assistance.</p>
         @endif

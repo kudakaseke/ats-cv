@@ -1,17 +1,44 @@
 window.cvChecker = (boot) => ({
-    step: 1, job: '', resumeText: '', filename: '', busy: false, error: '', result: null,
+    step: 1, industry: '', job: '', resumeText: '', filename: '', busy: false, error: '', result: null,
     modalOpen: false, aiDraft: null, originalScore: null, dragging: false,
     credits: boot.credits ?? 0, operations: {}, confirmedKeywords: [],
+    processing: '', progress: 0, progressTimer: null,
+    progressSteps() {
+        return this.processing === 'fix'
+            ? ['Reviewing your CV and job requirements', 'Tailoring your experience', 'Highlighting skills and competencies', 'Preparing your fixed CV']
+            : ['Parsing your resume', 'Analyzing your experience', 'Extracting your skills', 'Generating recommendations'];
+    },
+    startProgress(mode) {
+        this.stopProgress();
+        this.processing = mode; this.progress = 0;
+        if (!this.$refs.scanDialog.open) this.$refs.scanDialog.showModal();
+        this.modalOpen = true;
+        this.progressTimer = setInterval(() => {
+            // Estimated waiting progress: only a successful API response completes it.
+            this.progress = Math.min(94, this.progress + Math.max(0.2, (94 - this.progress) * 0.045));
+        }, 700);
+    },
+    stopProgress() { clearInterval(this.progressTimer); this.progressTimer = null; },
+    destroy() { this.stopProgress(); },
     matchLevel() {
         const score = this.result?.keyword_score ?? 0;
         return score >= 80 ? 'High requirements match' : score >= 50 ? 'Moderate requirements match' : 'Low requirements match';
     },
     operation(feature) {
-        const fingerprint = JSON.stringify([this.job, this.resumeText, feature === 'revamp' ? this.confirmedKeywords : []]);
-        if (this.operations[feature]?.fingerprint !== fingerprint) this.operations[feature] = {fingerprint, id: crypto.randomUUID()};
+        const fingerprint = JSON.stringify([this.industry, this.job, this.resumeText, feature === 'revamp' ? this.confirmedKeywords : []]);
+        if (this.operations[feature]?.fingerprint !== fingerprint) {
+            // randomUUID requires HTTPS; getRandomValues also works on local-network HTTP previews.
+            const bytes = crypto.getRandomValues(new Uint8Array(16));
+            bytes[6] = (bytes[6] & 0x0f) | 0x40;
+            bytes[8] = (bytes[8] & 0x3f) | 0x80;
+            const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+            const id = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+            this.operations[feature] = {fingerprint, id};
+        }
         return this.operations[feature].id;
     },
     nextJob() {
+        if (!this.industry) { this.error = 'Choose an industry first.'; return; }
         if (!this.job.trim()) { this.error = 'Paste the job description first.'; return; }
         this.error = ''; this.result = null; this.originalScore = null; this.modalOpen = false; this.confirmedKeywords = []; this.step = 2;
     },
@@ -62,26 +89,31 @@ window.cvChecker = (boot) => ({
         if (this.busy) return;
         const text = this.resumeText;
         if (!text.trim()) { this.error = 'Your resume cannot be empty.'; return; }
+        this.result = null; this.step = 3;
         this.busy = true; this.error = '';
+        this.startProgress('scan');
         try {
-            const result = await this.request(boot.scanUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job_description: this.job, resume_text: text, operation_id: this.operation('analyse') }) });
+            const result = await this.request(boot.scanUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ industry: this.industry, job_description: this.job, resume_text: text, operation_id: this.operation('analyse') }) });
             delete this.operations.analyse;
+            this.progress = 100;
             this.resumeText = text; this.result = result; this.confirmedKeywords = [];
-            if (this.originalScore === null) this.originalScore = result.score;
+            if (this.originalScore === null) this.originalScore = result.keyword_score;
             this.step = 4;
             this.$nextTick(() => { this.$refs.scanDialog.showModal(); this.modalOpen = true; });
         } catch (error) { this.error = error.message; }
-        finally { this.busy = false; }
+        finally { this.stopProgress(); this.processing = ''; this.busy = false; }
     },
     closeResults() { if (!this.busy) this.$refs.scanDialog.close(); },
     async fix() {
         if (this.busy) return;
         if (!this.$refs.scanDialog.open) { this.$refs.scanDialog.showModal(); this.modalOpen = true; }
         this.busy = true; this.error = '';
+        this.startProgress('fix');
         try {
-            this.aiDraft = await this.request(boot.rewriteUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job_description: this.job, resume_text: this.resumeText, confirmed_keywords: this.confirmedKeywords, operation_id: this.operation('revamp') }) });
+            this.aiDraft = await this.request(boot.rewriteUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ industry: this.industry, job_description: this.job, resume_text: this.resumeText, confirmed_keywords: this.confirmedKeywords, operation_id: this.operation('revamp') }) });
+            this.stopProgress(); this.progress = 100;
             await this.$nextTick();
             this.$refs.generatedForm.requestSubmit();
-        } catch (error) { this.error = error.message; this.busy = false; }
+        } catch (error) { this.stopProgress(); this.processing = ''; this.error = error.message; this.busy = false; }
     },
 });

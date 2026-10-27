@@ -9,6 +9,12 @@
         </ol>
         <p x-show="error && !modalOpen" x-cloak x-text="error" class="checker-error" role="alert"></p>
         <section x-show="step === 1" class="checker-job-section">
+            <label for="checker-industry"><strong>Choose Industry</strong></label>
+            <select id="checker-industry" x-model="industry" required class="w-full mt-2 mb-4">
+                <option value="" disabled>Select an industry</option>
+                @foreach(config('industries') as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
+            </select>
+            <p class="checker-method">Choose the vacancy?s industry or professional field. The job description defines the actual requirements.</p>
             <h2>Paste the job description</h2>
             <label class="sr-only" for="checker-job">Job description</label><textarea id="checker-job" x-model="job" rows="3" maxlength="20000" placeholder="Paste the responsibilities, requirements and skills here..."></textarea>
             <div class="checker-actions"><button type="button" class="btn btn-primary" @click="nextJob()">Next: Upload resume</button></div>
@@ -29,12 +35,14 @@
             <div class="checker-actions"><button class="btn btn-outline" @click="step = 2" :disabled="busy">Back</button><button class="btn btn-primary" @click="scan()" :disabled="busy"><x-icon name="scan-text" /><span x-text="busy ? 'Scanning...' : 'ATS Scan'"></span></button></div>
         </section>
         <section x-show="step === 4 && result" x-cloak>
-            <div class="checker-score-panel" aria-live="polite"><div class="checker-score" x-text="(result?.keyword_score ?? 0) + '/100'"></div><div><h2>CV and job requirements match</h2><p><strong x-text="(result?.base_requirement_score ?? result?.keyword_score ?? 0) + '%'"></strong> of checked requirements found in your CV: <strong x-text="result?.matched.length"></strong> out of <strong x-text="result?.total"></strong>.</p><p x-text="matchLevel()"></p></div></div>
-            <p class="checker-method">The score checks the listed requirements. Review the qualification, skill and competency gaps below.</p>
+            <x-score-pair :dynamic="true" />
+            @include('workspace.partials.industry-relevance')
+
+            <p class="checker-method">Wording Match measures recognised job terms. ATS Compatibility measures evidence relevant to the advertised profession, with greater credit for core job skills than general transferable skills.</p>
             @include('workspace.partials.qualification-green-flags')
             <section class="checker-experience-warning" x-show="result?.experience_check?.required_years != null"><h3 x-text="result?.experience_check?.shortfall ? 'Experience gap to review' : 'Experience requirement'"></h3><p x-text="result?.experience_check?.message"></p><small x-text="result?.experience_check?.note"></small></section>
-            <details class="checker-score-explanation"><summary>How is the score calculated?</summary><p><span x-text="result?.matched.length"></span> matched requirements / <span x-text="result?.total"></span> checked requirements &times; 100 = <strong x-text="(result?.base_requirement_score ?? result?.keyword_score ?? 0) + '%'"></strong>. Whole requirement phrases are grouped into Qualifications, Skills and Competencies when those sections are present. Each requirement counts once. Additional relevant certificates add 2 points each, up to 6 bonus points, with a maximum overall score of 100. If a required item is still missing, the score stays below 100. Filler words and unrelated advert sections do not count. Common equivalent terms are recognised.</p></details>
-            <div class="checker-requirement-groups" x-show="result?.requirement_groups"><template x-for="[category, entries] in Object.entries(result?.requirement_groups ?? {})" :key="category"><section class="checker-panel"><h3 x-text="({qualifications:'Qualifications',skills:'Skills',competencies:'Competencies'})[category]"></h3><ul><template x-for="item in entries" :key="item.requirement"><li><strong x-text="item.matched ? 'Found: ' : 'Review: '"></strong><span x-text="item.requirement"></span></li></template></ul></section></template></div>
+            <details class="checker-score-explanation"><summary>How is Wording Match calculated?</summary><p>Matched requirement weight / total requirement weight &times; 100. Mandatory requirements count 3, standard requirements 2, and preferred requirements 1. Duplicate requirements count once at their highest priority. Company details, benefits, dates and application instructions are excluded. Extra certificates do not add wording points; a certificate explicitly requested by the employer counts as a requirement. Recognised equivalent terms count, but related technologies are not treated as identical.</p><p><strong x-text="result?.matched_weight ?? '?'"></strong> of <strong x-text="result?.total_weight ?? '?'"></strong> weighted points matched.</p></details>
+            <div class="checker-requirement-groups" x-show="result?.requirement_groups"><template x-for="[category, entries] in Object.entries(result?.requirement_groups ?? {})" :key="category"><section class="checker-panel"><h3 x-text="({qualifications:'Qualifications',skills:'Skills',competencies:'Competencies'})[category]"></h3><ul><template x-for="item in entries" :key="item.requirement"><li><strong x-text="item.matched ? 'Found: ' : 'Review: '"></strong><span x-text="item.requirement"></span> <small class="checker-requirement-priority" x-text="({mandatory: 'Essential', required: 'Standard requirement', preferred: 'Preferred'})[item.importance ?? 'required']"></small></li></template></ul></section></template></div>
             <p><a class="text-link" href="{{ route('workspace.module', 'history') }}">View saved checks</a></p>
             <div class="checker-keywords"><section class="checker-panel"><h2>Matching requirements</h2><p x-show="!result?.matched.length">No matching requirements yet.</p><div class="checker-tags"><template x-for="word in result?.matched ?? []" :key="word"><span x-text="word"></span></template></div></section><section class="checker-panel"><h2>Missing requirements</h2><p x-show="!result?.missing.length">All checked requirements are present.</p><div class="checker-tags missing"><template x-for="word in result?.missing ?? []" :key="word"><span x-text="word"></span></template></div></section></div>
             <section class="checker-panel checker-suggestions" x-show="result?.suggestions?.length"><h2>Suggestions for your CV</h2><ul><template x-for="item in result?.suggestions ?? []" :key="item.keyword"><li x-text="item.suggestion"></li></template></ul></section>
@@ -44,20 +52,45 @@
         <dialog x-ref="scanDialog" class="checker-result-dialog" aria-labelledby="checker-result-title" @cancel="if (busy) $event.preventDefault()" @close="modalOpen = false">
             <div class="checker-dialog-content" :aria-busy="busy">
                 <button type="button" class="checker-dialog-close" aria-label="Close scan results" @click="closeResults()" :disabled="busy">&times;</button>
+                <div class="checker-processing" x-show="processing" x-cloak>
+                    <aside class="checker-processing-score">
+                        <h3 x-text="processing === 'fix' ? 'Your tailored CV' : 'Your Score'"></h3>
+                        <div class="checker-processing-gauge" aria-hidden="true"><span></span></div>
+                        <div class="checker-processing-placeholder" aria-hidden="true"></div>
+                        <p class="checker-processing-score-note" x-text="processing === 'fix' ? 'Preparing your improved resume' : 'Your match score appears when the scan is complete'"></p>
+                        <ul><template x-for="label in ['Content', 'Sections', 'ATS essentials', 'Tailoring']" :key="label"><li><span x-text="label"></span><i aria-hidden="true"></i></li></template></ul>
+                    </aside>
+                    <section class="checker-processing-main" aria-label="Processing progress">
+                        <p class="checker-processing-eyebrow" x-text="processing === 'fix' ? 'FIX MY CV' : 'ATS SCAN'"></p>
+                        <h2 x-text="processing === 'fix' ? 'Creating your tailored CV' : 'Scanning your resume'"></h2>
+                        <ol><template x-for="(label, index) in progressSteps()" :key="label"><li :class="{ 'is-past': progress >= (index + 1) * 24, 'is-current': progress >= index * 24 && progress < (index + 1) * 24 }"><span class="checker-processing-check" aria-hidden="true" x-text="progress >= (index + 1) * 24 ? '✓' : index + 1"></span><span x-text="label"></span></li></template></ol>
+                        <div class="checker-processing-meter" role="progressbar" aria-label="Estimated processing progress" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="Math.floor(progress)"><span :style="{ width: progress + '%' }"></span></div>
+                        <div class="checker-processing-caption"><span>Estimated progress</span><strong x-text="Math.floor(progress) + '%'"></strong></div>
+                        <p class="checker-processing-note">This may take a moment. Your results will open automatically when ready.</p>
+                    </section>
+                </div>
+                <div x-show="!processing && !result && error" x-cloak>
+                    <h2>We couldn't complete your scan</h2>
+                    <p class="checker-error" x-text="error" role="alert"></p>
+                    <button type="button" class="btn btn-primary" @click="scan()" :disabled="busy">Retry ATS scan</button>
+                </div>
+                <div x-show="!processing && result">
                 <span class="checker-upload-icon"><x-icon name="scan-text" /></span>
                 <h2 id="checker-result-title" x-text="busy ? 'Creating your tailored CV' : 'Your ATS scan result'"></h2>
-                <div class="checker-dialog-score" x-text="(result?.keyword_score ?? 0) + '/100'"></div>
-                <p x-show="!busy">Qualifications, skills and competencies matched to your CV.</p>
-                <p x-show="!busy"><strong x-text="result?.matched.length"></strong> of <strong x-text="result?.total"></strong> requirements matched (<span x-text="(result?.base_requirement_score ?? result?.keyword_score ?? 0) + '%'"></span>). <span x-text="matchLevel()"></span></p>
+                <x-score-pair :dynamic="true" />
+            @include('workspace.partials.industry-relevance')
+                <p x-show="!busy">Two separate checks of your original CV against this job.</p>
+                <p x-show="!busy"><strong x-text="result?.matched.length"></strong> of <strong x-text="result?.total"></strong> requirements recognised. Weighted Wording Match: <strong x-text="(result?.keyword_score ?? 0) + '%'"></strong>. <span x-text="matchLevel()"></span></p>
                 @include('workspace.partials.qualification-green-flags')
                 <section class="checker-experience-warning" x-show="!busy && result?.experience_check?.required_years != null"><h3 x-text="result?.experience_check?.shortfall ? 'Experience gap to review' : 'Experience requirement'"></h3><p x-text="result?.experience_check?.message"></p><small x-text="result?.experience_check?.note"></small></section>
-                <div class="checker-requirement-groups" x-show="!busy && result?.requirement_groups"><template x-for="[category, entries] in Object.entries(result?.requirement_groups ?? {})" :key="category"><section class="checker-panel"><h3 x-text="({qualifications:'Qualifications',skills:'Skills',competencies:'Competencies'})[category]"></h3><ul><template x-for="item in entries" :key="item.requirement"><li><strong x-text="item.matched ? 'Found: ' : 'Review: '"></strong><span x-text="item.requirement"></span></li></template></ul></section></template></div>
+                <div class="checker-requirement-groups" x-show="!busy && result?.requirement_groups"><template x-for="[category, entries] in Object.entries(result?.requirement_groups ?? {})" :key="category"><section class="checker-panel"><h3 x-text="({qualifications:'Qualifications',skills:'Skills',competencies:'Competencies'})[category]"></h3><ul><template x-for="item in entries" :key="item.requirement"><li><strong x-text="item.matched ? 'Found: ' : 'Review: '"></strong><span x-text="item.requirement"></span> <small class="checker-requirement-priority" x-text="({mandatory: 'Essential', required: 'Standard requirement', preferred: 'Preferred'})[item.importance ?? 'required']"></small></li></template></ul></section></template></div>
                 <div x-show="!busy && result?.ai_analysis" class="checker-ai-recommendations"><p x-text="result?.ai_analysis?.summary"></p><ul><template x-for="(tip,index) in result?.ai_analysis?.recommendations ?? []" :key="index"><li x-text="tip"></li></template></ul></div>
                 <details x-show="!busy && result?.missing?.length" class="checker-score-explanation"><summary>Add skills you have that are missing from your CV</summary><p>Select only terms that accurately describe your skills. Revamp will include these naturally in Skills and rephrase supported experience using the job description.</p><div class="checker-confirmed-skills"><template x-for="word in (result?.confirmable_skills ?? result?.missing ?? []).slice(0, 200)" :key="word"><label><input type="checkbox" :value="word" x-model="confirmedKeywords" :disabled="busy"> <span x-text="word"></span></label></template></div></details>
                 <div x-show="busy" role="status"><span class="checker-spinner" aria-hidden="true"></span><p>AI is tailoring your wording and arranging your new CV. Your review will open when it is ready.</p></div>
                 <p class="checker-error" x-show="error" x-text="error" role="alert"></p>
                 <button class="btn btn-primary" @click="fix()" :disabled="busy"><x-icon name="wand-sparkles" /><span x-text="busy ? 'Fixing resume...' : 'Fix Resume'"></span></button>
                 <p class="checker-dialog-note" x-show="!busy">Create an ATS-friendly CV tailored to the advert using your existing experience.</p>
+                </div>
             </div>
         </dialog>
         <form x-ref="generatedForm" method="POST" action="{{ route('checker.edit') }}" hidden>@csrf<input type="hidden" name="resume_text" :value="aiDraft?.rewritten_resume ?? ''"><input type="hidden" name="original_resume_text" :value="resumeText"><input type="hidden" name="job_description" :value="job"><input type="hidden" name="generated" value="1"><input type="hidden" name="structured_resume" :value="JSON.stringify(aiDraft?.structured_resume ?? null)"><template x-for="(change, index) in aiDraft?.changes ?? []" :key="index"><input type="hidden" name="ai_changes[]" :value="change"></template></form>

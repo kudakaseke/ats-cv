@@ -38,6 +38,7 @@ Route::get('/dashboard', function () {
 })->middleware(['auth', 'verified', 'throttle:workspace-read'])->name('dashboard');
 
 Route::middleware(['auth', 'verified', 'throttle:workspace-read'])->group(function () {
+    Route::get('/paystack/callback', [CreditBillingController::class, 'callback'])->middleware('throttle:payment-return')->name('paystack.callback');
     Route::get('/account/activity', ActivityController::class)->name('account.activity');
     Route::get('/ai/credits', [CvCheckerController::class, 'credits'])->name('ai.credits');
     Route::post('/credits/topup', [CreditBillingController::class, 'topup'])->middleware('throttle:6,1')->name('credits.topup');

@@ -35,7 +35,8 @@ class IncidentReporter
             'route' => request()->route()?->getName(),
             'fingerprint' => hash('sha256', $exception::class.'|'.$exception->getFile().'|'.$exception->getLine()),
             'trace' => $trace,
-            'provider_http_status' => $exception instanceof RequestException ? $exception->response->status() : null,
+            'provider_http_status' => $exception instanceof \App\Exceptions\AiResponseException ? $exception->providerStatus : ($exception instanceof RequestException ? $exception->response->status() : null),
+            'ai_failure_reason' => $exception instanceof \App\Exceptions\AiResponseException ? $exception->failureReason : null,
         ];
         try {
             Log::channel('incidents')->error('Application failure', $context);

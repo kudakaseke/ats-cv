@@ -129,7 +129,7 @@ class BillingController extends Controller
         $message = 'Payment successful. '.($plan ?? 'Your plan').' is confirmed. Your available balance is '.$wallet['credits'].' credits.';
         if ($payment->status === 'test_paid') {
             $message = 'Test payment successful. '.($plan ?? 'Your purchase').' confirmed: '.$payment->currency.' '.number_format($payment->amount_cents / 100, 2).'. This was a test transaction; your live plan and credits are unchanged.';
-            if (PaystackGateway::localTestCreditsEnabled() && $payment->subscription_id) {
+            if ($payment->provider === 'paystack' && PaystackGateway::localTestCreditsEnabled() && ($payment->subscription_id || $payment->kind === 'topup')) {
                 $message = 'Test payment successful. '.($plan ?? 'Your plan').' is active for local testing. Your available balance is '.$wallet['credits'].' credits.';
             }
 

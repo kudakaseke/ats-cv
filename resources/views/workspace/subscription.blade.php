@@ -10,14 +10,13 @@
             @if($activeSubscription)
                 <p>{{ $activeSubscription->status === 'test_active' ? 'Test subscription' : 'Active subscription' }}</p>
                 <p>Started {{ $activeSubscription->starts_at->format('d M Y') }}@if($activeSubscription->ends_at) &middot; Paid access until {{ $activeSubscription->ends_at->format('d M Y') }}@endif.</p>
-                <p>{{ config('ai_credits.plans.'.$currentPlan->slug) }} credits per monthly release.</p>
+                <p>{{ config('ai_credits.plans.'.$currentPlan->slug) }} credits per {{ $currentPlan->slug === 'annual' ? 'paid year' : 'monthly release' }}.</p>
             @else
                 <p>Free access with {{ count(config('cv_access.free_templates')) }} templates and one saved CV. Your 15 welcome credits are added once.</p>
             @endif
         </div>
     <x-payment-confirmation :current-plan="$currentPlan" />
-    <section class="panel credit-summary"><h2>My AI Credits</h2><strong>{{ $wallet['credits'] }} credits</strong><p>{{ $wallet['subscription_credits'] }} subscription/welcome credits &middot; {{ $wallet['topup_credits'] }} purchased credits.</p>@if($wallet['credit_debt'])<p>{{ $wallet['credit_debt'] }} credits deducted from available balance for a refunded purchase already used.</p>@endif<p>Job-to-CV ATS Detector: 5 credits. Revamp: 10 credits. One complete workflow: 15 credits. Manual editing and downloads use no credits.</p><p>Unused subscription credits reset each month. Purchased credits remain in your balance. Free accounts receive 15 welcome credits once.</p></section>
-    <div class="panel subscription-info"><x-icon name="info" /><p>Pay securely with Paystack. Subscriptions renew monthly or annually until cancelled. Credits are added after payment is verified, and you return to your dashboard. The checkout shows the exact amount and currency you will pay. @if(\App\Services\Billing\PaystackGateway::localTestCreditsEnabled()) Verified local test subscriptions include test credits. @else Test payments do not activate paid credits. @endif</p></div>
+    <section class="panel credit-summary"><h2>My AI Credits</h2><strong>{{ $wallet['credits'] }} credits</strong><p>{{ $wallet['subscription_credits'] }} subscription/welcome credits &middot; {{ $wallet['topup_credits'] }} purchased credits.</p>@if($wallet['credit_debt'])<p>{{ $wallet['credit_debt'] }} credits deducted from available balance for a refunded purchase already used.</p>@endif<p>Job-to-CV ATS Detector: 5 credits. Revamp: 10 credits. One complete workflow: 15 credits. Manual editing and downloads use no credits.</p><p>Monthly subscription credits reset each month. Annual credits remain available until the paid year ends. Purchased credits remain in your balance. Free accounts receive 15 welcome credits once.</p></section>
     <x-input-error :messages="$errors->get('billing')" class="my-4" />
     @if(session('billing_status'))<p class="my-4" role="status">{{ session('billing_status') }}</p>@endif
     @foreach($paypalSubscriptions as $agreement)
@@ -32,8 +31,8 @@
         </section>
     @endforeach
     @foreach($paystackSubscriptions as $agreement)
-        <section class="panel credit-summary"><h2>Paystack automatic renewal</h2><p>{{ $agreement->currency }} {{ number_format($agreement->amount_cents/100,2) }} {{ $agreement->billing_interval==='annually' ? 'per year' : 'per month' }} &middot; {{ $agreement->recurring_status ?? 'Setup pending' }}</p><a class="text-link" href="{{ route('billing.show',$agreement->reference) }}">Check payment status</a>
-            @unless(in_array($agreement->recurring_status,['CANCELLED','DISABLED','COMPLETE'],true))<form method="POST" action="{{ route('paystack.cancel',$agreement->reference) }}">@csrf<button class="btn btn-outline">Cancel automatic renewal</button></form>@endunless
+        <section class="panel credit-summary"><h2>{{ str_starts_with($agreement->provider_reference ?? '', 'SUB_') ? 'Paystack automatic renewal' : 'Paystack purchase' }}</h2><p>{{ $agreement->currency }} {{ number_format($agreement->amount_cents/100,2) }} {{ $agreement->billing_interval==='annually' ? 'per year' : 'per month' }} &middot; {{ $agreement->recurring_status ?? ($agreement->status === 'test_paid' ? 'Test payment confirmed' : 'Setup pending') }}</p><a class="text-link" href="{{ route('billing.show',$agreement->reference) }}">Check payment status</a>
+            @if(str_starts_with($agreement->provider_reference ?? '', 'SUB_') && !in_array($agreement->recurring_status,['CANCELLED','DISABLED','COMPLETE'],true))<form method="POST" action="{{ route('paystack.cancel',$agreement->reference) }}">@csrf<button class="btn btn-outline">Cancel automatic renewal</button></form>@endif
         </section>
     @endforeach
     </section>
@@ -47,37 +46,23 @@
                 <div class="plan-variant" @if($basePlan->slug === 'monthly') x-show="{{ $plan->slug === 'pro' ? 'pro' : '!pro' }}" @if($plan->slug === 'pro') x-cloak @endif @endif>
                 <div class="plan-label">{{ $plan->name }}</div>
                 <div class="price">${{ $plan->displayPrice() }}<span>{{ $plan->price_cents === 0 ? 'Forever' : '/ month' }}</span></div>
-                @if($plan->billing_interval === 'annually')<p class="plan-billing-note">US$47.40 billed once per year. 200 credits released each month.</p>@elseif($plan->price_cents > 0)<p class="plan-billing-note">US${{ number_format($plan->price_cents / 100, 2) }} billed monthly. {{ config('ai_credits.plans.'.$plan->slug) }} credits after each successful payment.</p>@endif
+                @if($plan->billing_interval === 'annually')<p class="plan-billing-note">US$47.40 billed yearly.</p>@endif
                 @if($plan->paystack_amount_cents && $plan->paystack_mode === 'live')<p class="plan-billing-note">{{ config('paystack.currency') }} {{ number_format($plan->paystack_amount_cents / 100, 2) }} charged {{ $plan->billing_interval === 'annually' ? 'once per year' : 'each month' }}.</p>@endif
-                <ul>@foreach($plan->features as $feature)<li><x-icon name="check" /> {{ str_replace(['One complete analysis and CV revamp', 'Analysis history'], ['One complete Job-to-CV ATS Detector check and CV revamp', 'Job-to-CV ATS Detector history'], $feature) }}</li>@endforeach</ul>
                 @if(in_array($plan->slug, ['monthly', 'pro', 'annual'], true))
-                    <a class="btn btn-primary" href="{{ route('subscription.payment-methods', $plan->slug) }}">Choose Payment Method</a>
+                    <a class="btn btn-primary" href="{{ route('subscription.payment-methods', $plan->slug) }}">Choose plan</a>
                 @else
                     <span class="pill">{{ $plan->slug === $currentPlan->slug ? 'Your current plan' : 'Free plan' }}</span>
                 @endif
+                <x-plan-features :plan="$plan" />
             </div>
                 @endforeach
             </article>
         @endforeach
     </div>
-    <section id="credit-topups" class="panel credit-summary">
-        <h2>Buy more credits</h2><p>One-time purchases. Your subscription stays the same, and purchased credits carry over.</p>
-        @php($packs = collect(config('ai_credits.topups'))->filter(fn($pack) => is_numeric($pack['price_cents']) && (int)$pack['price_cents'] > 0))
-        @forelse($packs as $id => $pack)
-            <article class="credit-pack"><h3>{{ $pack['credits'] }} credits &middot; US${{ number_format($pack['price_cents'] / 100, 2) }}</h3>
-            @foreach(['paynow' => 'Paynow', 'paypal' => 'PayPal', 'paystack' => 'Paystack'] as $provider => $label)
-                @if(($provider === 'paystack' && config('paystack.enabled') && filled(config('paystack.secret_key')) && (config('paystack.currency') === 'USD' || config('paystack.topup_amounts.'.$id))) || ($provider !== 'paystack' && config('billing.'.$provider.'.enabled')))
-                <form method="POST" action="{{ route('credits.topup') }}">@csrf<input type="hidden" name="pack" value="{{ $id }}"><input type="hidden" name="provider" value="{{ $provider }}"><label class="billing-consent"><input type="checkbox" name="billing_consent" value="1" required> I agree to this one-time purchase and the <a href="{{ route('refund') }}">Refund Policy</a>.</label><button class="btn btn-outline">Buy with {{ $label }}@if($provider==='paystack' && config('paystack.currency')!=='USD') &middot; {{ config('paystack.currency') }} {{ number_format(config('paystack.topup_amounts.'.$id)/100,2) }}@endif</button></form>
-                @endif
-            @endforeach
-            </article>
-        @empty <p>Extra-credit packs will be available once their prices are configured.</p>
-        @endforelse
-    </section>
     </section>
     <section id="cards" class="panel credit-summary subscription-section" aria-labelledby="cards-heading">
         <h2 id="cards-heading">Cards</h2>
-        <p>Your card is entered and managed securely through Paystack checkout. Choose a plan or credit pack above to pay with a card.</p>
+        <p>Your card is entered and managed securely through Paystack checkout. Choose a plan above to pay with a card.</p>
         <p>Card details are not stored or displayed in your account here.</p>
         <a class="text-link" href="#plans">Choose a plan</a>
     </section>

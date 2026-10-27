@@ -13,6 +13,63 @@ class CvCheckerTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_legacy_saved_scores_are_not_presented_as_new_weighted_scores(): void
+    {
+        $user = User::factory()->create();
+        $analysis = $user->analyses()->create(['job_description' => 'Skills: Excel, Python', 'status' => 'completed', 'score' => 69,
+            'results' => ['keyword_score' => 69, 'certificate_bonus' => 2, 'matched' => ['Excel'], 'missing' => ['Python']]]);
+        $this->actingAs($user)->get(route('workspace.analysis', $analysis))->assertOk()
+            ->assertSee('previous wording method (69/100)')->assertSee('Not available for this check')
+            ->assertDontSee('Includes 2 additional certificate bonus points');
+        $this->assertSame(69, $analysis->fresh()->results['keyword_score']);
+    }
+
+    public function test_scan_cached_retry_and_saved_check_share_the_same_experience_assessment(): void
+    {
+        $this->mock(\App\Services\CvAiRewriter::class, function ($mock) {
+            $mock->shouldReceive('analyse')->once()->andReturn([
+                'summary' => 'The CV documents ten years of relevant procurement experience.',
+                'recommendations' => [],
+                'assessment' => ['original_score' => ['total' => 72.22], 'mandatory_requirements_status' => 'review_required',
+                    'categories' => [], 'requirements' => [], 'warnings' => [], 'questions_for_candidate' => [], 'experience' => [
+                    'required_years' => 4, 'documented_relevant_years' => 10, 'total_professional_years' => 13, 'date_warnings' => [],
+                ]],
+            ]);
+        });
+        $user = User::factory()->create();
+        $input = ['operation_id' => (string) \Illuminate\Support\Str::uuid(), 'job_description' => '4 years of experience. Skills: Procurement', 'resume_text' => "Alex Example\nProcurement experience with dates in an unsupported layout."];
+        $response = $this->actingAs($user)->postJson('/checker/scan', $input)->assertOk()
+            ->assertJsonPath('experience_check.cv_years', 13)->assertJsonPath('experience_check.relevant_years', 10)
+            ->assertJsonPath('experience_check.shortfall', false);
+        $this->postJson('/checker/scan', $input)->assertOk()->assertJsonPath('experience_check.relevant_years', 10)
+            ->assertJsonPath('compatibility_score', $response->json('compatibility_score'));
+        $analysis = $user->analyses()->findOrFail($response->json('analysis_id'));
+        // Simulate a previously saved check carrying the old contradictory warning.
+        $results = $analysis->results;
+        $results['experience_check'] = app(\App\Services\CvExperienceMatcher::class)->compare($input['job_description'], $input['resume_text']);
+        $analysis->update(['results' => $results]);
+        $this->get(route('workspace.analysis', $analysis))->assertOk()
+            ->assertSee('Approximately 10 years were assessed as relevant')
+            ->assertDontSee('We could not estimate your experience');
+    }
+
+    public function test_scan_handles_smart_quotes_and_records_upgraded_model_usage(): void
+    {
+        config(['services.openai.key' => 'fake-key', 'services.openai.model' => 'gpt-4.1']);
+        Http::fake(['api.openai.com/*' => Http::response([
+            'status' => 'completed',
+            'usage' => ['input_tokens' => 100, 'output_tokens' => 30],
+            'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => json_encode(['summary' => 'Skills matched.', 'recommendations' => []])]]]],
+        ])]);
+
+        $this->actingAs(User::factory()->create())->postJson('/checker/scan', [
+            'job_description' => "Skills\n• ‘Customer service’ •", 'resume_text' => "Skills\nCustomer service",
+        ])->assertOk()->assertJsonPath('keyword_score', 100)->assertJsonPath('ai_analysis.summary', 'Skills matched.');
+
+        Http::assertSent(fn ($request) => $request->url() === 'https://api.openai.com/v1/responses' && $request['model'] === 'gpt-4.1');
+        $this->assertDatabaseHas('ai_usage_logs', ['model' => 'gpt-4.1', 'feature' => 'analyse', 'status' => 'completed', 'input_tokens' => 100, 'output_tokens' => 30]);
+    }
+
     public function test_checker_endpoints_require_a_verified_account(): void
     {
         $this->postJson('/checker/scan', [])->assertUnauthorized();
@@ -73,7 +130,7 @@ class CvCheckerTest extends TestCase
         $comparison = session('cv_builder.checker_result');
         $this->assertSame($comparison['before'], $comparison['after']);
         $this->assertSame([], $comparison['added_keywords']);
-        $this->get('/get-started')->assertOk()->assertSee('The requirements match has not increased.')
+        $this->get('/get-started')->assertOk()->assertSee('Wording Match has not increased.')
             ->assertSee('Compare original and tailored text')->assertSee('Requirements still missing');
     }
 }
