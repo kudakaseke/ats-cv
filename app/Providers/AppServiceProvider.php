@@ -30,6 +30,18 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Model::preventLazyLoading(! $this->app->isProduction());
+        RateLimiter::for('ingress', function (Request $request) {
+            $ip = $request->ip();
+            $limits = [
+                Limit::perSecond(60)->by('ingress-burst:'.$ip),
+                Limit::perMinute(600)->by('ingress-minute:'.$ip),
+            ];
+            if ($request->isMethod('GET') && $request->is('login', 'register', 'forgot-password', 'reset-password/*', 'pricing')) {
+                $limits[] = Limit::perMinute(60)->by('ingress-public:'.$ip);
+            }
+
+            return $limits;
+        });
         RateLimiter::for('oauth', fn (Request $request) => [
             Limit::perMinute(20)->by('oauth-minute:'.$request->ip()),
             Limit::perHour(60)->by('oauth-hour:'.$request->ip()),

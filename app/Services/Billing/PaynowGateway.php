@@ -26,6 +26,12 @@ class PaynowGateway
     {
         $data = array_change_key_case($data, CASE_LOWER);
 
+        foreach ($data as $value) {
+            if (! is_scalar($value)) {
+                return false;
+            }
+        }
+
         return config('billing.paynow.integration_key') && is_string($data['hash'] ?? null)
             && hash_equals($this->signature($data), strtoupper($data['hash']));
     }

@@ -146,13 +146,16 @@ class BillingController extends Controller
 
     public function paynowNotify(Request $request, string $reference, PaynowGateway $gateway, PaymentService $service)
     {
-        $payment = BillingPayment::where('reference', $reference)->where('provider', 'paynow')->firstOrFail();
+        abort_if(strlen($request->getContent()) > 65536, 413);
         parse_str($request->getContent(), $data);
         try {
             abort_unless($gateway->verify($data), 400);
         } catch (\RuntimeException $exception) {
             abort(400);
         }
+        $data = array_change_key_case($data, CASE_LOWER);
+        abort_unless(is_string($data['reference'] ?? null) && hash_equals($reference, $data['reference']), 400);
+        $payment = BillingPayment::where('reference', $reference)->where('provider', 'paynow')->firstOrFail();
         // Never use an incoming poll URL; poll only the signed URL saved at initiation.
         try {
             $service->refresh($payment);

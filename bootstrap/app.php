@@ -21,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->trustProxies(at: array_values(array_filter(array_map('trim', explode(',', (string) env('TRUSTED_PROXIES', ''))))),
             headers: Request::HEADER_X_FORWARDED_FOR | Request::HEADER_X_FORWARDED_PROTO | Request::HEADER_X_FORWARDED_PORT);
         $middleware->prepend(SecurityRequestGuard::class);
+        $middleware->append(\App\Http\Middleware\ThrottleIngress::class);
         $middleware->web(append: [WorkspaceResponseHeaders::class, 'throttle:site', RecordAccountActivity::class]);
         $middleware->validateCsrfTokens(except: ['billing/paynow/notify/*', 'billing/paypal/notify', 'paypal/webhook', 'webhooks/paystack']);
     })
