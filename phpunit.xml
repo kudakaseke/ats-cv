@@ -33,6 +33,9 @@
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="CV_AI_PROVIDER" value="openai" force="true"/>
+        <!-- Legacy provider contract tests use one response; staged tests explicitly enable validation. -->
+        <env name="OPENAI_VALIDATE_REVAMP" value="false" force="true"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>

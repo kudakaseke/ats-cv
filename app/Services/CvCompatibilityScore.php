@@ -4,13 +4,17 @@ namespace App\Services;
 
 class CvCompatibilityScore
 {
-    public const VERSION = 'relevance-aware-compatibility-v4';
+    public const VERSION = 'relevance-aware-compatibility-v5';
 
     private function assessmentScore(array $assessment, string $stage, $wording): ?float
     {
         $evidence = $assessment[$stage]['total'] ?? null;
         if (($assessment['scoring_method'] ?? '') === CvIndustryRelevance::VERSION) {
-            return is_numeric($evidence) && is_finite((float) $evidence) && $evidence >= 0 && $evidence <= 100 ? round((float) $evidence, 2) : null;
+            foreach ([$evidence, $wording] as $value) {
+                if (!is_numeric($value) || !is_finite((float) $value) || $value < 0 || $value > 100) return null;
+            }
+            // Wording can improve presentation, but never create missing professional evidence.
+            return round((float) $evidence * (0.8 + 0.2 * (float) $wording / 100), 2);
         }
 
         return $this->calculate($evidence, $wording);

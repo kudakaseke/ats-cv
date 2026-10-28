@@ -7,6 +7,22 @@ use PHPUnit\Framework\TestCase;
 
 class CvCompatibilityScoreTest extends TestCase
 {
+    public function test_relevance_scoring_rewards_wording_without_overriding_role_evidence(): void
+    {
+        $score = new CvCompatibilityScore;
+        foreach ([0, 16, 60, 100] as $evidence) {
+            $assessment = ['scoring_method' => \App\Services\CvIndustryRelevance::VERSION,
+                'original_score' => ['total' => $evidence], 'revamped_score' => ['total' => $evidence]];
+            $review = $score->review(['assessment' => $assessment, 'keyword_before' => 20, 'keyword_after' => 80]);
+            $this->assertLessThanOrEqual($evidence, $review['compatibility_after']);
+            if ($evidence > 0) $this->assertGreaterThan($review['compatibility_before'], $review['compatibility_after']);
+            else $this->assertSame(0.0, $review['compatibility_after']);
+            $rewrite = $score->rewrite(['assessment' => $assessment, 'before' => ['keyword_score' => 20], 'after' => ['keyword_score' => 80]]);
+            $this->assertSame($review['compatibility_after'], $rewrite['compatibility_after']);
+            $this->assertSame($review['compatibility_before'], $score->scan(['assessment' => $assessment, 'keyword_score' => 20])['compatibility_score']);
+        }
+    }
+
     public function test_wording_improvement_contributes_without_inventing_candidate_evidence(): void
     {
         $score = new CvCompatibilityScore;

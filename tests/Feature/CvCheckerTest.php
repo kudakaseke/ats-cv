@@ -130,7 +130,7 @@ class CvCheckerTest extends TestCase
         $comparison = session('cv_builder.checker_result');
         $this->assertSame($comparison['before'], $comparison['after']);
         $this->assertSame([], $comparison['added_keywords']);
-        $this->get('/get-started')->assertOk()->assertSee('Wording Match has not increased.')
+        $this->get('/get-started')->assertOk()->assertDontSee('Wording Match has not increased.')
             ->assertSee('Compare original and tailored text')->assertSee('Requirements still missing');
     }
 }

@@ -30,7 +30,9 @@ class CvAiAssessment
             'candidate_profile' => $object(array_fill_keys(['qualifications', 'certifications', 'skills', 'competencies', 'experience', 'projects'], $strings)),
             'requirements' => ['type' => 'ARRAY', 'items' => $object([
                 'category' => $enum(array_keys(self::WEIGHTS)), 'requirement' => $string,
-                'importance' => $enum(['mandatory', 'preferred']), 'evidence' => $string,
+                'importance' => $enum(['mandatory', 'preferred', 'contextual', 'unclear']), 'evidence' => $string,
+                'match_classification' => $enum(['DIRECT_MATCH', 'EQUIVALENT_MATCH', 'PARTIAL_MATCH', 'TRANSFERABLE_MATCH', 'STATED_ONLY', 'NOT_EVIDENCED', 'CONFIRMED_GAP', 'UNCERTAIN', 'NOT_APPLICABLE']),
+                'missing_information' => $string, 'explanation' => $string,
                 'relevance' => $enum(CvIndustryRelevance::RELEVANCE),
                 'original_status' => $enum($statuses), 'revamped_status' => $enum($statuses),
             ])],
@@ -50,12 +52,13 @@ class CvAiAssessment
             'unsupported_job_requirements' => $strings, 'questions_for_candidate' => $strings,
             'recommendations' => $strings,
             ...app(CvIndustryRelevance::class)->schema(),
+            ...app(CvAiV2Report::class)->assessmentFields(),
         ]);
     }
 
     public function normalise(array $data, ?array $baseline = null): array
     {
-        $rules = ['requirements' => ['present', 'array', 'max:150'], 'warnings' => ['present', 'array', 'max:60'],
+        $rules = ['requirements' => ['present', 'array', 'max:150'], 'warnings' => ['present', 'array', 'max:150'],
             'experience.required_years' => ['present', 'nullable', 'numeric', 'min:0'],
             'experience.documented_relevant_years' => ['present', 'nullable', 'numeric', 'min:0'],
             'experience.total_professional_years' => ['present', 'nullable', 'numeric', 'min:0'],
@@ -78,12 +81,12 @@ class CvAiAssessment
             $rules['requirements.*.'.$key] = ['present', 'nullable', 'string', 'max:1500'];
         }
         $rules['requirements.*.category'] = ['required', Rule::in(array_keys(self::WEIGHTS))];
-        $rules['requirements.*.importance'] = ['required', Rule::in(['mandatory', 'preferred'])];
+        $rules['requirements.*.importance'] = ['required', Rule::in(['mandatory', 'preferred', 'contextual', 'unclear'])];
         foreach (['original_status', 'revamped_status'] as $key) {
             $rules['requirements.*.'.$key] = ['required', Rule::in(['matched', 'partially_matched', 'not_evidenced', 'uncertain', 'demonstrated', 'stated_only', 'partially_evidenced', 'directly_evidenced', 'transferable_experience'])];
         }
         foreach (['verified_information_to_highlight', 'information_requiring_confirmation', 'unsupported_job_requirements', 'questions_for_candidate', 'recommendations'] as $key) {
-            $rules[$key] = ['present', 'array', 'max:100'];
+            $rules[$key] = ['present', 'array', 'max:200'];
             $rules[$key.'.*'] = ['string', 'max:1000'];
         }
         $rules['warnings.*.severity'] = ['required', Rule::in(['critical', 'high', 'medium', 'low'])];
@@ -91,6 +94,9 @@ class CvAiAssessment
         foreach (['requirement', 'explanation', 'evidence', 'recommended_action'] as $key) {
             $rules['warnings.*.'.$key] = ['present', 'nullable', 'string', 'max:1500'];
         }
+        foreach (['missing_information', 'explanation'] as $key) $rules['requirements.*.'.$key] = ['sometimes', 'nullable', 'string', 'max:1500'];
+        $rules['requirements.*.match_classification'] = ['sometimes', Rule::in(['DIRECT_MATCH', 'EQUIVALENT_MATCH', 'PARTIAL_MATCH', 'TRANSFERABLE_MATCH', 'STATED_ONLY', 'NOT_EVIDENCED', 'CONFIRMED_GAP', 'UNCERTAIN', 'NOT_APPLICABLE'])];
+        $rules['requirements.*.evidence_source'] = ['sometimes', Rule::in(['original_cv', 'user_confirmed', 'not_evidenced'])];
         $rules['requirements.*.relevance'] = ['required_with:professional_alignment', Rule::in(CvIndustryRelevance::RELEVANCE)];
         foreach (['target_profession', 'candidate_background', 'score_validation_explanation'] as $key) {
             $rules[$key] = ['sometimes', 'string', 'max:3000'];
@@ -107,6 +113,18 @@ class CvAiAssessment
         foreach (['direct_years', 'related_years', 'transferable_years'] as $key) {
             $rules['relevant_experience.'.$key] = ['sometimes', 'nullable', 'numeric', 'min:0', 'max:100'];
         }
+        $rules['experience.calculation_source'] = ['sometimes', 'in:employment_dates,cv_statement,unknown'];
+        $rules['schema_version'] = ['sometimes', 'in:2.0'];
+        $rules['document_quality'] = ['sometimes', 'array'];
+        foreach (['extraction_limitations', 'uncertainties'] as $key) {
+            $rules['document_quality.'.$key] = ['sometimes', 'array', 'max:30'];
+            $rules['document_quality.'.$key.'.*'] = ['string', 'max:1500'];
+        }
+        $rules['suggestions'] = ['sometimes', 'array', 'max:60'];
+        foreach (['id', 'section', 'problem', 'improvement', 'reason', 'related_requirement'] as $key) {
+            $rules['suggestions.*.'.$key] = ['present', 'nullable', 'string', 'max:1500'];
+        }
+        $rules['suggestions.*.can_apply_now'] = ['required', 'boolean'];
         $data = Validator::make($data, $rules)->validate();
         if (($baseline['scoring_method'] ?? '') === CvIndustryRelevance::VERSION) {
             // A rewrite cannot silently remove specialist gaps or promote generic evidence.
@@ -163,6 +181,9 @@ class CvAiAssessment
         }
         $mandatory = array_filter($data['requirements'], fn ($item) => $item['importance'] === 'mandatory');
         $unmet = array_filter($mandatory, fn ($item) => ! in_array($item['original_status'], ['matched', 'demonstrated', 'directly_evidenced'], true));
+        if (($data['schema_version'] ?? '') === '2.0') {
+            $data = app(CvAiV2Report::class)->gaps($data, $baseline, $baseline !== null);
+        }
         return [...$data, 'job_requirements' => $groups, 'original_analysis' => $groups,
             'original_score' => $original, 'revamped_score' => $revised, 'category_weights' => $weights,
             'mandatory_requirements_status' => ! $mandatory ? 'not_specified' : ($unmet ? 'review_required' : 'evidenced'),

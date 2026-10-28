@@ -17,6 +17,7 @@ class CvReviewComparison
             && CvDocumentIdentity::same($generated['original_text'], $comparison['original_text'])
             && CvDocumentIdentity::same($generated['job_description'], $comparison['job_description'])) {
             $comparison['assessment'] = $generated['assessment'];
+            $comparison = [...$comparison, ...($generated['report'] ?? [])];
         }
         if (($comparison['comparison_version'] ?? 0) === self::VERSION || ! isset($comparison['original_text'], $comparison['revised_text'])) {
             return $this->withExperienceAssessment($comparison);
@@ -66,6 +67,9 @@ class CvReviewComparison
         $refreshed = $this->make($job, $comparison['original_text'], $comparison['revised_text'], $comparison['changes'] ?? []);
         if (isset($comparison['assessment'])) {
             $refreshed['assessment'] = $comparison['assessment'];
+        }
+        foreach (['ai_changes', 'keyword_coverage', 'keyword_coverage_percentage', 'supported_keywords_still_missing', 'post_revamp_validation', 'recommendation_details'] as $key) {
+            if (array_key_exists($key, $comparison)) $refreshed[$key] = $comparison[$key];
         }
         return $this->withExperienceAssessment($refreshed);
     }

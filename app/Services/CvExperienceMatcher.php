@@ -113,7 +113,8 @@ class CvExperienceMatcher
             : ($years === null ? "The job mentions {$requiredDisplay} of experience. We could not estimate your experience from the CV; check your employment dates."
                 : "The job mentions {$requiredDisplay} of experience; your CV shows approximately {$years} years in total, based on {$source}.".($shortfall ? ' Your CV shows fewer years than requested.' : ' Check that these years are relevant to the required role.'));
 
-        return ['required_years' => $required, 'cv_years' => $years, 'shortfall' => $shortfall, 'requirement' => $evidence, 'message' => $message, 'unreadable_dates' => array_values(array_unique($unreadable)),
+        return ['calculation_source' => $months ? 'employment_dates' : ($years !== null ? 'cv_statement' : 'unknown'),
+            'required_years' => $required, 'cv_years' => $years, 'shortfall' => $shortfall, 'requirement' => $evidence, 'message' => $message, 'unreadable_dates' => array_values(array_unique($unreadable)),
             'note' => 'This is an estimate of total experience, not confirmed experience in the required field. Overlapping jobs count once. Year-only dates are approximate.'];
     }
 

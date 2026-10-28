@@ -103,18 +103,27 @@
                 <section class="checker-comparison" aria-label="CV improvement results">
                     <p class="checker-generated-score" role="status">Your tailored CV is ready. Compare each score with its original below.</p>
                     <x-score-pair :wording="$comparison['keyword_after'] ?? null" :wording-before="$comparison['keyword_before'] ?? null" :compatibility="$comparison['compatibility_after'] ?? null" :compatibility-before="$comparison['compatibility_before'] ?? null" />
-                    @if(isset($comparison['compatibility_before'], $comparison['compatibility_after']) && ($comparison['keyword_after'] ?? 0) > ($comparison['keyword_before'] ?? 0))
-                        @php($wordingGain = $comparison['keyword_after'] - $comparison['keyword_before'])
-                        <p>Wording Match increased by {{ $wordingGain }} points, contributing {{ round($wordingGain * 0.2, 2) }} points to the ATS Compatibility change. Qualifications and experience are assessed separately.</p>
-                    @endif
-                    @if(isset($comparison['assessment']))<details open><summary>Job requirements and recommendations</summary><x-ai-assessment :assessment="$comparison['assessment']" :revised="true" /></details>@endif
-                    <p>These scores measure different things. Review your new CV below, then download as PDF or Word.</p>
-                    <p class="checker-comparison-note">Scores and comparisons describe the AI-generated version before manual edits.</p>
+                    @if(isset($comparison['assessment']))<x-ai-assessment :assessment="$comparison['assessment']" :revised="true" />@endif
                     @if(!empty($comparison['green_flags']))<div class="checker-green-flags"><h3>Qualification strengths</h3><ul>@foreach($comparison['green_flags'] as $flag)<li>{{ $flag }}</li>@endforeach</ul>@if($comparison['certificate_bonus'] ?? 0)<p>Includes {{ $comparison['certificate_bonus'] }} additional certificate bonus points.</p>@endif</div>@endif
-                    @if(!empty($comparison['added_keywords']))<p><strong>Requirements added:</strong> {{ implode(', ', $comparison['added_keywords']) }}</p>@endif
-                    @if(!empty($comparison['changes']))<details open><summary>What AI changed</summary><ul>@foreach($comparison['changes'] as $change)<li>{{ $change }}</li>@endforeach</ul></details>@endif
+                    @if(!empty($comparison['added_keywords']))<details><summary>Requirements added</summary><ul>@foreach($comparison['added_keywords'] as $keyword)<li>{{ $keyword }}</li>@endforeach</ul></details>@endif
+                    @if(!empty($comparison['ai_changes']))
+                        <details class="ai-change-report" open><summary>What AI changed</summary>
+                            <p>Changes made to the generated CV, checked against your original information.</p>
+                            <ol>@foreach($comparison['ai_changes'] as $change)<li>
+                                <h3>{{ $change['section'] }} — {{ str_replace('_', ' ', $change['change_type']) }}</h3>
+                                @if($change['original_text'] !== '')<p><strong>Before:</strong> {{ $change['original_text'] }}</p>@endif
+                                @if($change['revised_text'] !== '')<p><strong>After:</strong> {{ $change['revised_text'] }}</p>@endif
+                                <p>{{ $change['explanation'] }}</p>
+                                @if($change['supporting_evidence'] !== '')<p><strong>Source evidence:</strong> {{ $change['supporting_evidence'] }}</p>@endif
+                                @if($change['related_requirement'] !== '')<p><strong>Job requirement:</strong> {{ $change['related_requirement'] }}</p>@endif
+                            </li>@endforeach</ol>
+                        </details>
+                    @elseif(!empty($comparison['changes']))<details><summary>What AI changed</summary><ul>@foreach($comparison['changes'] as $change)<li>{{ $change }}</li>@endforeach</ul></details>@endif
+                    @if(array_key_exists('keyword_coverage_percentage', $comparison))
+                        <p class="verified-keyword-coverage"><strong>Verified keyword coverage:</strong> {{ $comparison['keyword_coverage_percentage'] === null ? 'No fully supported requirements to measure' : $comparison['keyword_coverage_percentage'].'%' }}. This measures the representation of supported requirements; it does not establish missing qualifications or experience.</p>
+                    @endif
                     @if(!empty($comparison['remaining_keywords']) || !empty($comparison['warnings']))
-                        <details open class="missing-requirements"><summary>Requirements still missing ({{ count($comparison['remaining_keywords'] ?? []) }})</summary>
+                        <details class="missing-requirements"><summary>Requirements still missing ({{ count($comparison['remaining_keywords'] ?? []) }})</summary>
                             @if(!empty($comparison['warnings']))<section class="checker-review-warnings" role="note"><h3>Warnings</h3><ul>@foreach($comparison['warnings'] as $warning)<li>{{ $warning }}</li>@endforeach</ul></section>@endif
                             @if(!empty($comparison['remaining_groups']))
                                 <div class="missing-requirement-groups">@foreach($comparison['remaining_groups'] as $category => $requirements)@if($requirements)<section><h3>{{ ['qualifications' => 'Qualifications', 'skills' => 'Skills', 'competencies' => 'Competencies'][$category] ?? ucfirst($category) }}</h3><ul>@foreach($requirements as $requirement)<li>{{ $requirement }}</li>@endforeach</ul></section>@endif @endforeach</div>
@@ -122,7 +131,6 @@
                             <p>Add these only where you have supporting skills or experience.</p>
                         </details>
                     @endif
-                    @if(($comparison['keyword_after'] ?? $comparison['after']) <= ($comparison['keyword_before'] ?? $comparison['before']))<p>Wording Match has not increased. This does not mean ATS Compatibility is unchanged; compare its original and revamped scores above. Only add skills and experience you can support.</p>@endif
                     @if(isset($comparison['original_text'], $comparison['revised_text']))<details><summary>Compare original and tailored text</summary><div class="checker-text-comparison"><div><h3>Original CV</h3><pre>{{ $comparison['original_text'] }}</pre></div><div><h3>Tailored CV</h3><pre>{{ $comparison['revised_text'] }}</pre></div></div></details>@endif
                 </section>
             @endif
