@@ -1,7 +1,7 @@
 @props(['dynamic' => false, 'wording' => null, 'compatibility' => null, 'wordingBefore' => null, 'compatibilityBefore' => null])
 <div class="checker-score-pair" aria-label="CV match scores">
     @foreach([
-        ['label' => 'Wording Match', 'score' => $wording, 'before' => $wordingBefore, 'expression' => 'result?.keyword_score', 'tone' => 'wording', 'description' => 'Job requirements recognised in your CV.'],
+        ['label' => 'Wording Match', 'score' => $wording, 'before' => $wordingBefore, 'expression' => 'result?.keyword_score', 'tone' => 'wording', 'description' => 'Employer wording explicitly represented using supported CV evidence. Missing qualifications cannot be gained by rewriting.'],
         ['label' => 'ATS Compatibility', 'score' => $compatibility, 'before' => $compatibilityBefore, 'expression' => 'result?.compatibility_score', 'tone' => 'compatibility', 'description' => 'How well your background and CV match this role.'],
     ] as $metric)
         <section class="checker-score-card {{ $metric['tone'] }}" aria-label="{{ $metric['label'] }}">

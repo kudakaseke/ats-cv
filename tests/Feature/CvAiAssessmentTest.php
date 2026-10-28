@@ -74,19 +74,19 @@ class CvAiAssessmentTest extends TestCase
         $this->assertDatabaseHas('ai_usage_logs', ['user_id' => $user->id, 'status' => 'failed', 'input_tokens' => 120, 'output_tokens' => 300]);
     }
 
-    public function test_kimi_timeout_refunds_scan_credits_and_records_the_correct_model(): void
+    public function test_openai_timeout_refunds_scan_credits_and_records_the_correct_model(): void
     {
-        config(['services.cv_ai.provider' => 'kimi', 'services.kimi.background' => false, 'services.kimi.key' => 'fake-key', 'services.kimi.model' => 'kimi-k3.1-pro']);
+        config(['services.cv_ai.provider' => 'openai', 'services.openai.background' => false, 'services.openai.key' => 'fake-key', 'services.openai.model' => 'gpt-6.1-sol']);
         Http::preventStrayRequests();
-        Http::fake(['api.moonshot.ai/*' => Http::failedConnection()]);
+        Http::fake(['api.openai.com/*' => Http::failedConnection()]);
         $user = User::factory()->create();
         $this->actingAs($user)->postJson('/checker/scan', [
             'job_description' => 'Skills: PHP', 'resume_text' => "Alex Example\nSkills\nPHP",
         ])->assertStatus(503)->assertJsonPath('credits_remaining', 15)
             ->assertJsonPath('message', 'The AI provider did not respond in time. Your credits were refunded. Please try again in a minute.');
         Http::assertSentCount(1);
-        $this->assertDatabaseHas('ai_usage_logs', ['user_id' => $user->id, 'provider' => 'kimi',
-            'model' => 'kimi-k3.1-pro', 'status' => 'failed', 'credits_charged' => 0]);
+        $this->assertDatabaseHas('ai_usage_logs', ['user_id' => $user->id, 'provider' => 'openai',
+            'model' => 'gpt-6.1-sol', 'status' => 'failed', 'credits_charged' => 0]);
         $this->assertDatabaseHas('ai_operations', ['user_id' => $user->id, 'status' => 'failed']);
     }
 

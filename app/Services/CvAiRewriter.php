@@ -12,10 +12,7 @@ class CvAiRewriter
     public function analyse(string $job, string $resume): array
     {
         $this->lastUsage = [];
-        $provider = config('services.cv_ai.provider', 'openai');
-        if (! in_array($provider, ['openai', 'kimi'], true)) {
-            throw new \RuntimeException('Unsupported analysis provider.');
-        }
+        $provider = 'openai';
         $key = config('services.'.$provider.'.key');
         $model = config('services.'.$provider.'.model');
         if (! $key || ! $model) {
@@ -24,11 +21,11 @@ class CvAiRewriter
         $schema = ['type' => 'OBJECT', 'properties' => [
             'summary' => ['type' => 'STRING'],
             'recommendations' => ['type' => 'ARRAY', 'items' => ['type' => 'STRING']],
-            'assessment' => app(CvAiAssessment::class)->schema(),
+            'assessment' => app(CvAiScanContract::class)->schema(),
         ], 'required' => ['summary', 'recommendations', 'assessment']];
-        $text = $this->{$provider === 'kimi' ? 'kimi' : 'openAi'}($key, $model,
-            app(CvAiPrompt::class)->instructions(false),
-            ['ACTION' => 'ANALYSE', 'SCORING_POLICY' => $this->scoringPolicy(), 'LOCALE' => 'en-GB', 'job_description' => $job, 'original_resume' => $resume, 'current_date' => now('Africa/Johannesburg')->toDateString(), 'confirmed_keywords' => []], $schema, $provider === 'openai' ? $this->outputBudget('analysis', 16000) : 7000);
+        $text = $this->openAi($key, $model,
+            app(CvAiPrompt::class)->instructions(false)."\nCOMPACT ANALYSIS CONTRACT: Extract every distinct employer requirement once. Return only the schema fields. Laravel derives evidence statuses, candidate profile, category points, gap recommendations and ordinary missing-requirement warnings. Do not repeat those lists or arithmetic. Warnings contain additional factual/date/document uncertainties only; do not list every missing requirement again. Keep each explanation to one short sentence and each quote to one exact short passage. Preserve all requirements and genuine gaps.",
+            ['ACTION' => 'ANALYSE', 'SCORING_POLICY' => $this->scoringPolicy(), 'DATE_CALCULATION' => app(CvExperienceMatcher::class)->compare($job, $resume), 'LOCALE' => 'en-GB', 'job_description' => $job, 'original_resume' => $resume, 'current_date' => now('Africa/Johannesburg')->toDateString(), 'confirmed_keywords' => []], $schema, $this->outputBudget('analysis', 16000));
 
         $decoded = json_decode($text, true, 64, JSON_THROW_ON_ERROR);
         $result = Validator::make($decoded, [
@@ -36,6 +33,7 @@ class CvAiRewriter
             'recommendations.*' => ['required', 'string', 'max:1000'],
         ])->validate();
         if (isset($decoded['assessment'])) {
+            $decoded['assessment'] = app(CvAiScanContract::class)->expand($decoded['assessment'], $resume);
             if (($decoded['assessment']['schema_version'] ?? '') === '2.0') {
                 $decoded['assessment'] = app(CvAiV2Report::class)->sourceGuard($decoded['assessment'], $resume);
             }
@@ -47,10 +45,7 @@ class CvAiRewriter
     public function rewrite(string $job, string $resume, array $confirmed, ?array $baseline = null): array
     {
         $this->lastUsage = [];
-        $provider = config('services.cv_ai.provider', 'openai');
-        if (! in_array($provider, ['openai', 'gemini', 'kimi'], true)) {
-            throw new \RuntimeException('Unsupported AI provider.');
-        }
+        $provider = 'openai';
         $key = config('services.'.$provider.'.key');
         $model = config('services.'.$provider.'.model');
         if (! $key || ! $model || ! preg_match('/^[a-zA-Z0-9._-]+$/', $model)) {
@@ -94,31 +89,19 @@ class CvAiRewriter
             'current_date' => now('Africa/Johannesburg')->toDateString(),
             'analysis' => array_intersect_key($analysis, array_flip(['method', 'matched', 'missing', 'suggestions', 'experience_check']))];
         if ($baseline) {
-            $input['baseline_assessment'] = array_intersect_key($baseline, array_flip(['requirements', 'categories', 'experience', 'professional_alignment', 'target_profession', 'candidate_background', 'missing_core_requirements', 'cross_industry_warnings']));
+            $input['baseline_assessment'] = [
+                'requirements' => array_map(fn ($item) => array_intersect_key($item, array_flip([
+                    'category', 'requirement', 'importance', 'evidence', 'original_status', 'relevance',
+                ])), $baseline['requirements']),
+                'professional_alignment' => $baseline['professional_alignment'] ?? null,
+                'experience' => array_intersect_key($baseline['experience'], array_flip(['required_years', 'total_professional_years',
+                    'documented_relevant_years', 'minimum_calendar_years', 'maximum_calendar_years', 'date_precision'])),
+            ];
         }
-        if (in_array($provider, ['openai', 'kimi'], true)) {
-            try {
-                $text = $this->{$provider === 'kimi' ? 'kimi' : 'openAi'}($key, $model, $instructions, $input, $schema, $provider === 'openai' ? $this->outputBudget('revamp', 18000) : 14000);
-            } finally {
-                $this->addUsage($priorUsage);
-            }
-        } else {
-            $response = Http::connectTimeout(10)->timeout(60)->withHeaders(['x-goog-api-key' => $key])->post(
-                'https://generativelanguage.googleapis.com/v1beta/models/'.$model.':generateContent', [
-                    'systemInstruction' => ['parts' => [['text' => $instructions]]],
-                    'contents' => [['role' => 'user', 'parts' => [['text' => json_encode($input, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE)]]]],
-                    'generationConfig' => ['responseMimeType' => 'application/json', 'responseSchema' => $schema, 'temperature' => 0.2, 'maxOutputTokens' => 12000],
-                ]);
-            if (! $response->successful()) {
-                throw new \RuntimeException('AI request failed.');
-            }
-            $this->lastUsage = ['provider' => 'gemini', 'model' => $model,
-                'input_tokens' => $response->json('usageMetadata.promptTokenCount', 0), 'output_tokens' => $response->json('usageMetadata.candidatesTokenCount', 0)];
-            $candidate = $response->json('candidates.0');
-            if (($candidate['finishReason'] ?? '') !== 'STOP') {
-                throw new \RuntimeException('AI response was incomplete.');
-            }
-            $text = collect($candidate['content']['parts'] ?? [])->reject(fn ($part) => $part['thought'] ?? false)->pluck('text')->implode('');
+        try {
+            $text = $this->openAi($key, $model, $instructions, $input, $schema, $this->outputBudget('revamp', 18000));
+        } finally {
+            $this->addUsage($priorUsage);
         }
         $data = json_decode($text, true, 64, JSON_THROW_ON_ERROR);
         if ($reuseAssessment) {
@@ -318,119 +301,6 @@ class CvAiRewriter
         foreach (['input_tokens', 'output_tokens'] as $key) {
             $this->lastUsage[$key] = ($this->lastUsage[$key] ?? 0) + ($earlier[$key] ?? 0);
         }
-    }
-
-    private function kimi(string $key, string $model, string $instructions, array $input, array $schema, int $outputTokens = 14000): string
-    {
-        // Leave time for validation and credit refunds before PHP terminates the request.
-        $targetLimit = config('services.kimi.worker') ? 350 : 180;
-        $targetBudget = config('services.kimi.worker') ? 300 : 150;
-        $executionLimit = (int) ini_get('max_execution_time');
-        if ($executionLimit > 0 && $executionLimit < $targetLimit && function_exists('set_time_limit')) {
-            @set_time_limit($targetLimit);
-            $executionLimit = (int) ini_get('max_execution_time');
-        }
-        $budget = $executionLimit > 0 ? max(1, min($targetBudget, $executionLimit - 20)) : $targetBudget;
-        $deadline = microtime(true) + $budget;
-        $this->lastUsage = ['provider' => 'kimi', 'model' => $model, 'input_tokens' => 0, 'output_tokens' => 0];
-        $payload = [
-            'model' => $model,
-            'messages' => [
-                ['role' => 'system', 'content' => $instructions],
-                ['role' => 'user', 'content' => json_encode($input, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE)],
-            ],
-            'reasoning_effort' => 'low',
-            // Completion budget includes reasoning as well as final JSON.
-            'max_completion_tokens' => $outputTokens + 8000,
-            'response_format' => ['type' => 'json_schema', 'json_schema' => [
-                'name' => 'tailored_cv', 'strict' => true, 'schema' => $this->openAiSchema($schema),
-            ]],
-        ];
-        for ($attempt = 0; $attempt < 2; $attempt++) {
-            $this->paceKimi($deadline);
-            $remaining = $deadline - microtime(true);
-            if ($remaining < 1) {
-                throw new \App\Exceptions\AiResponseException(429, 'rate_limit_local');
-            }
-            try {
-                $response = Http::connectTimeout(10)->timeout($remaining)->withOptions(['allow_redirects' => false])
-                    ->withToken($key)->post('https://api.moonshot.ai/v1/chat/completions', $payload);
-            } catch (\Illuminate\Http\Client\ConnectionException $exception) {
-                // The remote request may still be running. Cool down, never resend it automatically.
-                $this->coolDownKimi(61);
-                throw $exception;
-            }
-            if ($response->status() !== 429) {
-                break;
-            }
-            $header = $response->header('Retry-After');
-            $delay = max(61, is_numeric($header) ? (int) $header : 61);
-            $this->coolDownKimi($delay);
-            if ($attempt === 1 || in_array($this->kimiFailureReason($response), ['provider_quota', 'rate_limit_tpd'], true)) {
-                break;
-            }
-            if ($delay + 10 >= $deadline - microtime(true)) {
-                break;
-            }
-            // A full rate window, instead of consuming all three RPM slots in seconds.
-            \Illuminate\Support\Sleep::for($delay)->seconds();
-        }
-        $this->lastUsage = ['provider' => 'kimi', 'model' => $model,
-            'input_tokens' => $response->json('usage.prompt_tokens', 0),
-            'output_tokens' => $response->json('usage.completion_tokens', 0)];
-        if (! $response->successful()) {
-            throw new \App\Exceptions\AiResponseException($response->status(), $this->kimiFailureReason($response));
-        }
-        if ($response->json('choices.0.finish_reason') !== 'stop') {
-            throw new \App\Exceptions\AiResponseException($response->status(),
-                $response->json('choices.0.finish_reason') === 'length' ? 'max_output_tokens' : 'incomplete_response');
-        }
-        $text = $response->json('choices.0.message.content');
-        if (! is_string($text) || ! trim($text) || $response->json('choices.0.message.refusal')) {
-            throw new \RuntimeException('AI returned no CV.');
-        }
-
-        return $text;
-    }
-
-    private function paceKimi(float $deadline): void
-    {
-        $start = \Illuminate\Support\Facades\Cache::lock('moonshot-rate-gate', 10)->block(5, function () {
-            $now = microtime(true);
-            $start = max($now, (float) \Illuminate\Support\Facades\Cache::get('moonshot-next-request-at', 0));
-            // Three RPM permits one request every 20 seconds; allow a small boundary margin.
-            \Illuminate\Support\Facades\Cache::put('moonshot-next-request-at', $start + 21, 600);
-            return $start;
-        });
-        if ($start + 10 >= $deadline) {
-            throw new \App\Exceptions\AiResponseException(429, 'rate_limit_local');
-        }
-        $milliseconds = (int) ceil(max(0, $start - microtime(true)) * 1000);
-        if ($milliseconds > 0) {
-            \Illuminate\Support\Sleep::for($milliseconds)->milliseconds();
-        }
-    }
-
-    private function coolDownKimi(int $seconds): void
-    {
-        \Illuminate\Support\Facades\Cache::lock('moonshot-rate-gate', 10)->block(5, function () use ($seconds) {
-            $next = max(microtime(true) + $seconds,
-                (float) \Illuminate\Support\Facades\Cache::get('moonshot-next-request-at', 0));
-            \Illuminate\Support\Facades\Cache::put('moonshot-next-request-at', $next, max(600, $seconds + 60));
-        });
-    }
-
-    private function kimiFailureReason(\Illuminate\Http\Client\Response $response): string
-    {
-        if ($response->status() !== 429) return 'http_error';
-        $type = $response->json('error.type');
-        if ($type === 'engine_overloaded_error') return 'provider_overloaded';
-        if ($type === 'exceeded_current_quota_error') return 'provider_quota';
-        $message = (string) $response->json('error.message', '');
-        foreach (['concurrency', 'rpm', 'tpm', 'tpd'] as $limit) {
-            if (preg_match('/\b'.preg_quote($limit, '/').'\b/i', $message)) return 'rate_limit_'.$limit;
-        }
-        return 'rate_limit';
     }
 
     private function openAi(string $key, string $model, string $instructions, array $input, array $schema, int $outputTokens = 14000): string

@@ -7,10 +7,10 @@ use Tests\TestCase;
 
 class CvExperienceMatcherTest extends TestCase
 {
-    public function test_ai_evidence_resolves_unknown_local_dates_and_separates_relevant_experience(): void
+    public function test_cv_dates_remain_authoritative_and_relevant_experience_is_separate(): void
     {
         $matcher = app(CvExperienceMatcher::class);
-        $local = $matcher->compare('4 years of experience required.', 'CV without readable dates');
+        $local = $matcher->compare('4 years of experience required.', "Experience\nDeveloper\nJanuary 2010 - December 2022");
         $result = $matcher->reconcile($local, ['experience' => ['documented_relevant_years' => 10, 'total_professional_years' => 13, 'date_warnings' => []]]);
         $this->assertEquals(13, $result['cv_years']);
         $this->assertEquals(10, $result['relevant_years']);
@@ -27,7 +27,8 @@ class CvExperienceMatcherTest extends TestCase
         $matcher = app(CvExperienceMatcher::class);
         $local = $matcher->compare('4 years of experience required.', 'CV');
         $result = $matcher->reconcile($local, ['experience' => ['total_professional_years' => 13, 'documented_relevant_years' => null]]);
-        $this->assertStringContainsString('Relevant experience could not be confirmed', $result['message']);
+        $this->assertNull($result['cv_years']);
+        $this->assertStringContainsString('could not estimate', $result['message']);
         $this->assertFalse($result['shortfall']);
         $this->assertSame($local, $matcher->reconcile($local, ['experience' => ['total_professional_years' => 2, 'documented_relevant_years' => 13]]));
         $this->assertSame($local, $matcher->reconcile($local, null));
@@ -82,5 +83,32 @@ class CvExperienceMatcherTest extends TestCase
         $this->assertEquals(2, $result['cv_years']);
         $this->assertTrue($result['shortfall']);
         $this->assertNull(app(CvExperienceMatcher::class)->compare('PHP developer', 'CV text')['required_years']);
+    }
+    public function test_year_only_freelance_and_attachment_are_uncertain_and_study_is_excluded(): void
+    {
+        $this->travelTo(now()->setDate(2026, 10, 29));
+        try {
+            $cv = "Professional experience\nFreelance Web Developer2025 - Present\nBuild websites.\n\nExample Hospital - ICT Assistant, Industrial Attachment2023 - 2024\nUser support.\nEducation\nUniversity2021 - 2025\nBachelor degree\nCertification\nData Certificate - In progress2026 - Present";
+            $matcher = app(CvExperienceMatcher::class);
+            $result = $matcher->compare('Minimum 3 years experience', $cv);
+            $this->assertEquals(2.8, $result['cv_years']);
+            $this->assertEquals(0.8, $result['minimum_calendar_years']);
+            $this->assertEquals(3.8, $result['maximum_calendar_years']);
+            $this->assertSame(['freelance', 'attachment'], array_column($result['periods'], 'type'));
+            $this->assertSame('year', $result['date_precision']);
+            $reconciled = $matcher->reconcile($result, ['experience' => ['total_professional_years' => 8, 'documented_relevant_years' => 4]]);
+            $this->assertEquals(2.8, $reconciled['cv_years']);
+            $this->assertNull($reconciled['relevant_years']);
+            $this->assertStringContainsString('exact duration is unknown', $reconciled['message']);
+            $this->assertFalse($reconciled['shortfall']);
+        } finally { $this->travelBack(); }
+    }
+
+    public function test_exact_day_periods_and_overlaps_count_calendar_time_once(): void
+    {
+        $cv = "Experience\nPosition: Developer\nPeriod: 2024-01-01 - 2024-12-31\n\nPosition: Analyst\nPeriod: 01/06/2024 - 31/12/2024";
+        $result = app(CvExperienceMatcher::class)->compare('2 years experience', $cv);
+        $this->assertEquals(1, $result['cv_years']);
+        $this->assertTrue($result['shortfall']);
     }
 }

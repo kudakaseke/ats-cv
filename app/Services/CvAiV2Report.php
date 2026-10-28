@@ -78,6 +78,25 @@ class CvAiV2Report
         $dates = app(CvExperienceMatcher::class)->compare('', $source);
         $assessment['experience']['total_professional_years'] = $dates['cv_years'];
         $assessment['experience']['calculation_source'] = $dates['calculation_source'];
+        foreach (['minimum_calendar_years', 'maximum_calendar_years', 'date_precision', 'periods'] as $field) {
+            $assessment['experience'][$field] = $dates[$field];
+        }
+        if ($dates['date_precision'] === 'year') {
+            $assessment['experience']['documented_relevant_years'] = null;
+            $assessment['experience']['date_warnings'][] = 'Year-only dates do not establish exact employment duration or full-time equivalent experience; provide months.';
+        }
+        if ($dates['date_precision'] === 'year') {
+            foreach ($assessment['requirements'] as &$item) {
+                if ($item['category'] !== 'experience' || ! preg_match('/\b(?:\d+(?:\.\d+)?|one|two|three|four|five|six|seven|eight|nine|ten)\s*\+?\s*years?\b/i', $item['requirement'])) continue;
+                $minimum = app(CvExperienceMatcher::class)->compare($item['requirement'].' experience', $source)['required_years'];
+                if ($minimum === null || ($dates['minimum_calendar_years'] ?? 0) >= $minimum) continue;
+                if (! in_array($item['original_status'], ['matched', 'demonstrated', 'directly_evidenced'], true)) continue;
+                $item['original_status'] = $item['revamped_status'] = 'uncertain';
+                $item['match_classification'] = 'UNCERTAIN';
+                $item['explanation'] = 'Year-only employment dates do not confirm the required duration or role relevance. Provide months and clarify freelance/attachment duties.';
+            }
+            unset($item);
+        }
         if ($dates['cv_years'] === null) {
             $assessment['experience']['documented_relevant_years'] = null;
         } elseif (is_numeric($assessment['experience']['documented_relevant_years'] ?? null)) {

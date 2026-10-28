@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
 
 class CvReviewComparison
 {
-    public const VERSION = 11;
+    public const VERSION = 12;
 
     public function refreshForUser(array $comparison, ?int $userId, ?array $generated = null): array
     {
@@ -80,7 +80,7 @@ class CvReviewComparison
             $comparison['experience_check'] = app(CvExperienceMatcher::class)->reconcile($comparison['experience_check'], $comparison['assessment']);
             $comparison['warnings'] = [];
             $check = $comparison['experience_check'];
-            if ($check['required_years'] !== null && ($check['shortfall'] || $check['cv_years'] === null || ($check['source'] ?? '') === 'ai_evidence_assessment' && $check['relevant_years'] === null)) {
+            if ($check['required_years'] !== null && ($check['shortfall'] || $check['cv_years'] === null || ($check['relevant_years'] ?? null) === null)) {
                 $comparison['warnings'][] = $check['message'];
             }
             foreach ($check['assessment_date_warnings'] ?? [] as $warning) $comparison['warnings'][] = $warning;

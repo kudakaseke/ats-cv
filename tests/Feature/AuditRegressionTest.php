@@ -101,9 +101,9 @@ class AuditRegressionTest extends TestCase
         $user = User::factory()->create();
         $this->actingAs($user);
         for ($i = 0; $i < 3; $i++) {
-            $this->postJson('/checker/scan', ['job_description' => 'PHP SQL', 'resume_text' => 'PHP developer'])->assertOk()->assertJsonStructure(['analysis_id']);
+            $this->postJson('/checker/scan', ['job_description' => 'PHP SQL', 'resume_text' => 'PHP developer '.$i])->assertOk()->assertJsonStructure(['analysis_id']);
         }
-        $this->postJson('/checker/scan', ['job_description' => 'PHP SQL', 'resume_text' => 'PHP developer'])
+        $this->postJson('/checker/scan', ['job_description' => 'PHP SQL', 'resume_text' => 'PHP developer fourth'])
             ->assertUnprocessable()->assertJsonValidationErrors('credits');
         $this->assertSame(3, $user->analyses()->where('status', 'completed')->count());
         $this->assertDatabaseCount('resumes', 0);

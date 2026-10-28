@@ -114,6 +114,9 @@ class CvAiAssessment
             $rules['relevant_experience.'.$key] = ['sometimes', 'nullable', 'numeric', 'min:0', 'max:100'];
         }
         $rules['experience.calculation_source'] = ['sometimes', 'in:employment_dates,cv_statement,unknown'];
+        foreach (['minimum_calendar_years', 'maximum_calendar_years'] as $key) $rules['experience.'.$key] = ['sometimes', 'nullable', 'numeric', 'min:0', 'max:100'];
+        $rules['experience.date_precision'] = ['sometimes', 'in:year,month_or_day,unknown'];
+        $rules['experience.periods'] = ['sometimes', 'array', 'max:20'];
         $rules['schema_version'] = ['sometimes', 'in:2.0'];
         $rules['document_quality'] = ['sometimes', 'array'];
         foreach (['extraction_limitations', 'uncertainties'] as $key) {

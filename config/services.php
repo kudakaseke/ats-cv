@@ -20,7 +20,7 @@ return [
     |
     */
 
-    'cv_ai' => ['provider' => env('CV_AI_PROVIDER', 'openai')],
+    'cv_ai' => ['provider' => 'openai'],
 
     'openai' => [
         'key' => env('OPENAI_API_KEY'),
@@ -29,16 +29,6 @@ return [
         'analysis_output_tokens' => env('OPENAI_ANALYSIS_OUTPUT_TOKENS', 16000),
         'revamp_output_tokens' => env('OPENAI_REVAMP_OUTPUT_TOKENS', 18000),
         'validation_output_tokens' => env('OPENAI_VALIDATION_OUTPUT_TOKENS', 20000),
-    ],
-
-    'kimi' => [
-        'key' => env('MOONSHOT_API_KEY'),
-        'model' => env('KIMI_MODEL', 'kimi-k3.1-pro'),
-    ],
-
-    'gemini' => [
-        'key' => env('GEMINI_API_KEY'),
-        'model' => env('GEMINI_MODEL'),
     ],
 
     'postmark' => [

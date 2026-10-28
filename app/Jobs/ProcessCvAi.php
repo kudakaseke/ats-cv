@@ -27,7 +27,7 @@ class ProcessCvAi implements ShouldBeEncrypted, ShouldQueue
     public int $expiresAt;
 
     public function __construct(public int $userId, public int $operationId, public string $feature,
-        public array $input, public ?array $baseline, public string $model, public string $provider = 'kimi')
+        public array $input, public ?array $baseline, public string $model, public string $provider = 'openai')
     {
         $this->onConnection('ai')->onQueue('ai')->afterCommit();
         $this->expiresAt = now()->addMinutes(9)->timestamp;
@@ -40,8 +40,7 @@ class ProcessCvAi implements ShouldBeEncrypted, ShouldQueue
 
     public function middleware(): array
     {
-        // Moonshot's entry account tier permits only one simultaneous model request.
-        return [(new WithoutOverlapping($this->provider === 'kimi' ? 'moonshot-cv' : 'openai-cv'))->shared()->releaseAfter(5)->expireAfter(400)];
+        return [(new WithoutOverlapping('openai-cv'))->shared()->releaseAfter(5)->expireAfter(400)];
     }
 
     public function handle(): void
@@ -49,6 +48,10 @@ class ProcessCvAi implements ShouldBeEncrypted, ShouldQueue
         $user = User::find($this->userId);
         if (! $user || ! DB::table('ai_operations')->where('id', $this->operationId)
             ->where('user_id', $user->id)->where('status', 'reserved')->exists()) {
+            return;
+        }
+        if ($this->provider !== 'openai') {
+            $this->failed(null);
             return;
         }
         // Do not start a paid request too late to finish before abandoned-credit recovery.
@@ -59,7 +62,6 @@ class ProcessCvAi implements ShouldBeEncrypted, ShouldQueue
         $previousRequest = app('request');
         $previousProvider = config('services.cv_ai.provider');
         $previousModel = config('services.'.$this->provider.'.model');
-        $previousBackground = config('services.kimi.worker');
         $request = Request::create('/checker/'.$this->feature, 'POST', $this->input);
         $request->setUserResolver(fn () => $user);
         $session = new Store('ai-worker', new ArraySessionHandler(120));
@@ -71,7 +73,7 @@ class ProcessCvAi implements ShouldBeEncrypted, ShouldQueue
         app()->instance('request', $request);
         // Laravel's request-rebinding hook resets this resolver; set it after binding.
         $request->setUserResolver(fn () => $user);
-        config(['services.cv_ai.provider' => $this->provider, 'services.'.$this->provider.'.model' => $this->model, 'services.kimi.worker' => true]);
+        config(['services.cv_ai.provider' => $this->provider, 'services.'.$this->provider.'.model' => $this->model]);
         if (function_exists('set_time_limit')) @set_time_limit(350);
         try {
             $controller = app(CvCheckerController::class);
@@ -87,8 +89,7 @@ class ProcessCvAi implements ShouldBeEncrypted, ShouldQueue
             $this->failed($exception);
         } finally {
             app()->instance('request', $previousRequest);
-            config(['services.cv_ai.provider' => $previousProvider, 'services.'.$this->provider.'.model' => $previousModel,
-                'services.kimi.worker' => $previousBackground]);
+            config(['services.cv_ai.provider' => $previousProvider, 'services.'.$this->provider.'.model' => $previousModel]);
         }
     }
 

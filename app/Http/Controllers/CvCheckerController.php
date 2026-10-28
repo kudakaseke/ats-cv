@@ -43,19 +43,21 @@ class CvCheckerController extends Controller
             $request->session()->put('cv_checker.scan', ['signature' => CvDocumentIdentity::signature($data['job_description'], $data['resume_text']), 'assessment' => $operation->result['ai_analysis']['assessment'] ?? null]);
             $cached = [...$operation->result, ...$result];
             $cached['experience_check'] = app(\App\Services\CvExperienceMatcher::class)->reconcile($result['experience_check'], $cached['assessment'] ?? $cached['ai_analysis']['assessment'] ?? null);
-            $cached = app(\App\Services\CvCompatibilityScore::class)->scan($cached);
-            return response()->json([...$cached, 'credits_remaining' => $credits->wallet($request->user())['credits']]);
+            $cached = app(\App\Services\CvCompatibilityScore::class)->scan($cached, $data['resume_text']);
+            return response()->json([...$cached, 'credits_used' => 0, 'reused_result' => true, 'credits_remaining' => $credits->wallet($request->user())['credits']]);
         }
         if ($background) {
             return $this->queueOperation($request, $data, $operation, 'analyse', $credits);
         }
         try {
             $result['ai_analysis'] = $ai->analyse($data['job_description'], $data['resume_text']);
+            $result['ai_policy_version'] = \App\Services\CvAiPrompt::VERSION;
+            $result['analysis_date'] = now('Africa/Johannesburg')->toDateString();
             if (isset($result['ai_analysis']['assessment'])) {
                 $result['assessment'] = $result['ai_analysis']['assessment'];
                 $result['experience_check'] = app(\App\Services\CvExperienceMatcher::class)->reconcile($result['experience_check'], $result['assessment']);
             }
-            $result = app(\App\Services\CvCompatibilityScore::class)->scan($result);
+            $result = app(\App\Services\CvCompatibilityScore::class)->scan($result, $data['resume_text']);
             $payload = DB::transaction(function () use ($request, $data, $result, $credits, $operation, $ai) {
                 $analysis = $request->user()->analyses()->create(['job_description' => $data['job_description'], 'status' => 'completed',
                     'score' => (int) round($result['keyword_score'] ?? $result['similarity_percent']), 'results' => $result]);
@@ -99,7 +101,7 @@ class CvCheckerController extends Controller
             ?? $credits->reserve($request->user(), 'revamp', $request->input('operation_id', (string) Str::uuid()), $data, $background);
         if ($operation->cached) {
             $payload = app(\App\Services\CvCompatibilityScore::class)->rewrite([...$operation->result, 'before' => $before,
-                'after' => $matcher->compare($data['job_description'], $operation->result['rewritten_resume'])]);
+                'after' => $matcher->compare($data['job_description'], $operation->result['rewritten_resume'])], $data['resume_text'], $data['confirmed_keywords']);
             $request->session()->put('cv_checker.generated', ['text' => $payload['rewritten_resume'], 'structured_resume' => $payload['structured_resume'],
                 'assessment' => $payload['assessment'] ?? null, 'report' => $this->reportFields($payload), 'original_text' => $data['resume_text'], 'job_description' => $data['job_description']]);
 
@@ -117,7 +119,7 @@ class CvCheckerController extends Controller
             $payload = [...$draft, 'before' => $before, 'after' => $matcher->compare($data['job_description'], $draft['rewritten_resume']),
                 'source_signature' => $signature,
                 'credits_used' => config('ai_credits.costs.revamp')];
-            $payload = app(\App\Services\CvCompatibilityScore::class)->rewrite($payload);
+            $payload = app(\App\Services\CvCompatibilityScore::class)->rewrite($payload, $data['resume_text'], $data['confirmed_keywords']);
             $credits->finish($request->user(), $operation->id, $payload, $rewriter->lastUsage);
         } catch (\Throwable $exception) {
             $credits->finish($request->user(), $operation->id, null, $rewriter->lastUsage);
@@ -176,8 +178,7 @@ class CvCheckerController extends Controller
     private function usesBackground(Request $request): bool
     {
         return ! $request->attributes->get('ai_background', false)
-            && ((config('services.cv_ai.provider') === 'kimi' && config('services.kimi.background', true))
-                || (config('services.cv_ai.provider') === 'openai' && config('services.openai.validate_revamp', false)));
+            && config('services.openai.validate_revamp', false);
     }
 
     private function queueOperation(Request $request, array $data, object $operation, string $feature, AiCreditService $credits)
@@ -215,15 +216,15 @@ class CvCheckerController extends Controller
         if ($record->status === 'failed') {
             $reason = \Illuminate\Support\Facades\Cache::get('ai-failure:'.$operation, 'unknown');
             $provider = DB::table('ai_usage_logs')->where('ai_operation_id', $operation)->value('provider');
-            $providerName = $provider === 'openai' ? 'OpenAI' : 'Moonshot';
+            $providerName = 'OpenAI';
             $message = match ($reason) {
                 'rate_limit_concurrency' => $providerName.' is still processing another request. Please wait a minute before retrying.',
-                'rate_limit_rpm', 'rate_limit_local' => 'Moonshot allows three requests per minute on this project. Please wait a minute before retrying.',
-                'rate_limit_tpm' => 'Moonshot rejected the request because the token-per-minute limit was reached.',
-                'rate_limit_tpd' => 'The Moonshot daily token allowance has been reached. Wait for it to reset or adjust the account limit.',
+                'rate_limit_rpm', 'rate_limit_local' => 'The provider request-rate limit was reached. Please wait before retrying.',
+                'rate_limit_tpm' => 'OpenAI rejected the request because the token-per-minute limit was reached.',
+                'rate_limit_tpd' => 'The provider daily token allowance has been reached. Wait for it to reset or adjust the account limit.',
                 'provider_overloaded' => $providerName.' is temporarily overloaded. Please try again later.',
                 'provider_quota' => $providerName.' reports insufficient API quota. Check the account balance and project budget.',
-                'rate_limit' => 'Moonshot rejected the request because a rate limit was reached. Please wait a minute before retrying.',
+                'rate_limit' => 'OpenAI rejected the request because a rate limit was reached. Please wait a minute before retrying.',
                 'max_output_tokens' => 'The AI report was cut short before it finished. Please contact support before submitting the same request again.',
                 'timeout' => $providerName.' did not finish responding in time. Please wait a minute before retrying.',
                 default => 'The AI could not approve or complete this request. Please review the source information before retrying.',

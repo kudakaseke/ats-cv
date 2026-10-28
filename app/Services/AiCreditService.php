@@ -169,6 +169,20 @@ class AiCreditService
                 }
                 abort(409, 'This request is already processing. Please wait before retrying.');
             }
+            if ($feature === 'analyse') {
+                $recent = DB::table('ai_operations as operations')->join('ai_usage_logs as usage', 'usage.ai_operation_id', '=', 'operations.id')
+                    ->where('operations.user_id', $user->id)->where('operations.feature', $feature)->where('operations.request_hash', $hash)
+                    ->where('operations.status', 'completed')->where('operations.created_at', '>=', now()->subMinutes(30))
+                    ->where('usage.provider', 'openai')->where('usage.model', config('services.openai.model'))
+                    ->orderByDesc('operations.id')->value('operations.result');
+                if ($recent) {
+                    $saved = json_decode(Crypt::decryptString($recent), true, 64, JSON_THROW_ON_ERROR);
+                    if (($saved['ai_policy_version'] ?? '') === CvAiPrompt::VERSION
+                        && ($saved['analysis_date'] ?? '') === now('Africa/Johannesburg')->toDateString()) {
+                        return (object) ['cached' => true, 'result' => $saved];
+                    }
+                }
+            }
             if ($wallet->subscription_credits + $wallet->topup_credits - $wallet->credit_debt < $cost) {
                 throw ValidationException::withMessages(['credits' => "You need {$cost} credits for this action. Please top up or choose a plan."]);
             }

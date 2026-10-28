@@ -4,6 +4,7 @@ namespace App\Services;
 
 class CvAiPrompt
 {
+    public const VERSION = '2.1-openai-dates-wording-2026-10-29';
     public function instructions(bool $rewrite): string
     {
         // The verbatim master remains the policy reference. Send its runtime
