@@ -74,22 +74,6 @@ class CvAiAssessmentTest extends TestCase
         $this->assertDatabaseHas('ai_usage_logs', ['user_id' => $user->id, 'status' => 'failed', 'input_tokens' => 120, 'output_tokens' => 300]);
     }
 
-    public function test_openai_timeout_refunds_scan_credits_and_records_the_correct_model(): void
-    {
-        config(['services.cv_ai.provider' => 'openai', 'services.openai.background' => false, 'services.openai.key' => 'fake-key', 'services.openai.model' => 'gpt-6.1-sol']);
-        Http::preventStrayRequests();
-        Http::fake(['api.openai.com/*' => Http::failedConnection()]);
-        $user = User::factory()->create();
-        $this->actingAs($user)->postJson('/checker/scan', [
-            'job_description' => 'Skills: PHP', 'resume_text' => "Alex Example\nSkills\nPHP",
-        ])->assertStatus(503)->assertJsonPath('credits_remaining', 15)
-            ->assertJsonPath('message', 'The AI provider did not respond in time. Your credits were refunded. Please try again in a minute.');
-        Http::assertSentCount(1);
-        $this->assertDatabaseHas('ai_usage_logs', ['user_id' => $user->id, 'provider' => 'openai',
-            'model' => 'gpt-6.1-sol', 'status' => 'failed', 'credits_charged' => 0]);
-        $this->assertDatabaseHas('ai_operations', ['user_id' => $user->id, 'status' => 'failed']);
-    }
-
     public function test_semantic_assessment_reaches_scan_and_rewrite_review_without_trusting_browser_scores(): void
     {
         config(['services.cv_ai.provider' => 'openai', 'services.openai.key' => 'fake-key', 'services.openai.model' => 'gpt-4.1']);
@@ -115,7 +99,7 @@ class CvAiAssessmentTest extends TestCase
             ->assertSessionHas('cv_builder.checker_result.assessment.original_score.total', 56.67);
         $this->assertSame('Skills', session('cv_builder.data.section_titles.skills'));
         $this->assertSame('Competencies', session('cv_builder.data.section_titles.core_strengths'));
-        $this->get('/get-started')->assertOk()->assertDontSee('Candidate Evidence Score')->assertSee('Warnings');
+        $this->get('/get-started')->assertOk()->assertDontSee('Candidate Evidence Score')->assertSee('Warnings and eligibility gaps');
         Http::assertSent(function ($request) {
             $input = json_decode($request['input'][0]['content'], true);
             return isset($input['current_date'], $input['baseline_assessment']) && $request['text']['format']['strict'] === true;
@@ -146,8 +130,8 @@ class CvAiAssessmentTest extends TestCase
         $assessment = app(CvAiAssessment::class)->normalise($this->assessment());
         foreach ([false, true] as $revised) {
             $this->blade('<x-ai-assessment :assessment="$assessment" :revised="$revised" />', compact('assessment', 'revised'))
-                ->assertSee('Job requirements and recommendations')->assertSee('Warnings')
-                ->assertSee('Recommendations')->assertDontSee('Candidate Evidence')
+                ->assertSee('Job requirements and recommendations')->assertSee('Warnings and eligibility gaps')
+                ->assertSee('Mandatory requirements')->assertDontSee('Candidate Evidence')
                 ->assertDontSee('/100')->assertDontSee('@if', false)->assertDontSee('@endif', false);
         }
     }
@@ -184,7 +168,7 @@ class CvAiAssessmentTest extends TestCase
         $this->actingAs(User::factory()->create())->withSession(['cv_builder' => [
             'step' => 4, 'data' => ['name' => 'Alex Example'], 'checker_result' => $comparison,
         ]])->get('/get-started')->assertOk()->assertSee('Original 36/100')->assertSee('Revamped 38/100')
-            ->assertDontSee('contributing 2 points to the ATS Compatibility change')
+            ->assertSee('contributing 2 points to the ATS Compatibility change')
             ->assertDontSee('Candidate Evidence Score')->assertDontSee('45/100');
         Http::assertNothingSent();
     }

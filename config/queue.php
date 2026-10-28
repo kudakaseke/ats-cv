@@ -31,16 +31,6 @@ return [
 
     'connections' => [
 
-        // AI calls run separately from browser requests. Lease exceeds the worker timeout.
-        'ai' => [
-            'driver' => 'database',
-            'connection' => env('DB_QUEUE_CONNECTION'),
-            'table' => env('DB_QUEUE_TABLE', 'jobs'),
-            'queue' => 'ai',
-            'retry_after' => 420,
-            'after_commit' => true,
-        ],
-
         'sync' => [
             'driver' => 'sync',
         ],

@@ -37,7 +37,7 @@ class CvCheckerTest extends TestCase
             ]);
         });
         $user = User::factory()->create();
-        $input = ['operation_id' => (string) \Illuminate\Support\Str::uuid(), 'job_description' => '4 years of experience. Skills: Procurement', 'resume_text' => "Alex Example\nExperience\nProcurement Officer\nJanuary 2010 - December 2022"];
+        $input = ['operation_id' => (string) \Illuminate\Support\Str::uuid(), 'job_description' => '4 years of experience. Skills: Procurement', 'resume_text' => "Alex Example\nProcurement experience with dates in an unsupported layout."];
         $response = $this->actingAs($user)->postJson('/checker/scan', $input)->assertOk()
             ->assertJsonPath('experience_check.cv_years', 13)->assertJsonPath('experience_check.relevant_years', 10)
             ->assertJsonPath('experience_check.shortfall', false);
@@ -130,7 +130,7 @@ class CvCheckerTest extends TestCase
         $comparison = session('cv_builder.checker_result');
         $this->assertSame($comparison['before'], $comparison['after']);
         $this->assertSame([], $comparison['added_keywords']);
-        $this->get('/get-started')->assertOk()->assertDontSee('Wording Match has not increased.')
+        $this->get('/get-started')->assertOk()->assertSee('Wording Match has not increased.')
             ->assertSee('Compare original and tailored text')->assertSee('Requirements still missing');
     }
 }

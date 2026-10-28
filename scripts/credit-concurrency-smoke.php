@@ -19,7 +19,7 @@ if (($argv[1] ?? '') === '--worker') {
     }
     try {
         $credits = app(AiCreditService::class);
-        $operation = $credits->reserve($user, 'analyse', (string) Str::uuid(), ['fixture' => true, 'distinct_task' => (string) Str::uuid()]);
+        $operation = $credits->reserve($user, 'analyse', (string) Str::uuid(), ['fixture' => true]);
         $credits->finish($user, $operation->id, ['fixture' => true]);
         exit(0);
     } catch (ValidationException) {

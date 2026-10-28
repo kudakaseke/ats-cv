@@ -24,7 +24,7 @@ class CvAiRewriteTest extends TestCase
 
     private function setupProvider(): void
     {
-        config(['services.cv_ai.provider' => 'openai', 'services.openai.key' => 'fake-test-key', 'services.openai.model' => 'gpt-4.1']);
+        config(['services.cv_ai.provider' => 'gemini', 'services.gemini.key' => 'fake-test-key', 'services.gemini.model' => 'test-model']);
         Http::preventStrayRequests();
         $this->actingAs(User::factory()->create());
     }
@@ -34,7 +34,7 @@ class CvAiRewriteTest extends TestCase
         $this->setupProvider();
         $experience = [['title' => 'Accounts Clerk', 'company' => 'Example Ltd', 'period' => '2021 - 2024', 'location' => '', 'responsibilities' => ['Prepared invoices.']]];
         $draft = ['structured_resume' => $this->structured(['role' => 'Procurement Officer', 'experience' => $experience]), 'changes' => [], 'unsupported_keywords' => []];
-        Http::fake(['api.openai.com/*' => Http::response(['status' => 'completed', 'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => json_encode($draft)]]]]])]);
+        Http::fake(['generativelanguage.googleapis.com/*' => Http::response(['candidates' => [['finishReason' => 'STOP', 'content' => ['parts' => [['text' => json_encode($draft)]]]]]])]);
         $this->postJson('/checker/rewrite', ['job_description' => 'Procurement Officer', 'resume_text' => "Alex Morgan\nAccountant\nExperience\nAccounts Clerk\nExample Ltd\n2021 - 2024\nPrepared invoices.", 'confirmed_keywords' => []])
             ->assertOk()->assertJsonPath('structured_resume.role', 'Accountant')->assertJsonPath('structured_resume.experience', $experience);
     }
@@ -62,18 +62,18 @@ class CvAiRewriteTest extends TestCase
     {
         $this->setupProvider();
         $draft = ['structured_resume' => $this->structured(), 'changes' => ['Added confirmed PHP and HTML skills.'], 'unsupported_keywords' => ['CSS']];
-        Http::fake(['api.openai.com/*' => Http::response(['status' => 'completed', 'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => json_encode($draft)]]]]])]);
+        Http::fake(['generativelanguage.googleapis.com/*' => Http::response(['candidates' => [['finishReason' => 'STOP', 'content' => ['parts' => [['text' => json_encode($draft)]]]]]])]);
         $this->postJson('/checker/rewrite', [...$this->payload(), 'score' => 100])->assertOk()->assertJsonPath('before.score', 0)->assertJsonPath('after.score', 29)->assertJsonPath('after.keyword_score', 67)->assertJsonPath('structured_resume.skills', ['C#', 'Python', 'PHP', 'HTML']);
         Http::assertSent(function ($request) {
-            $input = json_decode($request['input'][0]['content'], true);
+            $input = json_decode($request['contents'][0]['parts'][0]['text'], true);
 
-            return $request->hasHeader('Authorization', 'Bearer fake-test-key')
+            return $request->hasHeader('x-goog-api-key', 'fake-test-key')
                 && $input['confirmed_keywords'] === ['PHP', 'HTML']
                 && $input['analysis']['method'] === 'tfidf-cosine-v1'
                 && $input['analysis']['missing'] === ['PHP', 'HTML', 'CSS']
                 && count($input['analysis']['suggestions']) === 3
-                && str_contains($request['instructions'], 'Do not invent experience')
-                && $request['text']['format']['strict'] === true;
+                && str_contains($request['systemInstruction']['parts'][0]['text'], 'Do not invent experience')
+                && $request['generationConfig']['responseMimeType'] === 'application/json';
         });
         $this->assertFalse(session()->has('cv_builder'));
     }
@@ -82,7 +82,7 @@ class CvAiRewriteTest extends TestCase
     {
         $this->setupProvider();
         $draft = ['structured_resume' => $this->structured(['skills' => ['C#', 'Python']]), 'changes' => ['Reorganised existing skills.'], 'unsupported_keywords' => ['PHP', 'CSS']];
-        Http::fake(['api.openai.com/*' => Http::response(['status' => 'completed', 'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => json_encode($draft)]]]]])]);
+        Http::fake(['generativelanguage.googleapis.com/*' => Http::response(['candidates' => [['finishReason' => 'STOP', 'content' => ['parts' => [['text' => json_encode($draft)]]]]]])]);
         $this->postJson('/checker/rewrite', $this->payload())->assertOk()
             ->assertJsonPath('structured_resume.skills', ['C#', 'Python', 'PHP', 'HTML'])
             ->assertJsonPath('after.keyword_score', 67)
@@ -94,7 +94,7 @@ class CvAiRewriteTest extends TestCase
     {
         $this->setupProvider();
         $draft = ['structured_resume' => $this->structured(['skills' => ['Python']]), 'changes' => ['Reorganised skills.'], 'unsupported_keywords' => ['Bachelor of Commerce']];
-        Http::fake(['api.openai.com/*' => Http::response(['status' => 'completed', 'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => json_encode($draft)]]]]])]);
+        Http::fake(['generativelanguage.googleapis.com/*' => Http::response(['candidates' => [['finishReason' => 'STOP', 'content' => ['parts' => [['text' => json_encode($draft)]]]]]])]);
         $payload = ['job_description' => "Qualifications\nBachelor of Commerce\nSkills\nIdentifying Sales Opportunities, Oral Communications", 'resume_text' => "Alex Morgan\nEducation\nDiploma in Computing\nSkills\nPython", 'confirmed_keywords' => ['Identifying Sales Opportunities', 'Oral Communications']];
         $this->postJson('/checker/rewrite', $payload)->assertOk()->assertJsonPath('after.keyword_score', 67)
             ->assertJsonPath('structured_resume.skills', ['Python', 'Identifying Sales Opportunities', 'Oral Communications'])
@@ -106,7 +106,7 @@ class CvAiRewriteTest extends TestCase
     {
         $this->setupProvider();
         $draft = ['structured_resume' => $this->structured(['skills' => ['Python']]), 'changes' => [], 'unsupported_keywords' => []];
-        Http::fake(['api.openai.com/*' => Http::response(['status' => 'completed', 'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => json_encode($draft)]]]]])]);
+        Http::fake(['generativelanguage.googleapis.com/*' => Http::response(['candidates' => [['finishReason' => 'STOP', 'content' => ['parts' => [['text' => json_encode($draft)]]]]]])]);
         $this->postJson('/checker/rewrite', ['job_description' => "Skills\nOral communication, Written communication", 'resume_text' => "Alex Example\nExperience\nTrained 12 organisations in budgeting.\nAuthored training manuals for community groups.", 'confirmed_keywords' => []])->assertOk()
             ->assertJsonPath('structured_resume.skills', ['Python', 'Oral communication', 'Written communication'])
             ->assertJsonPath('after.keyword_score', 100);
@@ -124,10 +124,10 @@ class CvAiRewriteTest extends TestCase
     public function test_missing_configuration_and_provider_failures_preserve_the_cv_and_hide_provider_details(): void
     {
         $this->setupProvider();
-        config(['services.openai.key' => null]);
+        config(['services.gemini.key' => null]);
         $this->postJson('/checker/rewrite', $this->payload())->assertStatus(503)->assertJsonMissingPath('rewritten_resume');
         Http::assertNothingSent();
-        config(['services.openai.key' => 'fake-test-key']);
+        config(['services.gemini.key' => 'fake-test-key']);
         Http::fake(['*' => Http::response(['error' => ['message' => 'Private provider diagnostics']], 429)]);
         $this->postJson('/checker/rewrite', $this->payload())->assertStatus(503)->assertDontSee('Private provider diagnostics')->assertDontSee('fake-test-key');
     }
@@ -135,8 +135,8 @@ class CvAiRewriteTest extends TestCase
     public function test_malformed_or_truncated_ai_output_is_not_applied(): void
     {
         $this->setupProvider();
-        Http::fakeSequence()->push(['status' => 'incomplete', 'output' => []])
-            ->push(['status' => 'completed', 'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => '{"rewritten_resume":""}']]]]]);
+        Http::fakeSequence()->push(['candidates' => [['finishReason' => 'MAX_TOKENS', 'content' => ['parts' => [['text' => '{']]]]]])
+            ->push(['candidates' => [['finishReason' => 'STOP', 'content' => ['parts' => [['text' => '{"rewritten_resume":""}']]]]]]);
         $this->postJson('/checker/rewrite', $this->payload())->assertStatus(503)->assertJsonMissingPath('rewritten_resume');
         $this->postJson('/checker/rewrite', $this->payload())->assertStatus(503)->assertJsonMissingPath('rewritten_resume');
     }
@@ -145,7 +145,7 @@ class CvAiRewriteTest extends TestCase
     {
         $this->setupProvider();
         $draft = ['structured_resume' => $this->structured(['email' => 'alex@example.com', 'summary' => 'Web developer.', 'skills' => ['PHP', 'HTML'], 'experience' => [['title' => 'Web Developer', 'company' => 'Example Studio', 'period' => '2022 - Present', 'location' => 'Harare', 'responsibilities' => ['Skills: trained colleagues in website testing.', 'Education: delivered internal workshops.']]], 'education' => [['degree' => 'Diploma', 'school' => 'Example College', 'period' => '2020 - 2022', 'location' => 'Harare']]]), 'changes' => ['Aligned terminology.'], 'unsupported_keywords' => ['CSS']];
-        Http::fake(['*' => Http::response(['status' => 'completed', 'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => json_encode($draft)]]]]])]);
+        Http::fake(['*' => Http::response(['candidates' => [['finishReason' => 'STOP', 'content' => ['parts' => [['text' => json_encode($draft)]]]]]])]);
         $response = $this->postJson('/checker/rewrite', $this->payload())->assertOk()->assertJsonPath('structured_resume.experience.0.title', 'Web Developer');
         $this->post('/checker/edit', ['resume_text' => 'Intentionally ambiguous text which must not be parsed', 'structured_resume' => json_encode($response->json('structured_resume')), 'generated' => 1, 'job_description' => 'PHP HTML CSS', 'original_resume_text' => $this->payload()['resume_text']])->assertRedirect(route('builder.start'))
             ->assertSessionHas('cv_builder.data.name', 'Alex Morgan')
@@ -165,7 +165,7 @@ class CvAiRewriteTest extends TestCase
     {
         $this->setupProvider();
         $draft = ['rewritten_resume' => 'Alex Morgan alex@example.com Professional Summary Web developer Skills PHP HTML Education Diploma', 'changes' => [], 'unsupported_keywords' => []];
-        Http::fake(['*' => Http::response(['status' => 'completed', 'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => json_encode($draft)]]]]])]);
+        Http::fake(['*' => Http::response(['candidates' => [['finishReason' => 'STOP', 'content' => ['parts' => [['text' => json_encode($draft)]]]]]])]);
         $this->postJson('/checker/rewrite', $this->payload())->assertStatus(503)->assertJsonMissingPath('rewritten_resume');
     }
 
@@ -182,7 +182,7 @@ class CvAiRewriteTest extends TestCase
     public function test_openai_rewrites_named_cv_fields_and_uses_strict_schema_without_storing_the_request(): void
     {
         $this->setupProvider();
-        config(['services.cv_ai.provider' => 'openai', 'services.openai.key' => 'fake-openai-key', 'services.openai.model' => 'gpt-4.1-mini']);
+        config(['services.cv_ai.provider' => 'openai', 'services.openai.key' => 'fake-openai-key', 'services.openai.model' => 'gpt-4.1']);
         $draft = ['structured_resume' => $this->structured(), 'changes' => ['Added confirmed PHP and HTML skills.'], 'unsupported_keywords' => ['CSS']];
         Http::fake(['api.openai.com/v1/responses' => Http::response(['status' => 'completed', 'output' => [
             ['type' => 'reasoning', 'summary' => []],
@@ -200,7 +200,7 @@ class CvAiRewriteTest extends TestCase
                 && str_contains($request['instructions'], 'template_CV.docx')
                 && str_contains($request['instructions'], 'five skills or competencies across each row')
                 && str_contains($request['instructions'], 'References last')
-                && $request['store'] === false && $request['model'] === 'gpt-4.1-mini'
+                && $request['store'] === false && $request['model'] === 'gpt-4.1'
                 && $request['text']['format']['strict'] === true
                 && $schema['additionalProperties'] === false
                 && $schema['properties']['structured_resume']['additionalProperties'] === false
@@ -219,7 +219,7 @@ class CvAiRewriteTest extends TestCase
     public function test_openai_incomplete_refused_and_malformed_results_do_not_replace_the_original_cv(): void
     {
         $this->setupProvider();
-        config(['services.cv_ai.provider' => 'openai', 'services.openai.key' => 'fake-openai-key', 'services.openai.model' => 'gpt-4.1-mini']);
+        config(['services.cv_ai.provider' => 'openai', 'services.openai.key' => 'fake-openai-key', 'services.openai.model' => 'gpt-4.1']);
         Http::fakeSequence()->push(['status' => 'incomplete', 'output' => []])
             ->push(['status' => 'completed', 'output' => [['type' => 'message', 'content' => [['type' => 'refusal', 'refusal' => 'Unable to comply']]]]])
             ->push(['status' => 'completed', 'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => '{']]]]])

@@ -16,8 +16,8 @@ class MaintainAiCredits extends Command
 
     public function handle(AiCreditService $credits): int
     {
-        // AI jobs finish or expire within nine minutes, including queue wait.
-        // Recover crashes after ten minutes, without racing an active model call.
+        // Provider requests time out after 60 seconds. Ten minutes allows ample
+        // time for a live worker before treating a reservation as abandoned.
         DB::table('ai_operations')->where('status', 'reserved')->where('created_at', '<', now()->subMinutes(10))
             ->orderBy('id')->chunkById(100, function ($operations) use ($credits) {
                 $users = User::whereIn('id', $operations->pluck('user_id')->unique())->get()->keyBy('id');

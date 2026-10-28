@@ -1,8 +1,8 @@
 @props(['dynamic' => false, 'wording' => null, 'compatibility' => null, 'wordingBefore' => null, 'compatibilityBefore' => null])
 <div class="checker-score-pair" aria-label="CV match scores">
     @foreach([
-        ['label' => 'Wording Match', 'score' => $wording, 'before' => $wordingBefore, 'expression' => 'result?.keyword_score', 'tone' => 'wording', 'description' => 'Employer wording explicitly represented using supported CV evidence. Missing qualifications cannot be gained by rewriting.'],
-        ['label' => 'ATS Compatibility', 'score' => $compatibility, 'before' => $compatibilityBefore, 'expression' => 'result?.compatibility_score', 'tone' => 'compatibility', 'description' => 'How well your background and CV match this role.'],
+        ['label' => 'Wording Match', 'score' => $wording, 'before' => $wordingBefore, 'expression' => 'result?.keyword_score', 'tone' => 'wording', 'description' => 'Priority-weighted job requirements recognised in your CV. Mandatory items count more than preferred items. Equivalent wording may be missed.'],
+        ['label' => 'ATS Compatibility', 'score' => $compatibility, 'before' => $compatibilityBefore, 'expression' => 'result?.compatibility_score', 'tone' => 'compatibility', 'description' => 'Job-relevant qualifications, certifications, specialist skills, competencies, experience and responsibilities. Transferable skills receive partial credit; unrelated evidence receives none. An app estimate, not an official employer ATS score.'],
     ] as $metric)
         <section class="checker-score-card {{ $metric['tone'] }}" aria-label="{{ $metric['label'] }}">
             <h3>{{ $metric['label'] }}</h3>

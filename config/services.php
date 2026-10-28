@@ -20,15 +20,16 @@ return [
     |
     */
 
-    'cv_ai' => ['provider' => 'openai'],
+    'cv_ai' => ['provider' => env('CV_AI_PROVIDER', 'openai')],
 
     'openai' => [
         'key' => env('OPENAI_API_KEY'),
-        'model' => env('OPENAI_MODEL', 'gpt-6.1-sol'),
-        'validate_revamp' => env('OPENAI_VALIDATE_REVAMP', false),
-        'analysis_output_tokens' => env('OPENAI_ANALYSIS_OUTPUT_TOKENS', 16000),
-        'revamp_output_tokens' => env('OPENAI_REVAMP_OUTPUT_TOKENS', 18000),
-        'validation_output_tokens' => env('OPENAI_VALIDATION_OUTPUT_TOKENS', 20000),
+        'model' => env('OPENAI_MODEL', 'gpt-4.1'),
+    ],
+
+    'gemini' => [
+        'key' => env('GEMINI_API_KEY'),
+        'model' => env('GEMINI_MODEL'),
     ],
 
     'postmark' => [

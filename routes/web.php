@@ -52,7 +52,6 @@ Route::middleware(['auth', 'verified', 'throttle:workspace-read'])->group(functi
     Route::post('/payments/{reference}/check', [BillingController::class, 'check'])->middleware('throttle:12,1')->name('billing.check');
     Route::post('/payments/{reference}/cancel-paypal', [BillingController::class, 'cancelPaypal'])->middleware('throttle:6,1')->name('billing.paypal.cancel');
     Route::post('/checker/rewrite', [CvCheckerController::class, 'rewrite'])->middleware('throttle:5,1')->name('checker.rewrite');
-    Route::get('/checker/operations/{operation}', [CvCheckerController::class, 'operation'])->whereNumber('operation')->name('checker.operation');
     Route::post('/checker/scan', [CvCheckerController::class, 'scan'])->middleware('throttle:ai-analysis')->name('checker.scan');
     Route::post('/checker/detect', [CvCheckerController::class, 'detect'])->middleware('throttle:30,1')->name('checker.detect');
     Route::post('/checker/upload', [CvCheckerController::class, 'upload'])->middleware('throttle:builder-import')->name('checker.upload');

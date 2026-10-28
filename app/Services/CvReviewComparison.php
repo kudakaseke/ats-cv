@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
 
 class CvReviewComparison
 {
-    public const VERSION = 12;
+    public const VERSION = 11;
 
     public function refreshForUser(array $comparison, ?int $userId, ?array $generated = null): array
     {
@@ -17,7 +17,6 @@ class CvReviewComparison
             && CvDocumentIdentity::same($generated['original_text'], $comparison['original_text'])
             && CvDocumentIdentity::same($generated['job_description'], $comparison['job_description'])) {
             $comparison['assessment'] = $generated['assessment'];
-            $comparison = [...$comparison, ...($generated['report'] ?? [])];
         }
         if (($comparison['comparison_version'] ?? 0) === self::VERSION || ! isset($comparison['original_text'], $comparison['revised_text'])) {
             return $this->withExperienceAssessment($comparison);
@@ -68,9 +67,6 @@ class CvReviewComparison
         if (isset($comparison['assessment'])) {
             $refreshed['assessment'] = $comparison['assessment'];
         }
-        foreach (['ai_changes', 'keyword_coverage', 'keyword_coverage_percentage', 'supported_keywords_still_missing', 'post_revamp_validation', 'recommendation_details'] as $key) {
-            if (array_key_exists($key, $comparison)) $refreshed[$key] = $comparison[$key];
-        }
         return $this->withExperienceAssessment($refreshed);
     }
 
@@ -80,7 +76,7 @@ class CvReviewComparison
             $comparison['experience_check'] = app(CvExperienceMatcher::class)->reconcile($comparison['experience_check'], $comparison['assessment']);
             $comparison['warnings'] = [];
             $check = $comparison['experience_check'];
-            if ($check['required_years'] !== null && ($check['shortfall'] || $check['cv_years'] === null || ($check['relevant_years'] ?? null) === null)) {
+            if ($check['required_years'] !== null && ($check['shortfall'] || $check['cv_years'] === null || ($check['source'] ?? '') === 'ai_evidence_assessment' && $check['relevant_years'] === null)) {
                 $comparison['warnings'][] = $check['message'];
             }
             foreach ($check['assessment_date_warnings'] ?? [] as $warning) $comparison['warnings'][] = $warning;

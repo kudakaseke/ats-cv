@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\User;
 use App\Services\CvAiAssessment;
 use App\Services\CvCompatibilityScore;
+use App\Services\CvDocumentIdentity;
 use App\Services\CvIndustryRelevance;
 use Database\Seeders\SubscriptionPlanSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -22,7 +23,7 @@ class IndustryRelevanceTest extends TestCase
             'candidate_profile' => array_fill_keys(['qualifications', 'certifications', 'skills', 'competencies', 'experience', 'projects'], []),
             'experience' => ['required_years' => 2, 'documented_relevant_years' => 0, 'total_professional_years' => 5, 'explanation' => 'IT duties do not establish procurement experience.', 'date_warnings' => []],
             'warnings' => [], 'verified_information_to_highlight' => [], 'information_requiring_confirmation' => [],
-            'unsupported_job_requirements' => [], 'questions_for_candidate' => ['Do you have procurement training?'], 'recommendations' => ['Highlight relevant procurement evidence if available.'],
+            'unsupported_job_requirements' => [], 'questions_for_candidate' => [], 'recommendations' => [],
             'target_profession' => 'Procurement officer', 'candidate_background' => 'IT support',
             'professional_alignment' => 'LIMITED_ALIGNMENT', 'false_positive_risk' => 'high',
             'core_skills_matched' => [], 'transferable_skills_matched' => [], 'general_competencies_matched' => ['Communication', 'Excel'],
@@ -54,9 +55,9 @@ class IndustryRelevanceTest extends TestCase
         $this->assertLessThan(25, $result['original_score']['total']);
         $this->assertSame('review_required', $result['mandatory_requirements_status']);
         $scan = app(CvCompatibilityScore::class)->scan(['assessment' => $result, 'keyword_score' => 100]);
-        $this->assertEquals($result['original_score']['total'], $scan['compatibility_score']);
+        $this->assertSame($result['original_score']['total'], $scan['compatibility_score']);
         $this->assertIsFloat($scan['compatibility_score']);
-        $this->view('components.ai-assessment', ['assessment' => $result])->assertSeeInOrder(['Recommendations', 'Warnings', 'Information to confirm'])->assertDontSee('checker-requirement-status-group')->assertDontSee('False-positive risk');
+        $this->view('components.ai-assessment', ['assessment' => $result])->assertSee('Limited alignment')->assertSee('Tendering');
     }
 
     public function test_industry_label_alone_never_caps_genuine_role_evidence(): void
@@ -84,14 +85,17 @@ class IndustryRelevanceTest extends TestCase
         $this->assertSame($baseline['missing_core_requirements'], $result['missing_core_requirements']);
     }
 
-    public function test_checker_starts_with_job_description_without_industry_dropdown(): void
+    public function test_industry_selection_is_visible_and_unrecognised_values_are_rejected(): void
     {
         $this->seed(SubscriptionPlanSeeder::class);
-        $this->actingAs(User::factory()->create())->get('/workspace/checker')->assertOk()
-            ->assertSee('Paste the job description')->assertDontSee('Choose Industry')->assertDontSee('checker-industry');
+        Http::preventStrayRequests();
+        $this->actingAs(User::factory()->create())->get('/workspace/checker')->assertOk()->assertSeeInOrder(['Choose Industry', 'Select an industry', 'Procurement, Supply Chain and Logistics', 'Paste the job description']);
+        $this->postJson('/checker/scan', ['industry' => 'forged', 'job_description' => 'Skills: Excel', 'resume_text' => 'Excel'])->assertUnprocessable()->assertJsonValidationErrors('industry');
+        Http::assertNothingSent();
+        $this->assertNotSame(CvDocumentIdentity::signature('job', 'cv', 'it'), CvDocumentIdentity::signature('job', 'cv', 'supply-chain'));
     }
 
-    public function test_advert_drives_provider_assessment_without_selected_industry(): void
+    public function test_selected_industry_reaches_provider_and_score_remains_a_percentage(): void
     {
         $this->seed(SubscriptionPlanSeeder::class);
         config(['services.openai.key' => 'test-key', 'services.openai.model' => 'test-model']);
@@ -100,15 +104,14 @@ class IndustryRelevanceTest extends TestCase
             ['type' => 'message', 'content' => [['type' => 'output_text', 'text' => json_encode($data)]]],
         ]])]);
         $result = $this->actingAs(User::factory()->create())->postJson('/checker/scan', [
-            'industry' => 'automotive', 'job_description' => 'Skills: Excel, Sourcing', 'resume_text' => 'Excel reports. Communicated with users.',
-        ])->assertOk()->assertJsonMissingPath('selected_industry')->assertJsonPath('assessment.professional_alignment', 'LIMITED_ALIGNMENT')->json();
+            'industry' => 'supply-chain', 'job_description' => 'Skills: Excel, Sourcing', 'resume_text' => 'Excel reports. Communicated with users.',
+        ])->assertOk()->assertJsonPath('selected_industry', 'supply-chain')->assertJsonPath('assessment.professional_alignment', 'LIMITED_ALIGNMENT')->json();
         $this->assertIsNumeric($result['compatibility_score']);
         $this->assertLessThan(25, $result['compatibility_score']);
         Http::assertSent(function ($request) {
             $input = json_decode($request['input'][0]['content'], true);
 
-            return !array_key_exists('selected_industry', $input) && !array_key_exists('industry', $input)
-                && $input['job_description'] === 'Skills: Excel, Sourcing'
+            return $input['selected_industry'] === config('industries.supply-chain')
                 && isset($request['text']['format']['schema']['properties']['assessment']['properties']['professional_alignment']);
         });
     }

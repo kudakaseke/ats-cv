@@ -19,6 +19,9 @@
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>
+        <env name="OPENAI_API_KEY" value="fake-testing-key" force="true"/>
+        <env name="OPENAI_MODEL" value="gpt-4.1" force="true"/>
+        <env name="CV_AI_PROVIDER" value="openai" force="true"/>
         <env name="APP_URL" value="http://localhost" force="true"/>
         <env name="GOOGLE_REDIRECT_URI" value="" force="true"/>
         <env name="SENTRY_LARAVEL_DSN" value="" force="true"/>
@@ -33,10 +36,6 @@
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
-        <env name="CV_AI_PROVIDER" value="openai" force="true"/>
-        <env name="OPENAI_API_KEY" value="fake-testing-key" force="true"/>
-        <!-- Legacy provider contract tests use one response; staged tests explicitly enable validation. -->
-        <env name="OPENAI_VALIDATE_REVAMP" value="false" force="true"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>

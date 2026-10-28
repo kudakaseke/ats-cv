@@ -18,7 +18,7 @@ class CvSupportedTerms
             }
             // Require the quoted source evidence, not just a requirement in the advert.
             $evidence = preg_split('/[;\r\n]+/u', $item['evidence']);
-            if (array_filter($evidence, fn ($quote) => $this->words($quote) !== '' && ! str_contains(' '.$source.' ', ' '.$this->words($quote).' '))) {
+            if (array_filter($evidence, fn ($quote) => $this->words($quote) !== '' && ! str_contains($source, $this->words($quote)))) {
                 continue;
             }
             $label = trim(preg_replace('/^(?:Excellent|Strong|Sound)\s+/iu', '', $item['requirement']));
