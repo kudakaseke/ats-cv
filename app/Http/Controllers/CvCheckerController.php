@@ -30,7 +30,7 @@ class CvCheckerController extends Controller
     public function scan(Request $request, CvKeywordMatcher $matcher, AiCreditService $credits, CvAiRewriter $ai)
     {
         $request->validate(['operation_id' => ['sometimes', 'uuid']]);
-        $data = $request->validate(['industry' => ['sometimes', 'nullable', \Illuminate\Validation\Rule::in(array_keys(config('industries')))], 'job_description' => ['required', 'string', 'max:20000'], 'resume_text' => ['required', 'string', 'max:20000']]);
+        $data = $request->validate(['job_description' => ['required', 'string', 'max:20000'], 'resume_text' => ['required', 'string', 'max:20000']]);
         $result = $matcher->compare($data['job_description'], $data['resume_text']);
         if ($result['total'] === 0) {
             throw ValidationException::withMessages(['job_description' => 'Add the job requirements or skills so we can compare keywords.']);
@@ -38,20 +38,19 @@ class CvCheckerController extends Controller
 
         $operation = $credits->reserve($request->user(), 'analyse', $request->input('operation_id', (string) Str::uuid()), $data);
         if ($operation->cached) {
-            $request->session()->put('cv_checker.scan', ['signature' => CvDocumentIdentity::signature($data['job_description'], $data['resume_text'], $data['industry'] ?? null), 'assessment' => $operation->result['ai_analysis']['assessment'] ?? null]);
+            $request->session()->put('cv_checker.scan', ['signature' => CvDocumentIdentity::signature($data['job_description'], $data['resume_text']), 'assessment' => $operation->result['ai_analysis']['assessment'] ?? null]);
             $cached = [...$operation->result, ...$result];
             $cached['experience_check'] = app(\App\Services\CvExperienceMatcher::class)->reconcile($result['experience_check'], $cached['assessment'] ?? $cached['ai_analysis']['assessment'] ?? null);
-            $cached = app(\App\Services\CvCompatibilityScore::class)->scan($cached);
+            $cached = app(\App\Services\CvCompatibilityScore::class)->scan($cached, $data['resume_text']);
             return response()->json([...$cached, 'credits_remaining' => $credits->wallet($request->user())['credits']]);
         }
         try {
-            $result['selected_industry'] = $data['industry'] ?? null;
-            $result['ai_analysis'] = $ai->analyse($data['job_description'], $data['resume_text'], $data['industry'] ?? null);
+            $result['ai_analysis'] = $ai->analyse($data['job_description'], $data['resume_text']);
             if (isset($result['ai_analysis']['assessment'])) {
                 $result['assessment'] = $result['ai_analysis']['assessment'];
                 $result['experience_check'] = app(\App\Services\CvExperienceMatcher::class)->reconcile($result['experience_check'], $result['assessment']);
             }
-            $result = app(\App\Services\CvCompatibilityScore::class)->scan($result);
+            $result = app(\App\Services\CvCompatibilityScore::class)->scan($result, $data['resume_text']);
             $payload = DB::transaction(function () use ($request, $data, $result, $credits, $operation, $ai) {
                 $analysis = $request->user()->analyses()->create(['job_description' => $data['job_description'], 'status' => 'completed',
                     'score' => (int) round($result['keyword_score'] ?? $result['similarity_percent']), 'results' => $result]);
@@ -67,7 +66,7 @@ class CvCheckerController extends Controller
             return response()->json(['message' => 'Job-to-CV ATS Detector could not be completed. Your credits were refunded. Please try again.', 'credits_remaining' => $credits->wallet($request->user())['credits']], 503);
         }
 
-        $request->session()->put('cv_checker.scan', ['signature' => CvDocumentIdentity::signature($data['job_description'], $data['resume_text'], $data['industry'] ?? null), 'assessment' => $result['ai_analysis']['assessment'] ?? null]);
+        $request->session()->put('cv_checker.scan', ['signature' => CvDocumentIdentity::signature($data['job_description'], $data['resume_text']), 'assessment' => $result['ai_analysis']['assessment'] ?? null]);
 
         return response()->json([...$payload, 'credits_remaining' => $credits->wallet($request->user())['credits']]);
     }
@@ -75,7 +74,6 @@ class CvCheckerController extends Controller
     public function rewrite(Request $request, CvAiRewriter $rewriter, CvKeywordMatcher $matcher, AiCreditService $credits)
     {
         $data = $request->validate([
-            'industry' => ['sometimes', 'nullable', \Illuminate\Validation\Rule::in(array_keys(config('industries')))],
             'job_description' => ['required', 'string', 'max:20000'],
             'resume_text' => ['required', 'string', 'max:20000'],
             'confirmed_keywords' => ['present', 'array', 'max:200'],
@@ -92,7 +90,7 @@ class CvCheckerController extends Controller
         $operation = $credits->reserve($request->user(), 'revamp', $request->input('operation_id', (string) Str::uuid()), $data);
         if ($operation->cached) {
             $payload = app(\App\Services\CvCompatibilityScore::class)->rewrite([...$operation->result, 'before' => $before,
-                'after' => $matcher->compare($data['job_description'], $operation->result['rewritten_resume'])]);
+                'after' => $matcher->compare($data['job_description'], $operation->result['rewritten_resume'])], $data['resume_text']);
             $request->session()->put('cv_checker.generated', ['text' => $payload['rewritten_resume'], 'structured_resume' => $payload['structured_resume'],
                 'assessment' => $payload['assessment'] ?? null, 'original_text' => $data['resume_text'], 'job_description' => $data['job_description']]);
 
@@ -100,14 +98,14 @@ class CvCheckerController extends Controller
         }
         try {
             $scan = $request->session()->get('cv_checker.scan');
-            $signature = CvDocumentIdentity::signature($data['job_description'], $data['resume_text'], $data['industry'] ?? null);
+            $signature = CvDocumentIdentity::signature($data['job_description'], $data['resume_text']);
             $legacySignature = hash('sha256', json_encode(['job_description' => $data['job_description'], 'resume_text' => $data['resume_text']]));
-            $baseline = in_array($scan['signature'] ?? null, !empty($data['industry']) ? [$signature] : [$signature, $legacySignature], true) ? ($scan['assessment'] ?? null) : null;
-            $draft = $rewriter->rewrite($data['job_description'], $data['resume_text'], $data['confirmed_keywords'], $baseline, $data['industry'] ?? null);
+            $baseline = in_array($scan['signature'] ?? null, [$signature, $legacySignature], true) ? ($scan['assessment'] ?? null) : null;
+            $draft = $rewriter->rewrite($data['job_description'], $data['resume_text'], $data['confirmed_keywords'], $baseline);
             $payload = [...$draft, 'before' => $before, 'after' => $matcher->compare($data['job_description'], $draft['rewritten_resume']),
                 'source_signature' => $signature,
                 'credits_used' => config('ai_credits.costs.revamp')];
-            $payload = app(\App\Services\CvCompatibilityScore::class)->rewrite($payload);
+            $payload = app(\App\Services\CvCompatibilityScore::class)->rewrite($payload, $data['resume_text']);
             $credits->finish($request->user(), $operation->id, $payload, $rewriter->lastUsage);
         } catch (\Throwable $exception) {
             report($exception);

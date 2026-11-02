@@ -23,6 +23,7 @@ class BillingTest extends TestCase
         parent::setUp();
         $this->seed(SubscriptionPlanSeeder::class);
         config(['billing.paynow.enabled' => true, 'billing.paynow.integration_id' => '123', 'billing.paynow.integration_key' => 'test-secret',
+            'billing.paynow.live_currency_confirmed' => true,
             'billing.paynow.mode' => 'live', 'billing.paynow.callback_url' => null,
             'billing.paypal.enabled' => true, 'billing.paypal.mode' => 'sandbox', 'billing.paypal.client_id' => 'test-client', 'billing.paypal.client_secret' => 'test-secret']);
     }
@@ -109,7 +110,7 @@ class BillingTest extends TestCase
     {
         $payment = $this->payment();
         Http::fake(['*' => Http::response($this->signed(['reference' => $payment->reference, 'amount' => '5.00', 'paynowreference' => 'PN123', 'status' => 'Paid']))]);
-        $body = $this->signed(['reference' => $payment->reference, 'status' => 'Paid', 'pollurl' => 'http://127.0.0.1/private']);
+        $body = $this->signed(['reference' => $payment->reference, 'amount' => '5.00', 'paynowreference' => 'PN123', 'status' => 'Paid', 'pollurl' => 'http://127.0.0.1/private']);
         $this->call('POST', '/billing/paynow/notify/'.$payment->reference, [], [], [], ['CONTENT_TYPE' => 'application/x-www-form-urlencoded'], $body)->assertOk();
         Http::assertSent(fn ($request) => $request->url() === 'https://www.paynow.co.zw/interface/checkpayment?guid=test');
     }

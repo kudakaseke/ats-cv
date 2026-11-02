@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Services\AiCreditService;
 use Database\Seeders\SubscriptionPlanSeeder;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -19,7 +21,7 @@ class HostedPaystackTest extends TestCase
         $this->seed(SubscriptionPlanSeeder::class);
         config(['paystack.secret_key' => 'sk_test_fixture', 'paystack.local_test_credits' => true]);
         $this->app->instance('env', 'local');
-        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
+        $this->withoutMiddleware(ValidateCsrfToken::class);
     }
 
     private function receipt(User $user, string $slug = 'monthly', string $status = 'success'): array
@@ -73,7 +75,7 @@ class HostedPaystackTest extends TestCase
     public function test_monthly_purchase_adds_to_existing_annual_balance_once(): void
     {
         $user = User::factory()->create();
-        $user->subscriptions()->create(['subscription_plan_id' => \App\Models\SubscriptionPlan::where('slug', 'annual')->value('id'),
+        $user->subscriptions()->create(['subscription_plan_id' => SubscriptionPlan::where('slug', 'annual')->value('id'),
             'status' => 'active', 'starts_at' => now()->subDay(), 'ends_at' => now()->addYear()]);
         $this->assertSame(2400, app(AiCreditService::class)->wallet($user)['credits']);
         $this->fake($this->receipt($user));
@@ -109,7 +111,7 @@ class HostedPaystackTest extends TestCase
         $this->assertDatabaseCount('subscriptions', 0);
     }
 
-    public function test_hosted_plan_links_prefill_and_lock_the_signed_in_account_email(): void
+    public function test_hosted_plan_links_remain_hidden_while_paynow_is_the_visible_option(): void
     {
         config(['paystack.enabled' => true]);
         $user = User::factory()->create(['email' => 'checkout+member@example.com']);
@@ -118,7 +120,7 @@ class HostedPaystackTest extends TestCase
                 'email' => $user->email, 'read-only' => 'email',
             ], '', '&', PHP_QUERY_RFC3986);
             $this->actingAs($user)->get(route('subscription.payment-methods', $slug))->assertOk()
-                ->assertSee(e($expected), false)->assertSee('Credits will be added to your account:')->assertSee($user->email);
+                ->assertDontSee(e($expected), false)->assertDontSee('Subscribe with Paystack')->assertSee('Paynow');
         }
     }
 

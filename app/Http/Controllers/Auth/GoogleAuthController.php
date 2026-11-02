@@ -47,7 +47,7 @@ class GoogleAuthController extends Controller
         }
 
         try {
-            $token = Http::asForm()->timeout(15)->post('https://oauth2.googleapis.com/token', [
+            $token = Http::asForm()->connectTimeout(5)->timeout(15)->post('https://oauth2.googleapis.com/token', [
                 'client_id' => config('services.google.client_id'),
                 'client_secret' => config('services.google.client_secret'),
                 'redirect_uri' => $this->redirectUri(),
@@ -59,7 +59,7 @@ class GoogleAuthController extends Controller
                 throw new \RuntimeException('Missing Google access token.');
             }
 
-            $profile = Http::withToken($token)->timeout(15)
+            $profile = Http::withToken($token)->connectTimeout(5)->timeout(15)
                 ->get('https://openidconnect.googleapis.com/v1/userinfo')->throw()->json();
         } catch (\Exception $exception) {
             // Do not log OAuth responses, which may contain tokens or credentials.

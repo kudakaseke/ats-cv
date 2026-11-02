@@ -51,6 +51,7 @@ class WorkspaceController extends Controller
 
         return view('workspace.subscription', [
             'currentPlan' => $currentPlan,
+            'scheduledSubscriptions' => $request->user()->subscriptions()->with('plan')->where('status', 'active')->where('starts_at', '>', now())->orderBy('starts_at')->get(),
             'activeSubscription' => $request->user()->subscriptions()->where('subscription_plan_id', $currentPlan->id)
                 ->whereIn('status', Subscription::availableStatuses())
                 ->whereNotNull('starts_at')->where('starts_at', '<=', now())

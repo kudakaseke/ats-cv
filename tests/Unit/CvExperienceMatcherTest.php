@@ -83,4 +83,40 @@ class CvExperienceMatcherTest extends TestCase
         $this->assertTrue($result['shortfall']);
         $this->assertNull(app(CvExperienceMatcher::class)->compare('PHP developer', 'CV text')['required_years']);
     }
+    public function test_meeting_and_exceeding_relevant_experience_are_positive_and_job_minimum_is_preserved(): void
+    {
+        $matcher = app(CvExperienceMatcher::class);
+        foreach ([3 => 'meets_minimum', 10 => 'exceeds_minimum'] as $years => $status) {
+            $check = $matcher->reconcile($matcher->compare('3 years of experience required', 'CV'), ['experience' => [
+                'required_years' => null, 'documented_relevant_years' => $years, 'total_professional_years' => 12]]);
+            $this->assertSame($status, $check['status']);
+            $this->assertTrue($check['positive']);
+            $this->assertFalse($check['shortfall']);
+            $this->assertEquals(3, $check['required_years']);
+            $this->assertNotEmpty($check['green_flag']);
+        }
+        $unrelated = $matcher->reconcile($matcher->compare('3 years of experience required', 'CV'), ['experience' => [
+            'documented_relevant_years' => 1, 'total_professional_years' => 12]]);
+        $this->assertFalse($unrelated['positive']);
+        $this->assertTrue($unrelated['shortfall']);
+    }
+
+    public function test_excess_experience_warning_is_removed_but_independent_gaps_are_kept(): void
+    {
+        $matcher = app(CvExperienceMatcher::class);
+        $assessment = ['experience' => ['required_years' => 3, 'documented_relevant_years' => 10, 'total_professional_years' => 12],
+            'warnings' => [
+                ['category' => 'experience', 'explanation' => 'Candidate is overqualified and exceeds the required experience.'],
+                ['category' => 'experience', 'explanation' => 'Candidate has more experience than required.'],
+                ['category' => 'experience', 'explanation' => 'Employment dates are unclear.'],
+                ['category' => 'certifications', 'explanation' => 'Professional licence is missing.'],
+                ['category' => 'experience', 'explanation' => 'The employer sets a maximum of five years.'],
+            ]];
+        $cleaned = $matcher->normaliseAssessment($assessment);
+        $this->assertCount(3, $cleaned['warnings']);
+        $this->assertSame('Employment dates are unclear.', $cleaned['warnings'][0]['explanation']);
+        $this->assertSame('certifications', $cleaned['warnings'][1]['category']);
+        $assessment['experience']['documented_relevant_years'] = null;
+        $this->assertSame($assessment, $matcher->normaliseAssessment($assessment));
+    }
 }

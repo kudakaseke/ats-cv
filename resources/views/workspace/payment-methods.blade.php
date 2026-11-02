@@ -2,6 +2,7 @@
     <div class="dashboard-heading"><div><h1>Choose Payment Method</h1><p>{{ $plan->name }} plan - US${{ number_format($plan->price_cents / 100, 2) }} {{ $plan->billing_interval === 'annually' ? 'per year' : 'per month' }}.</p></div><a class="text-link" href="{{ route('subscription') }}">Back to plans</a></div>
     <x-input-error :messages="$errors->get('billing')" class="my-4" />
     <div class="payment-method-grid">
+        {{-- Paystack temporarily hidden while focusing on Paynow.
         <article class="panel payment-method-card">
             <div class="payment-method-heading"><x-payment-provider-icon provider="paystack" /><h2 class="sr-only">Paystack</h2></div>
             @if(config('paystack.test_payment_pages.'.$plan->slug.'.url') && config('paystack.enabled') && str_starts_with((string) config('paystack.secret_key'), 'sk_test_'))
@@ -17,9 +18,11 @@
                 <button class="btn btn-outline" disabled>Paystack - unavailable</button>
             @endif
         </article>
+        --}}
         <article class="panel payment-method-card">
             <div class="payment-method-heading"><x-payment-provider-icon provider="paynow" /><h2 class="sr-only">Paynow</h2></div>
             <p>One-time payment in USD. Renew manually when your access ends.</p>
+            @if(config('billing.paynow.plan_change_policy') === 'end_of_cycle')<p>If you already have paid access, this purchase starts after your existing paid period. Plan changes take effect then, with no proration or immediate replacement of your current plan.</p>@endif
             <form method="POST" action="{{ route('billing.start', ['provider' => 'paynow', 'plan' => $plan->slug]) }}">
                 @csrf
                 @php($credentialsPresent = config('billing.paynow.integration_id') && config('billing.paynow.integration_key'))

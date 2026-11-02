@@ -4,7 +4,7 @@
         @if($payment->status === 'pending')
             x-data="{ checking: false, attempts: 0, timer: null,
                 async checkPayment() {
-                    if (this.checking || this.attempts >= 60) return;
+                    if (this.checking || this.attempts >= 10) return;
                     this.checking = true; this.attempts++;
                     try {
                         const result = await fetch(@js(route('billing.check', $payment->reference)), {
@@ -18,7 +18,7 @@
                         } else if ([401, 403, 419].includes(result.status)) { clearInterval(this.timer); }
                     } catch (error) { /* Retry when the connection returns. */ }
                     finally { this.checking = false; }
-                    if (this.attempts >= 60) clearInterval(this.timer);
+                    if (this.attempts >= 10) clearInterval(this.timer);
                 }, destroy() { clearInterval(this.timer); }
             }"
             x-init="timer = setInterval(() => checkPayment(), 6000)"
@@ -39,12 +39,22 @@
         @elseif($payment->status === 'paid')
             <p>Payment verified. Your purchase has been added to your account. Credits are available on your Subscription page. {{ $payment->recurring ? 'This subscription renews automatically until cancelled. Manage renewal on the Subscription page.' : 'This payment does not renew automatically.' }}</p>
         @elseif($payment->status === 'pending')
+            @if($payment->provider === 'paynow' && $payment->checkout_url && app(\App\Services\Billing\PaynowGateway::class)->safeUrl($payment->checkout_url))
+                <p><a class="btn btn-primary mt-4" href="{{ $payment->checkout_url }}">Continue to Paynow checkout</a></p>
+            @endif
             @if($payment->provider === 'paystack' && $payment->checkout_url && parse_url($payment->checkout_url, PHP_URL_SCHEME) === 'https' && parse_url($payment->checkout_url, PHP_URL_HOST) === 'checkout.paystack.com')
                 <p><a class="btn btn-primary mt-4" href="{{ $payment->checkout_url }}">Continue to Paystack checkout</a></p>
             @endif
             <p>Confirming your payment automatically. Once confirmed, you will go to your dashboard with your updated credits. You can also check the status below.</p>
+            <p>Automatic checks stop after one minute. A pending payment does not mean it failed. If checkout could not open or you were charged, contact support with the reference before paying again.</p>
+        @elseif($payment->status === 'cancelled')
+            <p>Payment cancelled. This checkout cannot be resumed. No access or credits were added by this attempt.</p>
+            <a class="btn btn-outline" href="{{ route('subscription') }}">Retry payment</a>
+        @elseif($payment->status === 'reversed')
+            <p>Paynow reports a refund or dispute. Access associated with this payment has been revoked. Contact support for a review.</p>
         @elseif($payment->status === 'failed')
-            <p>Payment declined. No credits were added. Try another card or payment method.</p>
+            <p>Payment could not be completed. No credits were added. You can retry or contact support with your reference.</p>
+            <a class="btn btn-outline" href="{{ route('subscription') }}">Retry payment</a>
         @elseif($payment->status === 'abandoned')
             <p>Payment was not completed. No credits were added.</p>
         @else

@@ -1,5 +1,5 @@
 window.cvChecker = (boot) => ({
-    step: 1, industry: '', job: '', resumeText: '', filename: '', busy: false, error: '', result: null,
+    step: 1, job: '', resumeText: '', filename: '', busy: false, error: '', result: null,
     modalOpen: false, aiDraft: null, originalScore: null, dragging: false,
     credits: boot.credits ?? 0, operations: {}, confirmedKeywords: [],
     processing: '', progress: 0, progressTimer: null,
@@ -25,7 +25,7 @@ window.cvChecker = (boot) => ({
         return score >= 80 ? 'High requirements match' : score >= 50 ? 'Moderate requirements match' : 'Low requirements match';
     },
     operation(feature) {
-        const fingerprint = JSON.stringify([this.industry, this.job, this.resumeText, feature === 'revamp' ? this.confirmedKeywords : []]);
+        const fingerprint = JSON.stringify([this.job, this.resumeText, feature === 'revamp' ? this.confirmedKeywords : []]);
         if (this.operations[feature]?.fingerprint !== fingerprint) {
             // randomUUID requires HTTPS; getRandomValues also works on local-network HTTP previews.
             const bytes = crypto.getRandomValues(new Uint8Array(16));
@@ -38,7 +38,6 @@ window.cvChecker = (boot) => ({
         return this.operations[feature].id;
     },
     nextJob() {
-        if (!this.industry) { this.error = 'Choose an industry first.'; return; }
         if (!this.job.trim()) { this.error = 'Paste the job description first.'; return; }
         this.error = ''; this.result = null; this.originalScore = null; this.modalOpen = false; this.confirmedKeywords = []; this.step = 2;
     },
@@ -93,7 +92,7 @@ window.cvChecker = (boot) => ({
         this.busy = true; this.error = '';
         this.startProgress('scan');
         try {
-            const result = await this.request(boot.scanUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ industry: this.industry, job_description: this.job, resume_text: text, operation_id: this.operation('analyse') }) });
+            const result = await this.request(boot.scanUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job_description: this.job, resume_text: text, operation_id: this.operation('analyse') }) });
             delete this.operations.analyse;
             this.progress = 100;
             this.resumeText = text; this.result = result; this.confirmedKeywords = [];
@@ -110,7 +109,7 @@ window.cvChecker = (boot) => ({
         this.busy = true; this.error = '';
         this.startProgress('fix');
         try {
-            this.aiDraft = await this.request(boot.rewriteUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ industry: this.industry, job_description: this.job, resume_text: this.resumeText, confirmed_keywords: this.confirmedKeywords, operation_id: this.operation('revamp') }) });
+            this.aiDraft = await this.request(boot.rewriteUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job_description: this.job, resume_text: this.resumeText, confirmed_keywords: this.confirmedKeywords, operation_id: this.operation('revamp') }) });
             this.stopProgress(); this.progress = 100;
             await this.$nextTick();
             this.$refs.generatedForm.requestSubmit();

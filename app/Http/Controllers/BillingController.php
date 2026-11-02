@@ -7,6 +7,8 @@ use App\Models\BillingPayment;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Services\AiCreditService;
+use App\Services\AuditTrail;
+use App\Services\Billing\BillingRecords;
 use App\Services\Billing\PaymentService;
 use App\Services\Billing\PaynowGateway;
 use App\Services\Billing\PaypalGateway;
@@ -23,6 +25,7 @@ class BillingController extends Controller
     {
         abort_unless(in_array($provider, ['paynow', 'paypal'], true), 404);
         $offer = SubscriptionPlan::where('slug', $plan)->where('is_active', true)->whereIn('slug', ['monthly', 'pro', 'annual'])->firstOrFail();
+        abort_unless($offer->currency === 'USD' && $offer->price_cents > 0 && config('ai_credits.plans.'.$offer->slug) > 0, 503);
         $request->validate(['billing_consent' => ['accepted']]);
         if (! $this->available($provider)) {
             return to_route('subscription')->withErrors(['billing' => ucfirst($provider).' checkout is not available yet.']);
@@ -34,12 +37,28 @@ class BillingController extends Controller
         if ($provider === 'paypal' && $request->user()->subscriptions()->where('status', 'active')->where('ends_at', '>', now())->exists()) {
             return to_route('subscription')->withErrors(['billing' => 'Your paid access is still active. Start a new PayPal subscription after it ends to avoid overlapping charges.']);
         }
-        if ($request->user()->subscriptions()->where('status', 'active')->where('ends_at', '>', now())
+        if (($provider !== 'paynow' || config('billing.paynow.plan_change_policy') !== 'end_of_cycle') && $request->user()->subscriptions()->where('status', 'active')->where('ends_at', '>', now())
             ->where('subscription_plan_id', '!=', $offer->id)->exists()) {
             return to_route('subscription')->withErrors(['billing' => 'Please wait for your current paid plan to end before switching plans.']);
         }
         $payment = DB::transaction(function () use ($request, $provider, $offer, $paypalPlan) {
             User::whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
+            if ($provider === 'paynow') {
+                $existing = BillingPayment::where('user_id', $request->user()->id)->where('provider', 'paynow')
+                    ->where('mode', config('billing.paynow.mode'))->where('status', 'pending')->where('kind', 'subscription')->first();
+                if ($existing) {
+                    return $existing;
+                }
+                // Serialize the active-plan check with fulfillment and concurrent checkouts.
+                if (config('billing.paynow.plan_change_policy') !== 'end_of_cycle' && $request->user()->subscriptions()->where('status', 'active')->where('ends_at', '>', now())
+                    ->where('subscription_plan_id', '!=', $offer->id)->exists()) {
+                    return null;
+                }
+                // At most one prepaid renewal period may be waiting to start.
+                if ($request->user()->subscriptions()->where('status', 'active')->where('starts_at', '>', now())->exists()) {
+                    return null;
+                }
+            }
             if (BillingPayment::where('user_id', $request->user()->id)->where('recurring', true)->where('mode', $provider === 'paypal' ? config('billing.paypal.mode') : config('billing.paynow.mode', 'live'))
                 ->where(fn ($query) => $query->whereNull('recurring_status')->orWhereNotIn('recurring_status', ['CANCELLED', 'EXPIRED', 'SETUP_FAILED']))->exists()) {
                 return null;
@@ -54,14 +73,22 @@ class BillingController extends Controller
             ]);
         });
         if (! $payment) {
-            return to_route('subscription')->withErrors(['billing' => 'An existing PayPal subscription or approval is still open. Manage or cancel it before starting another purchase.']);
+            return to_route('subscription')->withErrors(['billing' => 'An existing subscription or prepaid renewal is still open. Manage it before starting another purchase.']);
+        }
+        if ($provider === 'paynow' && ! $payment->wasRecentlyCreated) {
+            return to_route('billing.show', $payment->reference);
         }
         try {
             $gateway = $provider === 'paynow' ? app(PaynowGateway::class) : app(PaypalSubscriptions::class);
 
             return redirect()->away($gateway->start($payment, $request->user()->email));
         } catch (\Throwable $exception) {
-            report($exception);
+            if ($provider === 'paynow' && $exception instanceof \DomainException) {
+                $payment->update(['status' => 'failed', 'failure_reason' => 'Checkout rejected by provider']);
+                app(BillingRecords::class)->record($payment);
+            }
+            app(AuditTrail::class)->record($payment->user_id, 'payment.initialization_uncertain', 'BillingPayment', $payment->id,
+                ['reference' => $payment->reference, 'provider' => $payment->provider]);
 
             // A timed-out request might exist at the provider. Keep the reference for reconciliation.
             return to_route('billing.show', $payment->reference)->withErrors(['billing' => 'Checkout could not be opened. No access has been activated. Contact support with the payment reference if you were charged.']);
@@ -115,6 +142,9 @@ class BillingController extends Controller
 
     private function refreshOrQueue(BillingPayment $payment, PaymentService $service): void
     {
+        if ($payment->provider === 'paynow' && $payment->verified_at?->gt(now()->subSeconds(30))) {
+            return;
+        }
         if (config('performance.queue_payment_checks')) {
             RefreshPayment::dispatch($payment->id);
         } else {
@@ -148,22 +178,53 @@ class BillingController extends Controller
     {
         abort_if(strlen($request->getContent()) > 65536, 413);
         parse_str($request->getContent(), $data);
+        $valid = $gateway->verify($data);
+        $safe = array_intersect_key(array_change_key_case($data, CASE_LOWER), array_flip(['reference', 'amount', 'paynowreference', 'status']));
+        $safe = array_map(fn ($value) => is_scalar($value) ? mb_substr((string) $value, 0, 255) : '[invalid]', $safe);
+        $fingerprint = hash('sha256', $request->getContent());
+        $payment = BillingPayment::where('reference', $reference)->where('provider', 'paynow')->first();
+        DB::table('payment_notifications')->insertOrIgnore(['billing_payment_id' => $payment?->id, 'fingerprint' => $fingerprint,
+            'payload' => json_encode($safe, JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR), 'hash_valid' => $valid,
+            'error' => $valid ? null : 'Invalid hash', 'created_at' => now(), 'updated_at' => now()]);
         try {
-            abort_unless($gateway->verify($data), 400);
+            abort_unless($valid, 400);
         } catch (\RuntimeException $exception) {
             abort(400);
         }
         $data = array_change_key_case($data, CASE_LOWER);
         abort_unless(is_string($data['reference'] ?? null) && hash_equals($reference, $data['reference']), 400);
-        $payment = BillingPayment::where('reference', $reference)->where('provider', 'paynow')->firstOrFail();
-        // Never use an incoming poll URL; poll only the signed URL saved at initiation.
+        abort_unless($payment, 404);
+        if (! $gateway->matches($payment, $data)) {
+            DB::table('payment_notifications')->where('fingerprint', $fingerprint)->update(['error' => 'Payment details mismatch']);
+            abort(400);
+        }
+        if (DB::table('payment_notifications')->where('fingerprint', $fingerprint)->whereNotNull('processed_at')->exists()) {
+            return response('OK');
+        }
+        // A signed provider notification can recover a poll URL lost to an initialization timeout.
+        // Once stored, it is never replaced by incoming callbacks.
+        if (! $payment->poll_url && is_string($data['pollurl'] ?? null) && $gateway->safeUrl($data['pollurl'])) {
+            DB::transaction(function () use ($payment, $data) {
+                User::whereKey($payment->user_id)->lockForUpdate()->firstOrFail();
+                $locked = BillingPayment::whereKey($payment->id)->lockForUpdate()->firstOrFail();
+                if (! $locked->poll_url) {
+                    $locked->update(['poll_url' => $data['pollurl']]);
+                }
+            });
+            $payment->refresh();
+        }
         try {
+            if (! $payment->poll_url && ! $payment->merchant_trace) {
+                throw new \RuntimeException('Paynow poll URL not yet available.');
+            }
             $service->refresh($payment);
         } catch (\Throwable $exception) {
-            report($exception);
+            DB::table('payment_notifications')->where('fingerprint', $fingerprint)->update(['error' => 'Provider verification unavailable']);
 
             return response('Verification unavailable', 503);
         }
+
+        DB::table('payment_notifications')->where('fingerprint', $fingerprint)->update(['processed_at' => now(), 'error' => null, 'updated_at' => now()]);
 
         return response('OK');
     }
@@ -175,7 +236,7 @@ class BillingController extends Controller
         }
 
         return $provider === 'paynow'
-            ? (bool) (config('billing.paynow.integration_id') && config('billing.paynow.integration_key'))
+            ? (bool) (config('billing.paynow.integration_id') && config('billing.paynow.integration_key') && in_array(config('billing.paynow.mode'), ['test', 'live'], true))
             : (bool) (config('billing.paypal.client_id') && config('billing.paypal.client_secret') && in_array(config('billing.paypal.mode'), ['sandbox', 'live'], true));
     }
 

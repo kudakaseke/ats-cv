@@ -9,7 +9,7 @@ class CvAiRewriter
 {
     public array $lastUsage = [];
 
-    public function analyse(string $job, string $resume, ?string $industry = null): array
+    public function analyse(string $job, string $resume): array
     {
         $this->lastUsage = [];
         $key = config('services.openai.key');
@@ -24,7 +24,7 @@ class CvAiRewriter
         ], 'required' => ['summary', 'recommendations', 'assessment']];
         $text = $this->openAi($key, $model,
             app(CvAiPrompt::class)->instructions(false),
-            ['selected_industry' => config('industries.'.$industry, 'Use the job description'), 'job_description' => $job, 'original_resume' => $resume, 'current_date' => now('Africa/Johannesburg')->toDateString(), 'confirmed_keywords' => []], $schema, 7000);
+            ['job_description' => $job, 'original_resume' => $resume, 'current_date' => now('Africa/Johannesburg')->toDateString(), 'confirmed_keywords' => []], $schema, 7000);
 
         $decoded = json_decode($text, true, 64, JSON_THROW_ON_ERROR);
         $result = Validator::make($decoded, [
@@ -37,7 +37,7 @@ class CvAiRewriter
         return $result;
     }
 
-    public function rewrite(string $job, string $resume, array $confirmed, ?array $baseline = null, ?string $industry = null): array
+    public function rewrite(string $job, string $resume, array $confirmed, ?array $baseline = null): array
     {
         $this->lastUsage = [];
         $provider = config('services.cv_ai.provider', 'openai');
@@ -59,7 +59,7 @@ class CvAiRewriter
             'unsupported_keywords' => ['type' => 'ARRAY', 'items' => ['type' => 'STRING']],
             'assessment' => app(CvAiAssessment::class)->schema(),
         ], 'required' => ['structured_resume', 'changes', 'unsupported_keywords', 'assessment']];
-        $input = ['selected_industry' => config('industries.'.$industry, 'Use the job description'), 'job_description' => $job, 'original_resume' => $resume, 'confirmed_keywords' => array_values($confirmed),
+        $input = ['job_description' => $job, 'original_resume' => $resume, 'confirmed_keywords' => array_values($confirmed),
             'current_date' => now('Africa/Johannesburg')->toDateString(),
             'analysis' => array_intersect_key($analysis, array_flip(['method', 'matched', 'missing', 'suggestions', 'experience_check']))];
         if ($baseline) {

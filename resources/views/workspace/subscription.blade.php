@@ -8,6 +8,12 @@
             <h2 id="active-plan-heading">Active Plan</h2>
             <h3>{{ $currentPlan->name }}</h3>
             @if($activeSubscription)
+                <p>Billing cycle: {{ $currentPlan->billing_interval === 'annually' ? 'Annual' : 'Monthly' }}. Paid access expires {{ $activeSubscription->ends_at?->format('d M Y') }}.</p>
+                @if(!$activeSubscription->auto_renew && \App\Models\BillingPayment::where('subscription_id', $activeSubscription->id)->where('provider', 'paynow')->exists())
+                    <p>Renew manually. No automatic Paynow deductions.</p>
+                    <a class="btn btn-outline" href="{{ route('subscription.payment-methods', $currentPlan->slug) }}">Renew subscription</a>
+                    @if(!$activeSubscription->cancelled_at)<form method="POST" action="{{ route('billing.cancel-renewal', $activeSubscription) }}">@csrf<button class="btn btn-outline">Cancel renewal reminders</button></form>@endif
+                @endif
                 <p>{{ $activeSubscription->status === 'test_active' ? 'Test subscription' : 'Active subscription' }}</p>
                 <p>Started {{ $activeSubscription->starts_at->format('d M Y') }}@if($activeSubscription->ends_at) &middot; Paid access until {{ $activeSubscription->ends_at->format('d M Y') }}@endif.</p>
                 <p>{{ config('ai_credits.plans.'.$currentPlan->slug) }} credits per {{ $currentPlan->slug === 'annual' ? 'paid year' : 'monthly release' }}.</p>
@@ -16,6 +22,9 @@
             @endif
         </div>
     <x-payment-confirmation :current-plan="$currentPlan" />
+    @foreach($scheduledSubscriptions as $scheduled)
+        <section class="panel credit-summary"><h2>Next paid period: {{ $scheduled->plan->name }}</h2><p>Starts {{ $scheduled->starts_at->format('d M Y') }} and ends {{ $scheduled->ends_at->format('d M Y') }}. The new credit allowance becomes available when this period starts.</p></section>
+    @endforeach
     <section class="panel credit-summary"><h2>My AI Credits</h2><strong>{{ $wallet['credits'] }} credits</strong><p>{{ $wallet['subscription_credits'] }} subscription/welcome credits &middot; {{ $wallet['topup_credits'] }} purchased credits.</p>@if($wallet['credit_debt'])<p>{{ $wallet['credit_debt'] }} credits deducted from available balance for a refunded purchase already used.</p>@endif<p>Job-to-CV ATS Detector: 5 credits. Revamp: 10 credits. One complete workflow: 15 credits. Manual editing and downloads use no credits.</p><p>Monthly subscription credits reset each month. Annual credits remain available until the paid year ends. Purchased credits remain in your balance. Free accounts receive 15 welcome credits once.</p></section>
     <x-input-error :messages="$errors->get('billing')" class="my-4" />
     @if(session('billing_status'))<p class="my-4" role="status">{{ session('billing_status') }}</p>@endif
@@ -78,7 +87,9 @@
                     <td>{{ $payment->currency }} {{ number_format($payment->amount_cents / 100, 2) }}</td>
                     <td>{{ $payment->credits }}</td>
                     <td>{{ $payment->status === 'test_paid' ? 'Test payment confirmed' : ucfirst(str_replace('_', ' ', $payment->status)) }}</td>
-                    <td><a class="text-link" href="{{ route('billing.show', $payment->reference) }}">View payment</a></td>
+                    <td><a class="text-link" href="{{ route('billing.show', $payment->reference) }}">View payment</a>
+                        @if($payment->provider === 'paynow' && $payment->paid_at)<br><a class="text-link" href="{{ route('billing.receipt', $payment->reference) }}">Download receipt</a>@endif
+                    </td>
                 </tr>
             @empty
                 <tr><td colspan="6">No payments yet. Your payment history will appear here after checkout.</td></tr>

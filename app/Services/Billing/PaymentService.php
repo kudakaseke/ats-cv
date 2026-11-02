@@ -15,7 +15,16 @@ class PaymentService
     public function refresh(BillingPayment $payment): void
     {
         try {
-            $this->refreshVerified($payment);
+            if ($payment->provider === 'paynow') {
+                DB::transaction(function () use ($payment) {
+                    User::whereKey($payment->user_id)->lockForUpdate()->firstOrFail();
+                    $locked = BillingPayment::whereKey($payment->id)->lockForUpdate()->firstOrFail();
+                    $this->refreshVerified($locked);
+                    app(BillingRecords::class)->record($locked->fresh());
+                }, 3);
+            } else {
+                $this->refreshVerified($payment);
+            }
             $confirmed = $payment->fresh();
             if (in_array($confirmed->status, ['paid', 'test_paid', 'reversed'], true)) {
                 app(AuditTrail::class)->record($confirmed->user_id, 'payment.verified', 'BillingPayment', $confirmed->id,
@@ -61,7 +70,7 @@ class PaymentService
                     return;
                 }
                 $latestEnd = Subscription::where('user_id', $locked->user_id)
-                    ->where('subscription_plan_id', $locked->subscription_plan_id)->where('status', 'active')
+                    ->when($locked->provider !== 'paynow', fn ($q) => $q->where('subscription_plan_id', $locked->subscription_plan_id))->where('status', 'active')
                     ->where('ends_at', '>', now())->max('ends_at');
                 $start = $latestEnd ? Carbon::parse($latestEnd) : now();
                 $subscription = new Subscription;

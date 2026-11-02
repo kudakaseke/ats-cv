@@ -17,8 +17,9 @@ class ReconcilePayments extends Command
     {
         $payments = BillingPayment::where(fn ($query) => $query->whereIn('status', ['pending', 'paid', 'test_paid'])
             ->orWhere(fn ($query) => $query->where('status', 'reversed')->where('recurring', true)))
+            ->where(fn ($query) => $query->where('provider', '!=', 'paynow')->orWhereNull('next_check_at')->orWhere('next_check_at', '<=', now()))
             ->where(fn ($query) => $query->where('recurring', true)->orWhere('created_at', '>', now()->subDays(400)))
-            ->where(fn ($query) => $query->whereNotNull('poll_url')->orWhereNotNull('provider_reference'))
+            ->where(fn ($query) => $query->whereNotNull('poll_url')->orWhereNotNull('provider_reference')->orWhereNotNull('merchant_trace'))
             ->orderBy('updated_at')->limit(max(1, min(1000, (int) $this->option('limit'))))->get();
         $failures = 0;
         foreach ($payments as $payment) {
@@ -29,6 +30,11 @@ class ReconcilePayments extends Command
                     $service->refresh($payment);
                 }
             } catch (\Throwable $exception) {
+                if ($payment->provider === 'paynow') {
+                    $attempts = $payment->verification_attempts + 1;
+                    $payment->update(['verification_attempts' => $attempts,
+                        'next_check_at' => now()->addMinutes(min(1440, 5 * (2 ** min(8, $attempts))))]);
+                }
                 $payment->touch();
                 $failures++;
             }

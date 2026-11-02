@@ -16,7 +16,7 @@ class CvExperienceMatcher
     {
         $experience = $assessment['experience'] ?? null;
         if (! is_array($experience)) {
-            return $check;
+            return $this->classify($check);
         }
         $relevant = $experience['documented_relevant_years'] ?? null;
         $total = $experience['total_professional_years'] ?? null;
@@ -24,13 +24,13 @@ class CvExperienceMatcher
         $relevant = $valid($relevant) ? (float) $relevant : null;
         $total = $valid($total) ? (float) $total : null;
         if ($relevant !== null && $total !== null && $relevant > $total) {
-            return $check; // Contradictory estimates must not replace the date check.
+            return $this->classify($check); // Contradictory estimates must not replace the date check.
         }
         if ($relevant === null && $total === null) {
-            return $check;
+            return $this->classify($check);
         }
         $required = $check['required_years'] ?? null;
-        if (array_key_exists('required_years', $experience) && ($experience['required_years'] === null || $valid($experience['required_years']))) {
+        if ($required === null && isset($experience['required_years']) && $valid($experience['required_years'])) {
             $required = $experience['required_years'] === null ? null : (float) $experience['required_years'];
             $check['required_years'] = $required;
         }
@@ -49,7 +49,7 @@ class CvExperienceMatcher
         $check['note'] = 'These are AI estimates based on CV evidence, not independent verification. Review the employment dates and relevance of each role.';
         $check['assessment_date_warnings'] = $experience['date_warnings'] ?? [];
         if ($check['assessment_date_warnings']) $check['note'] .= ' Date details need review: '.implode('; ', $check['assessment_date_warnings']);
-        return $check;
+        return $this->classify($check);
     }
 
     public function compare(string $job, string $resume): array
@@ -113,8 +113,39 @@ class CvExperienceMatcher
             : ($years === null ? "The job mentions {$requiredDisplay} of experience. We could not estimate your experience from the CV; check your employment dates."
                 : "The job mentions {$requiredDisplay} of experience; your CV shows approximately {$years} years in total, based on {$source}.".($shortfall ? ' Your CV shows fewer years than requested.' : ' Check that these years are relevant to the required role.'));
 
-        return ['required_years' => $required, 'cv_years' => $years, 'shortfall' => $shortfall, 'requirement' => $evidence, 'message' => $message, 'unreadable_dates' => array_values(array_unique($unreadable)),
-            'note' => 'This is an estimate of total experience, not confirmed experience in the required field. Overlapping jobs count once. Year-only dates are approximate.'];
+        return $this->classify(['required_years' => $required, 'cv_years' => $years, 'shortfall' => $shortfall, 'requirement' => $evidence, 'message' => $message, 'unreadable_dates' => array_values(array_unique($unreadable)),
+            'note' => 'This is an estimate of total experience, not confirmed experience in the required field. Overlapping jobs count once. Year-only dates are approximate.']);
+    }
+
+    public function classify(array $check): array
+    {
+        $required = $check['required_years'] ?? null;
+        $relevant = $check['relevant_years'] ?? null;
+        $positive = is_numeric($required) && is_numeric($relevant) && $relevant >= $required;
+        $check['positive'] = $positive;
+        $check['status'] = $positive ? ($relevant > $required ? 'exceeds_minimum' : 'meets_minimum')
+            : (!empty($check['shortfall']) ? 'shortfall' : ($required === null ? 'not_specified' : 'unconfirmed'));
+        $check['label'] = $positive ? 'Experience strength' : (!empty($check['shortfall']) ? 'Experience gap to review' : 'Experience to confirm');
+        $check['green_flag'] = $positive ? "Relevant experience ({$relevant} years) meets the stated minimum of {$required} years." : null;
+        return $check;
+    }
+
+    public function normaliseAssessment(array $assessment): array
+    {
+        $e = $assessment['experience'] ?? [];
+        $required = $e['required_years'] ?? null;
+        $relevant = $e['documented_relevant_years'] ?? null;
+        $total = $e['total_professional_years'] ?? null;
+        if (!is_numeric($required) || !is_numeric($relevant) || $required < 0 || $relevant < $required
+            || (is_numeric($total) && $relevant > $total)) return $assessment;
+        $assessment['warnings'] = array_values(array_filter($assessment['warnings'] ?? [], function ($warning) {
+            if (($warning['category'] ?? '') !== 'experience') return true;
+            $text = implode(' ', [$warning['requirement'] ?? '', $warning['explanation'] ?? '', $warning['recommended_action'] ?? '']);
+            // Keep independent problems and explicit employer maximums visible.
+            if (preg_match('/\b(?:maximum|at most|no more than|lack\w*|missing|not evidenced|unclear|uncertain|contradict\w*|overlap\w*|irrelevant|unrelated|specialist|not relevant|cannot confirm|could not confirm|insufficient)\b/iu', $text)) return true;
+            return !preg_match('/\b(?:overqualif\w*|(?:more|additional|extra) (?:relevant )?(?:experience|years)[^.]{0,60}(?:than|above)[^.]{0,40}(?:required|minimum|requested|advertised)|excess(?:ive)? experience|too (?:much|many) (?:experience|years)|(?:exceed\w*|surpass\w*)[^.]{0,80}(?:experience|years|minimum|requirement)|(?:experience|years)[^.]{0,80}(?:more than|above)[^.]{0,80}(?:required|minimum|advertised))\b/iu', $text);
+        }));
+        return $assessment;
     }
 
     private function date(string $value, bool $end): CarbonImmutable

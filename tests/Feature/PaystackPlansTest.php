@@ -2,11 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Models\BillingPayment;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 use Database\Seeders\SubscriptionPlanSeeder;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class PaystackPlansTest extends TestCase
@@ -16,12 +19,12 @@ class PaystackPlansTest extends TestCase
     public function test_completed_local_test_purchase_without_renewal_does_not_block_checkout(): void
     {
         $this->app->instance('env', 'local');
-        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
+        $this->withoutMiddleware(ValidateCsrfToken::class);
         config(['paystack.enabled' => true, 'paystack.secret_key' => 'sk_test_fixture', 'paystack.local_test_credits' => true, 'paystack.currency' => 'ZAR']);
         $user = User::factory()->create();
         $plan = SubscriptionPlan::where('slug', 'monthly')->firstOrFail();
         $plan->update(['paystack_plan_code' => 'PLN_fixture', 'paystack_amount_cents' => 9000, 'paystack_mode' => 'test']);
-        $payment = \App\Models\BillingPayment::create(['reference' => (string) \Illuminate\Support\Str::uuid(), 'user_id' => $user->id,
+        $payment = BillingPayment::create(['reference' => (string) Str::uuid(), 'user_id' => $user->id,
             'subscription_plan_id' => $plan->id, 'provider' => 'paystack', 'mode' => 'test', 'status' => 'test_paid',
             'amount_cents' => 9000, 'currency' => 'ZAR', 'billing_interval' => 'monthly', 'recurring' => true]);
         Http::fake(function ($request) {
@@ -38,7 +41,7 @@ class PaystackPlansTest extends TestCase
         $this->assertDatabaseCount('billing_payments', 2);
         Http::assertSentCount(2);
         $this->assertNull($payment->fresh()->recurring_status);
-        \App\Models\BillingPayment::where('id', '!=', $payment->id)->delete();
+        BillingPayment::where('id', '!=', $payment->id)->delete();
         $payment->update(['provider_reference' => 'SUB_fixture']);
         $this->post(route('paystack.subscribe', 'monthly'), ['billing_consent' => 1])->assertRedirect(route('subscription.payment-methods', 'monthly'))->assertSessionHasNoErrors();
         $this->assertDatabaseCount('billing_payments', 1);
@@ -78,7 +81,7 @@ class PaystackPlansTest extends TestCase
         foreach (['local', 'production'] as $environment) {
             $this->app->instance('env', $environment);
             $this->actingAs($user)->get('/subscription/monthly/payment-method')->assertOk()
-                ->assertDontSee('https://paystack.shop/pay/', false)->assertSee('Paystack - unavailable');
+                ->assertDontSee('https://paystack.shop/pay/', false)->assertDontSee('Paystack - unavailable')->assertSee('Paynow');
         }
         $this->app->instance('env', 'testing');
         Http::preventStrayRequests();
@@ -142,6 +145,7 @@ class PaystackPlansTest extends TestCase
             if ($request->method() === 'POST') {
                 return Http::response(['status' => true, 'data' => [...$request->data(), 'plan_code' => 'PLN_new_'.$request['amount']]]);
             }
+
             return Http::response(['status' => true, 'data' => [], 'meta' => ['pageCount' => 1]]);
         });
         $this->artisan('paystack:sync-plans --replace-mismatched')->assertSuccessful();

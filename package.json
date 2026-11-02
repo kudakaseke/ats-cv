@@ -17,7 +17,9 @@
         "test:checker": "node scripts/checker-smoke.mjs",
         "test:checker-ai": "node scripts/checker-smoke.mjs --ai",
         "test:ats-analysis": "node scripts/verify-ats.mjs",
-        "test:checker-pdf": "node scripts/checker-smoke.mjs --ai --pdf"
+        "test:checker-pdf": "node scripts/checker-smoke.mjs --ai --pdf",
+        "test:navigation": "node --test scripts/navigation-feedback.test.mjs",
+        "test:navigation-browser": "node scripts/navigation-smoke.mjs"
     },
     "devDependencies": {
         "@playwright/test": "^1.64.0",

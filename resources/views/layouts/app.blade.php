@@ -6,9 +6,6 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ config('app.name') }} · Workspace</title>
     <link rel="icon" href="{{ asset('favicon.png').'?v=minimal-cv-3' }}" type="image/png"><link rel="icon" href="{{ asset('favicon.svg').'?v=minimal-cv-3' }}" type="image/svg+xml" sizes="any">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@200;300;400;500;600;700;800&display=swap" rel="stylesheet">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
 </head>
@@ -23,6 +20,7 @@
                     @php($active = request()->routeIs($item[0]) || request()->route('module') === $item[0])
                     <a class="sidebar-link {{ $active ? 'active' : '' }}" href="{{ $item[3] }}" @click="sidebar = false" @if($active) aria-current="page" @endif><x-icon :name="$item[1]" />{{ $item[2] }}</a>
                 @endforeach
+                @if(auth()->user()->is_admin)<a class="sidebar-link" href="{{ route('admin.billing') }}"><x-icon name="credit-card" />Billing management</a>@endif
             </nav>
             <form method="POST" action="{{ route('logout') }}" class="sidebar-logout">
                 @csrf

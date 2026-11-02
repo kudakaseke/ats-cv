@@ -85,17 +85,13 @@ class IndustryRelevanceTest extends TestCase
         $this->assertSame($baseline['missing_core_requirements'], $result['missing_core_requirements']);
     }
 
-    public function test_industry_selection_is_visible_and_unrecognised_values_are_rejected(): void
+    public function test_industry_selection_is_not_required_or_displayed(): void
     {
-        $this->seed(SubscriptionPlanSeeder::class);
-        Http::preventStrayRequests();
-        $this->actingAs(User::factory()->create())->get('/workspace/checker')->assertOk()->assertSeeInOrder(['Choose Industry', 'Select an industry', 'Procurement, Supply Chain and Logistics', 'Paste the job description']);
-        $this->postJson('/checker/scan', ['industry' => 'forged', 'job_description' => 'Skills: Excel', 'resume_text' => 'Excel'])->assertUnprocessable()->assertJsonValidationErrors('industry');
-        Http::assertNothingSent();
-        $this->assertNotSame(CvDocumentIdentity::signature('job', 'cv', 'it'), CvDocumentIdentity::signature('job', 'cv', 'supply-chain'));
+        $this->actingAs(User::factory()->create())->get('/workspace/checker')->assertOk()
+            ->assertSee('Paste the job description')->assertDontSee('Choose Industry')->assertDontSee('checker-industry');
     }
 
-    public function test_selected_industry_reaches_provider_and_score_remains_a_percentage(): void
+    public function test_industry_is_inferred_from_the_job_without_a_manual_selection(): void
     {
         $this->seed(SubscriptionPlanSeeder::class);
         config(['services.openai.key' => 'test-key', 'services.openai.model' => 'test-model']);
@@ -104,14 +100,16 @@ class IndustryRelevanceTest extends TestCase
             ['type' => 'message', 'content' => [['type' => 'output_text', 'text' => json_encode($data)]]],
         ]])]);
         $result = $this->actingAs(User::factory()->create())->postJson('/checker/scan', [
-            'industry' => 'supply-chain', 'job_description' => 'Skills: Excel, Sourcing', 'resume_text' => 'Excel reports. Communicated with users.',
-        ])->assertOk()->assertJsonPath('selected_industry', 'supply-chain')->assertJsonPath('assessment.professional_alignment', 'LIMITED_ALIGNMENT')->json();
+            'job_description' => 'Skills: Excel, Sourcing', 'resume_text' => 'Excel reports. Communicated with users.',
+        ])->assertOk()->assertJsonMissingPath('selected_industry')->assertJsonPath('assessment.job_information.industry', 'Supply chain')->assertJsonPath('assessment.professional_alignment', 'LIMITED_ALIGNMENT')->json();
         $this->assertIsNumeric($result['compatibility_score']);
         $this->assertLessThan(25, $result['compatibility_score']);
         Http::assertSent(function ($request) {
             $input = json_decode($request['input'][0]['content'], true);
 
-            return $input['selected_industry'] === config('industries.supply-chain')
+            return ! array_key_exists('selected_industry', $input)
+                && $input['job_description'] === 'Skills: Excel, Sourcing'
+                && str_contains($request['instructions'], 'Identify the advertised role and industry from the job description itself')
                 && isset($request['text']['format']['schema']['properties']['assessment']['properties']['professional_alignment']);
         });
     }

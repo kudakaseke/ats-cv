@@ -80,6 +80,7 @@ class User extends Authenticatable implements MustVerifyEmail
     protected function casts(): array
     {
         return [
+            'is_admin' => 'boolean',
             'email_verified_at' => 'datetime',
             'email_verification_code_expires_at' => 'datetime',
             'password' => 'hashed',

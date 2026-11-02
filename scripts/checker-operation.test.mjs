@@ -16,7 +16,16 @@ test('AI operation IDs work without randomUUID and preserve retry identity', () 
     assert.notEqual(checker.operation('revamp'), first);
     checker.resumeText += ' and Laravel';
     assert.notEqual(checker.operation('analyse'), first);
-    const beforeIndustryChange = checker.operation('analyse');
-    checker.industry = 'supply-chain';
-    assert.notEqual(checker.operation('analyse'), beforeIndustryChange);
+    checker.job += ' and SQL';
+    assert.notEqual(checker.operation('analyse'), first);
+});
+
+test('job description proceeds without manual industry selection', () => {
+    const context = { window: {} };
+    runInNewContext(readFileSync(new URL('../resources/js/cv-checker.js', import.meta.url), 'utf8'), context);
+    const checker = context.window.cvChecker({});
+    checker.job = 'PHP developer';
+    checker.nextJob();
+    assert.equal(checker.step, 2);
+    assert.equal(checker.error, '');
 });

@@ -12,6 +12,6 @@ class BillingPayment extends Model
 
     protected function casts(): array
     {
-        return ['poll_url' => 'encrypted', 'checkout_url' => 'encrypted', 'paid_at' => 'datetime', 'amount_cents' => 'integer', 'recurring' => 'boolean'];
+        return ['poll_url' => 'encrypted', 'checkout_url' => 'encrypted', 'paid_at' => 'datetime', 'verified_at' => 'datetime', 'next_check_at' => 'datetime', 'amount_cents' => 'integer', 'recurring' => 'boolean'];
     }
 }

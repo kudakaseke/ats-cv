@@ -6,6 +6,8 @@ use App\Models\BillingPayment;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Services\AuditTrail;
+use App\Services\Billing\HostedPaystackPayments;
+use App\Services\Billing\PaymentService;
 use App\Services\Billing\PaynowGateway;
 use App\Services\Billing\PaypalGateway;
 use App\Services\Billing\PaystackGateway;
@@ -13,10 +15,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class CreditBillingController extends Controller
 {
-    public function callback(Request $request, \App\Services\Billing\HostedPaystackPayments $hosted)
+    public function callback(Request $request, HostedPaystackPayments $hosted)
     {
         $data = $request->validate(['reference' => ['required', 'string', 'max:255', 'regex:/^[a-zA-Z0-9._=-]+$/']]);
         try {
@@ -24,16 +27,19 @@ class CreditBillingController extends Controller
             if (! in_array($payment->status, ['paid', 'test_paid'], true)) {
                 return to_route('dashboard')->withErrors(['billing' => 'Payment was declined or has not completed. No credits were added.']);
             }
-            return app(BillingController::class)->show($request, $payment->reference, app(\App\Services\Billing\PaymentService::class));
+
+            return app(BillingController::class)->show($request, $payment->reference, app(PaymentService::class));
         } catch (\DomainException) {
             return to_route('dashboard')->withErrors(['billing' => 'Payment was declined or has not completed. No credits were added.']);
-        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $exception) {
+        } catch (HttpException $exception) {
             if ($exception->getStatusCode() !== 403) {
                 throw $exception;
             }
+
             return to_route('dashboard')->withErrors(['billing' => 'This payment uses a different account email. Do not pay again. Contact support with the payment reference to recover it.']);
         } catch (\Throwable $exception) {
             report($exception);
+
             return to_route('dashboard')->withErrors(['billing' => 'Payment could not be confirmed. No credits were added. Please check payment status or contact support.']);
         }
     }
@@ -58,10 +64,21 @@ class CreditBillingController extends Controller
             $amount = $pack['price_cents'];
             $currency = 'USD';
         }
-        $payment = BillingPayment::create(['reference' => (string) Str::uuid(), 'user_id' => $request->user()->id,
-            'subscription_plan_id' => SubscriptionPlan::where('slug', 'free')->firstOrFail()->id, 'provider' => $provider,
-            'mode' => $mode, 'amount_cents' => (int) $amount, 'currency' => $currency, 'billing_interval' => 'monthly',
-            'kind' => 'topup', 'credits' => $pack['credits'], 'recurring' => false]);
+        $payment = DB::transaction(function () use ($request, $provider, $mode, $amount, $currency, $pack) {
+            User::whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
+            if ($provider === 'paynow' && ($existing = BillingPayment::where('user_id', $request->user()->id)
+                ->where('provider', 'paynow')->where('mode', $mode)->where('status', 'pending')->where('kind', 'topup')->first())) {
+                return $existing;
+            }
+
+            return BillingPayment::create(['reference' => (string) Str::uuid(), 'user_id' => $request->user()->id,
+                'subscription_plan_id' => SubscriptionPlan::where('slug', 'free')->firstOrFail()->id, 'provider' => $provider,
+                'mode' => $mode, 'amount_cents' => (int) $amount, 'currency' => $currency, 'billing_interval' => 'monthly',
+                'kind' => 'topup', 'credits' => $pack['credits'], 'recurring' => false]);
+        });
+        if ($provider === 'paynow' && ! $payment->wasRecentlyCreated) {
+            return to_route('billing.show', $payment->reference)->with('status', 'Check your existing top-up before starting another payment.');
+        }
         try {
             $gateway = match ($provider) {
                 'paystack' => app(PaystackGateway::class), 'paynow' => app(PaynowGateway::class), default => app(PaypalGateway::class)
@@ -101,6 +118,7 @@ class CreditBillingController extends Controller
                     return null;
                 }
                 $existing = $open->first();
+
                 return $existing->provider === 'paystack' && $existing->status === 'pending'
                     && $existing->subscription_plan_id === $offer->id && $existing->recurring_status === null
                     && ! str_starts_with($existing->provider_reference ?? '', 'SUB_') ? $existing : null;
@@ -156,7 +174,8 @@ class CreditBillingController extends Controller
                 $payment = BillingPayment::where('provider', 'paystack')->where('mode', $gateway->mode())
                     ->where(fn ($q) => $q->where('reference', $reference)->orWhere('hosted_reference', $reference))->first();
                 if (! $payment && data_get($verified, 'metadata.referrer')) {
-                    app(\App\Services\Billing\HostedPaystackPayments::class)->applyVerified($verified);
+                    app(HostedPaystackPayments::class)->applyVerified($verified);
+
                     return response('OK');
                 }
                 if (! $payment) {

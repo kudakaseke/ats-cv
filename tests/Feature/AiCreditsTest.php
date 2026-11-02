@@ -120,7 +120,7 @@ class AiCreditsTest extends TestCase
         }
         $this->assertDatabaseCount('ai_credit_transactions', 1);
         $this->assertSame(475, SubscriptionPlan::where('slug', 'monthly')->value('price_cents'));
-        $this->assertSame(625, SubscriptionPlan::where('slug', 'pro')->value('price_cents'));
+        $this->assertSame(650, SubscriptionPlan::where('slug', 'pro')->value('price_cents'));
         $this->assertSame(4740, SubscriptionPlan::where('slug', 'annual')->value('price_cents'));
         $this->useCredits($user);
         $this->assertSame(5, $this->credits()->wallet($user)['credits']);

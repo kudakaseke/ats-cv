@@ -2,7 +2,7 @@
 <div class="checker-score-pair" aria-label="CV match scores">
     @foreach([
         ['label' => 'Wording Match', 'score' => $wording, 'before' => $wordingBefore, 'expression' => 'result?.keyword_score', 'tone' => 'wording', 'description' => 'Priority-weighted job requirements recognised in your CV. Mandatory items count more than preferred items. Equivalent wording may be missed.'],
-        ['label' => 'ATS Compatibility', 'score' => $compatibility, 'before' => $compatibilityBefore, 'expression' => 'result?.compatibility_score', 'tone' => 'compatibility', 'description' => 'Job-relevant qualifications, certifications, specialist skills, competencies, experience and responsibilities. Transferable skills receive partial credit; unrelated evidence receives none. An app estimate, not an official employer ATS score.'],
+        ['label' => 'ATS Compatibility', 'score' => $compatibility, 'before' => $compatibilityBefore, 'expression' => 'result?.compatibility_score', 'tone' => 'compatibility', 'description' => 'Job-relevant evidence, recognised job wording and readable text structure. Clear headings and supported wording can improve the result; missing qualifications and experience remain gaps. An app estimate, not an official employer ATS score.'],
     ] as $metric)
         <section class="checker-score-card {{ $metric['tone'] }}" aria-label="{{ $metric['label'] }}">
             <h3>{{ $metric['label'] }}</h3>

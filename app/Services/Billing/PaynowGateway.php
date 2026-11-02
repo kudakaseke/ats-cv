@@ -3,6 +3,8 @@
 namespace App\Services\Billing;
 
 use App\Models\BillingPayment;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 
 class PaynowGateway
@@ -49,12 +51,18 @@ class PaynowGateway
 
     public function start(BillingPayment $payment, string $email): string
     {
+        if (! in_array($payment->mode, ['test', 'live'], true) || $payment->currency !== 'USD' || $payment->amount_cents < 1) {
+            throw new \DomainException('Invalid Paynow payment configuration.');
+        }
+        if ($payment->mode === 'live' && ! config('billing.paynow.live_currency_confirmed')) {
+            throw new \DomainException('Confirm the merchant USD currency before enabling live checkout.');
+        }
         $callbackBase = rtrim((string) config('billing.paynow.callback_url'), '/');
         if ($callbackBase !== '' && (parse_url($callbackBase, PHP_URL_SCHEME) !== 'https'
             || ! parse_url($callbackBase, PHP_URL_HOST) || parse_url($callbackBase, PHP_URL_USER)
             || parse_url($callbackBase, PHP_URL_PASS) || parse_url($callbackBase, PHP_URL_QUERY)
             || parse_url($callbackBase, PHP_URL_FRAGMENT))) {
-            throw new \RuntimeException('Paynow callback base must be a public HTTPS URL.');
+            throw new \DomainException('Paynow callback base must be a public HTTPS URL.');
         }
         $callback = fn (string $route) => $callbackBase === '' ? route($route, $payment->reference)
             : $callbackBase.route($route, $payment->reference, false);
@@ -67,18 +75,35 @@ class PaynowGateway
             'resulturl' => $callback('billing.paynow.notify'),
             'status' => 'Message',
         ];
+        if (app()->isProduction() && (parse_url($data['returnurl'], PHP_URL_SCHEME) !== 'https' || parse_url($data['resulturl'], PHP_URL_SCHEME) !== 'https')) {
+            throw new \DomainException('Production Paynow callbacks require HTTPS.');
+        }
         // Test payments can only be completed by the integration's merchant account.
         $authEmail = $payment->mode === 'test' ? config('billing.paynow.test_email') : $email;
         if ($authEmail) {
             $data['authemail'] = $authEmail;
         }
+        // Persist the documented recovery identifier before sending an initialization.
+        $payment->update(['merchant_trace' => substr(hash('sha256', $payment->reference), 0, 32)]);
+        $data['merchanttrace'] = $payment->merchant_trace;
         $data['hash'] = $this->signature($data);
         $result = $this->parse(Http::asForm()->timeout(20)->withoutRedirecting()
             ->post('https://www.paynow.co.zw/interface/initiatetransaction', $data)->throw()->body());
+        if (strtolower($result['status'] ?? '') === 'error') {
+            throw new \DomainException('Paynow rejected checkout initialization.');
+        }
         if (strtolower($result['status'] ?? '') !== 'ok' || ! $this->safeUrl($result['pollurl'] ?? '') || ! $this->safeUrl($result['browserurl'] ?? '')) {
             throw new \RuntimeException('Unable to start Paynow checkout.');
         }
-        $payment->update(['poll_url' => $result['pollurl'], 'checkout_url' => $result['browserurl']]);
+        DB::transaction(function () use ($payment, $result) {
+            User::whereKey($payment->user_id)->lockForUpdate()->firstOrFail();
+            $locked = BillingPayment::whereKey($payment->id)->lockForUpdate()->firstOrFail();
+            if ($locked->provider_reference && isset($result['paynowreference']) && $locked->provider_reference !== $result['paynowreference']) {
+                throw new \RuntimeException('Paynow initialization reference mismatch.');
+            }
+            $locked->update(['poll_url' => $locked->poll_url ?? $result['pollurl'], 'checkout_url' => $result['browserurl'],
+                'provider_reference' => $locked->provider_reference ?? ($result['paynowreference'] ?? null)]);
+        });
 
         return $result['browserurl'];
     }
@@ -88,24 +113,52 @@ class PaynowGateway
         return parse_url($url, PHP_URL_SCHEME) === 'https'
             && in_array(strtolower(parse_url($url, PHP_URL_HOST) ?? ''), ['www.paynow.co.zw', 'paynow.co.zw'], true)
             && ! parse_url($url, PHP_URL_USER) && ! parse_url($url, PHP_URL_PASS)
+            && ! parse_url($url, PHP_URL_FRAGMENT)
             && in_array(parse_url($url, PHP_URL_PORT), [null, 443], true);
+    }
+
+    public function matches(BillingPayment $payment, array $data): bool
+    {
+        return ($data['reference'] ?? null) === $payment->reference
+            && is_string($data['amount'] ?? null) && preg_match('/^\d{1,8}\.\d{2}$/D', $data['amount'])
+            && (int) str_replace('.', '', $data['amount']) === $payment->amount_cents
+            && $payment->currency === 'USD'
+            && (! isset($data['currency']) || $data['currency'] === $payment->currency)
+            && is_string($data['paynowreference'] ?? null) && $data['paynowreference'] !== ''
+            && (! $payment->provider_reference || $payment->provider_reference === $data['paynowreference']);
     }
 
     public function status(BillingPayment $payment): string
     {
+        if (! $payment->poll_url && $payment->merchant_trace) {
+            $data = ['id' => config('billing.paynow.integration_id'), 'merchanttrace' => $payment->merchant_trace, 'status' => 'Message'];
+            $data['hash'] = $this->signature($data);
+            $trace = $this->parse(Http::asForm()->timeout(20)->withoutRedirecting()
+                ->post('https://www.paynow.co.zw/interface/trace', $data)->throw()->body());
+            if (strtolower($trace['status'] ?? '') === 'notfound') {
+                $payment->update(['next_check_at' => now()->addMinutes(5), 'verification_attempts' => $payment->verification_attempts + 1]);
+
+                return 'pending';
+            }
+            if (! $this->matches($payment, $trace) || ! $this->safeUrl($trace['pollurl'] ?? '')) {
+                throw new \RuntimeException('Paynow trace could not be verified.');
+            }
+            $payment->update(['poll_url' => $trace['pollurl'], 'provider_reference' => $trace['paynowreference']]);
+        }
         if (! $payment->poll_url || ! $this->safeUrl($payment->poll_url)) {
             return 'pending';
         }
         $result = $this->parse(Http::asForm()->timeout(20)->withoutRedirecting()->post($payment->poll_url, [])->throw()->body());
-        if (($result['reference'] ?? '') !== $payment->reference || ! preg_match('/^\d+\.\d{2}$/', $result['amount'] ?? '')
-            || (int) str_replace('.', '', $result['amount']) !== $payment->amount_cents) {
+        if (! $this->matches($payment, $result)) {
             throw new \RuntimeException('Payment details do not match.');
         }
         $reference = (string) ($result['paynowreference'] ?? '');
         if ($reference === '' || ($payment->provider_reference && $payment->provider_reference !== $reference)) {
             throw new \RuntimeException('Payment reference does not match.');
         }
-        $payment->update(['provider_reference' => $reference]);
+        $payment->update(['provider_reference' => $reference, 'provider_status' => $result['status'] ?? 'Unknown',
+            'verified_at' => now(), 'verification_attempts' => $payment->verification_attempts + 1,
+            'next_check_at' => now()->addMinutes(in_array(strtolower($result['status'] ?? ''), ['paid', 'awaiting delivery', 'delivered', 'refunded', 'disputed', 'cancelled'], true) ? 1440 : 5)]);
 
         return match (strtolower($result['status'] ?? '')) {
             'paid', 'awaiting delivery', 'delivered' => 'paid',

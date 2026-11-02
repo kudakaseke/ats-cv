@@ -29,7 +29,7 @@ class WorkBackground extends Command
 
             return $this->call('queue:work', [
                 'connection' => config('performance.background_connection'),
-                '--queue' => 'mail,payments,default', '--stop-when-empty' => true,
+                '--queue' => 'mail,payments,billing,default', '--stop-when-empty' => true,
                 '--max-time' => 45, '--timeout' => 180, '--tries' => 3, '--memory' => 128,
             ]);
         } finally {
