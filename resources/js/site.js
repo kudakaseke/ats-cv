@@ -30,7 +30,7 @@ const startPage = () => {
         Alpine.start();
     }
 };
-if (document.readyState === 'complete') startPage();
+if (document.readyState === 'complete') setTimeout(startPage, 0);
 else document.addEventListener('DOMContentLoaded', startPage, { once: true });
 
 // Shared navigation works on full-page and Livewire-rendered screens.

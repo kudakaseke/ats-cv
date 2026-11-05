@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class SubscriptionPlan extends Model
 {
-    protected $fillable = ['slug', 'name', 'price_cents', 'currency', 'monthly_analyses', 'resume_limit', 'features', 'is_active', 'billing_interval', 'paystack_plan_code', 'paystack_mode', 'paystack_amount_cents'];
+    protected $fillable = ['slug', 'name', 'price_cents', 'currency', 'monthly_analyses', 'resume_limit', 'features', 'is_active', 'billing_interval'];
 
     public function monthlyDisplayCents(): int
     {

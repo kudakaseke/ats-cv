@@ -19,7 +19,7 @@
             </article>
                 @endforeach
             </div>
-            <p class="reference-release-note">Prices shown in USD. Choose an available payment method at checkout. Paystack's exact charge and currency are shown before payment. Job-to-CV ATS Detector uses 5 credits and a CV revamp uses 10 credits.</p>
+            <p class="reference-release-note">Prices shown in USD. Pay securely through Paynow. The exact charge is shown before payment. Job-to-CV ATS Detector uses 5 credits and a CV revamp uses 10 credits.</p>
         </div>
     </section>
 </x-public-layout>

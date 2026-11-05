@@ -18,9 +18,7 @@ body[data-workspace] {
 .payment-method-card .btn { white-space: normal; }
 .payment-provider-icon { width: 60px; height: 60px; border-radius: 12px; display: grid; place-items: center; background: #eff4fa; }
 .payment-provider-icon svg { width: 34px; height: 34px; }
-.payment-provider-paystack { color: #00a8c4; background: #eaf9fb; }
 .payment-provider-paynow { color: #296c3c; background: #edf7ef; }
-.payment-provider-paypal { color: #003087; background: #edf2fc; }
 @media (max-width: 1100px) { .payment-method-grid { grid-template-columns: 1fr; } }
 body[data-workspace] .workspace-shell { background: #fff; }
 body[data-workspace] .workspace-sidebar { width: 232px; padding: 30px 16px 18px; background: #fff; border-right: 1px solid var(--line); }
@@ -226,9 +224,7 @@ body[data-workspace] .audit-table summary { cursor: pointer; }
 
 .payment-method-heading { display: flex; align-items: center; gap: 16px; }
 .payment-method-heading h2 { margin: 0; }
-.payment-provider-icon.payment-provider-paystack,
 .payment-provider-icon.payment-provider-paynow { position: relative; width: 140px; height: 54px; padding: 0; overflow: hidden; background: #fff; flex-shrink: 0; }
-.payment-provider-paystack img,
 .payment-provider-paynow img { position: absolute; width: 100%; height: auto; max-width: none; left: 50%; top: 50%; transform: translate(-50%, -50%); }
 
 /* Dashboard shares the public Features cards and typography. */

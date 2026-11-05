@@ -38,11 +38,10 @@ try {
                 await expect(page.locator('#email')).not.toBeEditable();
             }
             if (path.endsWith('/payment-method')) {
-                await expect(page.locator('.payment-method-heading h2')).toHaveText(['Paystack', 'Paynow']);
+                await expect(page.locator('.payment-method-heading h2')).toHaveText(['Paynow']);
                 for (const heading of await page.locator('.payment-method-heading h2').all()) {
                     await expect(heading).toHaveClass('sr-only');
                 }
-                await expect(page.locator('.payment-provider-paystack img')).toBeVisible();
                 await expect(page.locator('.payment-provider-paynow img')).toBeVisible();
             }
         }

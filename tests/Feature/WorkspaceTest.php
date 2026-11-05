@@ -39,7 +39,7 @@ class WorkspaceTest extends TestCase
         foreach (['monthly' => '4.75', 'pro' => '6.50', 'annual' => '47.40'] as $plan => $price) {
             $this->get('/subscription/'.$plan.'/payment-method')->assertOk()->assertSee('Choose Payment Method')
                 ->assertSee('<h2 class="sr-only">Paynow</h2>', false)->assertSee('US$'.$price)
-                ->assertDontSee('payment-provider-paystack')->assertSee('payment-provider-paynow')->assertDontSee('payment-provider-paypal');
+                ->assertSee('payment-provider-paynow');
         }
         $this->get('/subscription/free/payment-method')->assertNotFound();
         $this->assertDatabaseCount('billing_payments', 0);

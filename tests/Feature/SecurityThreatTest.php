@@ -56,9 +56,8 @@ class SecurityThreatTest extends TestCase
     public function test_unsigned_payment_notifications_cannot_grant_credits(): void
     {
         Http::preventStrayRequests();
-        config(['paystack.secret_key' => 'security-test-secret']);
-        $this->postJson('/webhooks/paystack', ['event' => 'charge.success', 'data' => ['reference' => (string) Str::uuid(), 'amount' => 1]])
-            ->assertUnauthorized();
+        $this->postJson('/billing/paynow/notify/forged', ['event' => 'charge.success', 'data' => ['reference' => (string) Str::uuid(), 'amount' => 1]])
+            ->assertBadRequest();
         Http::assertNothingSent();
         $this->assertDatabaseCount('subscriptions', 0);
     }
@@ -74,7 +73,7 @@ class SecurityThreatTest extends TestCase
         });
         $this->postJson('/get-started/draft', [])->assertStatus(419);
         $this->post('/login', ['email' => 'somebody@example.invalid', 'password' => 'forged'])->assertStatus(419);
-        $this->postJson('/webhooks/paystack', ['event' => 'charge.success'])->assertUnauthorized();
+        $this->postJson('/billing/paynow/notify/forged', ['event' => 'charge.success'])->assertBadRequest();
     }
 
     public function test_php_disguised_as_docx_is_rejected(): void

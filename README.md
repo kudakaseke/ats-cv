@@ -2,6 +2,8 @@
 
 Laravel 12, patched PHP (see `composer.json`), MySQL, Livewire 4, Blade, Tailwind CSS 4, Alpine, and Lucide. The application foundation and guest-first CV builder are implemented; remaining features are documented below.
 
+See the [5 November 2026 system audit](docs/system-audit-2026-11-05.md) for current findings and validation, and [Paynow billing](README-PAYNOW.md) for the only supported payment provider. Historical audit documents describe earlier implementations.
+
 ## Security and deployment
 
 For backend error monitoring, see [Sentry setup](docs/sentry-setup.md). The SDK forwards sanitised incidents only after a private project DSN is configured.
@@ -64,10 +66,10 @@ Run `npm.cmd run test:ats-analysis` for the independent scikit-learn comparison 
 - Laravel Breeze registration, login, logout, email verification, password recovery/reset, profile editing, password updates, and account deletion.
 - Email verification is required for dashboard and workspace access. Authentication requests have server-enforced limits per IP, email address, and account, backed by the configured shared cache.
 - Livewire dashboard with user-scoped database counts, recent CVs/analyses, latest estimated score, current plan, and remaining monthly allowance. New accounts show zero CVs/analyses and no invented match score.
-- Configurable database-backed Free ($0), Basic ($3), and Pro ($7) plans. Active subscription dates are checked; pending and expired subscriptions never grant paid access. No live checkout or payment activation.
+- Database-backed Free ($0), Monthly ($4.75), Pro ($6.50), and Annual ($47.40/year) plans. Paynow provides one-time USD checkout and manual renewals. Verified live payments activate paid access; test, pending and expired purchases do not grant live access.
 - Dedicated `ats_cv` MySQL database, migrations, idempotent plan seeder, models, relationships, indexes, cascading account-record deletion, and reusable plan/usage service.
 - Privacy, terms, and contact pages. Operator contact and final legal text require review before public launch.
-- The CV Builder and saved CV library are available. AI analysis and revamping have explicit upcoming-release screens; no invented score or company performance metrics are displayed.
+- The CV Builder, saved CV library, AI analysis and revamping are available. Analysis costs 5 application credits and a revamp costs 10; API token usage is recorded separately. AI requests require a configured provider and model.
 
 ## Local installation (PowerShell / XAMPP)
 

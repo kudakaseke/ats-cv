@@ -7,6 +7,9 @@ use App\Models\CvAnalysis;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Services\AiCreditService;
+use App\Services\CvCompatibilityScore;
+use App\Services\CvExperienceMatcher;
+use App\Services\CvJobRequirements;
 use App\Services\PlanService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -63,8 +66,6 @@ class WorkspaceController extends Controller
             'remaining' => intdiv($wallet['credits'], config('ai_credits.costs.analyse')),
             'wallet' => $wallet,
             'plans' => SubscriptionPlan::where('is_active', true)->orderBy('price_cents')->get(),
-            'paypalSubscriptions' => BillingPayment::where('user_id', $request->user()->id)->where('recurring', true)->where('provider', 'paypal')->latest()->get(),
-            'paystackSubscriptions' => BillingPayment::where('user_id', $request->user()->id)->where('recurring', true)->where('provider', 'paystack')->latest()->get(),
         ]);
     }
 
@@ -74,16 +75,17 @@ class WorkspaceController extends Controller
 
         $results = $analysis->results;
         if (isset($results['experience_check'])) {
-            $results['experience_check'] = app(\App\Services\CvExperienceMatcher::class)->reconcile($results['experience_check'], $results['assessment'] ?? $results['ai_analysis']['assessment'] ?? null);
+            $results['experience_check'] = app(CvExperienceMatcher::class)->reconcile($results['experience_check'], $results['assessment'] ?? $results['ai_analysis']['assessment'] ?? null);
         }
-        if (($results['scoring_basis'] ?? '') !== \App\Services\CvJobRequirements::VERSION) {
+        if (($results['scoring_basis'] ?? '') !== CvJobRequirements::VERSION) {
             // Saved checks do not retain the original CV wording. Do not pretend
             // their old keyword counts were produced by the new weighted method.
             $results['legacy_wording_score'] = $results['keyword_score'] ?? $analysis->score;
             $results['keyword_score'] = null;
             $results['certificate_bonus'] = 0;
         }
-        $analysis->results = app(\App\Services\CvCompatibilityScore::class)->scan($results);
+        $analysis->results = app(CvCompatibilityScore::class)->scan($results);
+
         return view('workspace.analysis', compact('analysis'));
     }
 

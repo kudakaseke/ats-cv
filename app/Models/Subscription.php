@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Services\Billing\PaystackGateway;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -17,7 +16,7 @@ class Subscription extends Model
 
     public static function availableStatuses(): array
     {
-        return PaystackGateway::localTestCreditsEnabled() ? ['active', 'test_active'] : ['active'];
+        return ['active'];
     }
 
     public function plan(): BelongsTo

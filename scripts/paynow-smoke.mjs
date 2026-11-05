@@ -14,7 +14,6 @@ try {
         await page.goto(`${base}/subscription/${plan}/payment-method`);
         await expect(page.getByRole('heading', { name: 'Choose Payment Method', exact: true })).toBeVisible();
         await expect(page.locator('.payment-method-card')).toHaveCount(1);
-        await expect(page.locator('.payment-provider-paystack')).toHaveCount(0);
         await page.setViewportSize({ width: 390, height: 844 });
         await expect.poll(() => page.locator('.workspace-sidebar').evaluate(el => el.getBoundingClientRect().right)).toBeLessThanOrEqual(1);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();

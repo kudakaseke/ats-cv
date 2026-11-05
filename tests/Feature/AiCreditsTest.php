@@ -8,7 +8,6 @@ use App\Models\User;
 use App\Services\AiCreditService;
 use App\Services\Billing\PaymentService;
 use App\Services\Billing\PaynowGateway;
-use App\Services\Billing\PaystackGateway;
 use Database\Seeders\SubscriptionPlanSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -37,55 +36,6 @@ class AiCreditsTest extends TestCase
         $this->credits()->finish($user, $operation->id, null);
         $this->assertSame(2390, $this->credits()->wallet($user)['credits']);
         $this->assertSame(2390, $this->credits()->wallet($user)['credits']);
-    }
-
-    public function test_verified_local_test_topups_grant_once_and_reverse_without_creating_subscriptions(): void
-    {
-        $this->app->instance('env', 'local');
-        config(['paystack.local_test_credits' => true]);
-        $user = User::factory()->create();
-        $payment = $this->payment($user, 'topup', 'test');
-        $gateway = app(PaystackGateway::class);
-        $receipt = $this->receipt($payment);
-        $gateway->apply($payment, $receipt);
-        $gateway->apply($payment->fresh(), $receipt);
-        $this->assertSame(65, $this->credits()->wallet($user)['credits']);
-        $this->assertDatabaseCount('subscriptions', 0);
-        $gateway->apply($payment->fresh(), [...$receipt, 'status' => 'reversed']);
-        $gateway->apply($payment->fresh(), [...$receipt, 'status' => 'reversed']);
-        $this->assertSame(15, $this->credits()->wallet($user)['credits']);
-    }
-
-    public function test_test_topups_do_not_grant_credits_in_production(): void
-    {
-        $this->app->instance('env', 'production');
-        config(['paystack.local_test_credits' => true]);
-        $user = User::factory()->create();
-        $payment = $this->payment($user, 'topup', 'test');
-        app(PaystackGateway::class)->apply($payment, $this->receipt($payment));
-        $this->assertSame(15, $this->credits()->wallet($user)['credits']);
-        $this->assertDatabaseCount('subscriptions', 0);
-    }
-
-    public function test_paystack_topup_is_available_at_twenty_credits_with_an_active_subscription(): void
-    {
-        $user = User::factory()->create();
-        $this->paid($user);
-        $this->credits()->wallet($user);
-        DB::table('ai_wallets')->where('user_id', $user->id)->update(['subscription_credits' => 20]);
-        config(['paystack.enabled' => true, 'paystack.secret_key' => 'sk_live_fixture', 'paystack.currency' => 'ZAR', 'paystack.topup_amounts.monthly' => 7795]);
-        Http::fake(function ($request) {
-            return Http::response(['status' => true, 'data' => ['reference' => $request['reference'], 'authorization_url' => 'https://checkout.paystack.com/topup-fixture']]);
-        });
-        $this->assertSame(20, $this->credits()->wallet($user)['credits']);
-        $this->payment($user)->update(['status' => 'pending']);
-        config(['paystack.secret_key' => 'sk_live_fixture']);
-        $this->actingAs($user)->get(route('subscription'))->assertOk()->assertSee('Top up')->assertDontSee('Buy more credits');
-        $this->get(route('subscription.payment-methods', 'monthly'))->assertOk()->assertDontSee('Already have a plan? Top up credits')->assertDontSee('Top up 150 credits with Paystack');
-        $this->post(route('credits.topup'), ['pack' => 'monthly', 'provider' => 'paystack', 'billing_consent' => 1])
-            ->assertRedirect('https://checkout.paystack.com/topup-fixture');
-        $this->assertDatabaseHas('billing_payments', ['user_id' => $user->id, 'kind' => 'topup', 'credits' => 150, 'recurring' => false]);
-        $this->assertSame(20, $this->credits()->wallet($user)['credits']);
     }
 
     protected function setUp(): void
@@ -257,101 +207,10 @@ class AiCreditsTest extends TestCase
         $this->assertSame(15, $this->credits()->wallet($user)['credits']);
     }
 
-    private function payment(User $user, string $kind = 'subscription', string $mode = 'live'): BillingPayment
-    {
-        config(['paystack.secret_key' => 'sk_'.$mode.'_fake']);
-
-        return BillingPayment::create(['reference' => (string) Str::uuid(), 'user_id' => $user->id, 'subscription_plan_id' => SubscriptionPlan::where('slug', 'monthly')->first()->id,
-            'provider' => 'paystack', 'mode' => $mode, 'amount_cents' => 8500, 'currency' => 'ZAR', 'billing_interval' => 'monthly',
-            'provider_plan_id' => $kind === 'topup' ? null : 'PLN_test', 'recurring' => $kind !== 'topup', 'kind' => $kind, 'credits' => 50]);
-    }
-
-    private function receipt(BillingPayment $payment, int $id = 1, ?string $reference = null): array
-    {
-        return ['id' => $id, 'status' => 'success', 'domain' => $payment->mode, 'reference' => $reference ?? $payment->reference,
-            'amount' => 8500, 'currency' => 'ZAR', 'paid_at' => now()->toIso8601String(), 'plan_object' => ['plan_code' => 'PLN_test'],
-            'customer' => ['customer_code' => 'CUS_test', 'email' => $payment->user_id ? User::find($payment->user_id)->email : '']];
-    }
-
-    public function test_verified_paystack_payment_and_renewal_grant_once_and_reversal_preserves_topups(): void
-    {
-        $user = User::factory()->create();
-        $payment = $this->payment($user);
-        $gateway = app(PaystackGateway::class);
-        $gateway->apply($payment, $this->receipt($payment));
-        $gateway->apply($payment, $this->receipt($payment));
-        $this->assertSame(150, $this->credits()->wallet($user)['credits']);
-        $this->useCredits($user);
-        $this->assertSame(140, $this->credits()->wallet($user)['credits']);
-        $this->travel(32)->days();
-        $renewal = $this->receipt($payment->fresh(), 2, 'renewal-ref');
-        $gateway->apply($payment->fresh(), $renewal);
-        $this->assertSame(150, $this->credits()->wallet($user)['credits']);
-        $this->credits()->topup($user, 50, 'purchased');
-        $gateway->apply($payment->fresh(), [...$renewal, 'status' => 'reversed']);
-        $this->assertSame(50, $this->credits()->wallet($user)['credits']);
-        $this->assertDatabaseCount('paystack_receipts', 2);
-    }
-
-    public function test_signed_paystack_webhook_verifies_remotely_and_duplicate_delivery_does_not_regrant(): void
-    {
-        $user = User::factory()->create();
-        $payment = $this->payment($user);
-        Http::fake(['api.paystack.co/transaction/verify/*' => Http::response(['status' => true, 'data' => $this->receipt($payment)])]);
-        $body = json_encode(['event' => 'charge.success', 'data' => ['reference' => $payment->reference]]);
-        $signature = hash_hmac('sha512', $body, 'sk_live_fake');
-        $this->call('POST', '/webhooks/paystack', [], [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_X_PAYSTACK_SIGNATURE' => $signature], $body)->assertOk();
-        $this->useCredits($user);
-        $this->call('POST', '/webhooks/paystack', [], [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_X_PAYSTACK_SIGNATURE' => $signature], $body)->assertOk();
-        $this->assertSame(140, $this->credits()->wallet($user)['credits']);
-        $this->call('POST', '/webhooks/paystack', [], [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_X_PAYSTACK_SIGNATURE' => 'bad'], $body)->assertUnauthorized();
-    }
-
-    public function test_test_payments_and_pending_payments_never_add_paid_credits(): void
-    {
-        $user = User::factory()->create();
-        $payment = $this->payment($user, 'subscription', 'test');
-        app(PaystackGateway::class)->apply($payment, $this->receipt($payment));
-        $this->assertSame(15, $this->credits()->wallet($user)['credits']);
-        $this->assertDatabaseCount('subscriptions', 0);
-        $this->assertDatabaseHas('billing_payments', ['id' => $payment->id, 'status' => 'test_paid']);
-    }
-
-    public function test_two_provider_receipts_for_the_same_billing_period_cannot_reset_spent_credits(): void
-    {
-        $user = User::factory()->create();
-        $payment = $this->payment($user);
-        $gateway = app(PaystackGateway::class);
-        $gateway->apply($payment, $this->receipt($payment));
-        $this->useCredits($user);
-        $gateway->apply($payment->fresh(), $this->receipt($payment->fresh(), 2, 'second-transaction-same-period'));
-        $this->assertSame(140, $this->credits()->wallet($user)['credits']);
-        $this->assertDatabaseCount('subscriptions', 1);
-        $this->assertDatabaseCount('paystack_receipts', 2);
-        // Refunding a duplicate receipt must not revoke the original paid term.
-        $gateway->apply($payment->fresh(), [...$this->receipt($payment->fresh(), 2, 'second-transaction-same-period'), 'status' => 'reversed']);
-        $this->assertSame(140, $this->credits()->wallet($user)['credits']);
-    }
-
-    public function test_wrong_amounts_or_currency_do_not_grant_credits(): void
-    {
-        $user = User::factory()->create();
-        $payment = $this->payment($user);
-        foreach (['currency' => 'USD', 'amount' => 1, 'domain' => 'test'] as $field => $value) {
-            try {
-                app(PaystackGateway::class)->apply($payment, [...$this->receipt($payment), $field => $value]);
-                $this->fail('Mismatched payment was accepted');
-            } catch (\RuntimeException $exception) {
-                $this->assertSame(15, $this->credits()->wallet($user)['credits']);
-                $this->assertDatabaseCount('subscriptions', 0);
-            }
-        }
-    }
-
     public function test_topup_checkout_uses_only_server_prices_and_verified_fulfilment(): void
     {
         $user = User::factory()->create();
-        config(['billing.paynow.enabled' => true, 'billing.paynow.mode' => 'live']);
+        config(['billing.paynow.enabled' => true, 'billing.paynow.mode' => 'live', 'billing.paynow.integration_id' => '123', 'billing.paynow.integration_key' => 'fixture', 'billing.paynow.live_currency_confirmed' => true]);
         $this->mock(PaynowGateway::class, function ($mock) {
             $mock->shouldReceive('start')->once()->andReturn('https://www.paynow.co.zw/Payment/test');
             $mock->shouldReceive('status')->andReturn('paid');

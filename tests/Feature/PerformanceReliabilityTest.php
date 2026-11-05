@@ -165,6 +165,6 @@ class PerformanceReliabilityTest extends TestCase
     {
         return BillingPayment::create(['user_id' => $user->id, 'reference' => (string) Str::uuid(),
             'subscription_plan_id' => SubscriptionPlan::where('slug', 'monthly')->firstOrFail()->id,
-            'provider' => 'paystack', 'mode' => 'test', 'amount_cents' => 7795, 'currency' => 'ZAR', 'billing_interval' => 'monthly']);
+            'provider' => 'paynow', 'mode' => 'test', 'amount_cents' => 7795, 'currency' => 'USD', 'billing_interval' => 'monthly']);
     }
 }

@@ -1,6 +1,6 @@
 # Paynow billing
 
-The existing Laravel 12 application uses a Laravel HTTP client implementation of Paynow's form-encoded protocol. No new payment SDK is needed. Existing billing, subscription, credit ledger, audit, authentication and queue services are reused. Paystack remains intact and its checkout card remains Blade-commented out.
+The Laravel 12 application uses a Laravel HTTP client implementation of Paynow's form-encoded protocol. Paynow is the only supported payment provider. Existing billing, subscription, credit ledger, audit, authentication and queue services are reused. Historical migration definitions and payment records are retained for upgrade compatibility and accounting; they do not enable another payment provider.
 
 ## Provider references
 

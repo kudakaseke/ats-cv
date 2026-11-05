@@ -113,25 +113,25 @@ class ProfileTest extends TestCase
         $this->assertNotNull($user->fresh());
     }
 
-    public function test_disabled_paystack_renewal_does_not_block_account_deletion(): void
+    public function test_disabled_provider_renewal_does_not_block_account_deletion(): void
     {
         $this->seed(SubscriptionPlanSeeder::class);
         $user = User::factory()->create();
         BillingPayment::create(['user_id' => $user->id, 'reference' => 'disabled-renewal-test',
             'subscription_plan_id' => SubscriptionPlan::where('slug', 'monthly')->firstOrFail()->id,
-            'provider' => 'paystack', 'mode' => 'test', 'status' => 'test_paid', 'currency' => 'ZAR',
+            'provider' => 'legacy', 'mode' => 'test', 'status' => 'test_paid', 'currency' => 'ZAR',
             'amount_cents' => 7795, 'credits' => 150, 'billing_interval' => 'monthly', 'recurring' => true, 'recurring_status' => 'DISABLED']);
         $this->actingAs($user)->delete('/profile', ['password' => 'password'])->assertSessionHasNoErrors()->assertRedirect('/');
         $this->assertNull($user->fresh());
     }
 
-    public function test_active_paystack_renewal_still_blocks_account_deletion(): void
+    public function test_active_provider_renewal_still_blocks_account_deletion(): void
     {
         $this->seed(SubscriptionPlanSeeder::class);
         $user = User::factory()->create();
         BillingPayment::create(['user_id' => $user->id, 'reference' => 'active-renewal-test',
             'subscription_plan_id' => SubscriptionPlan::where('slug', 'monthly')->firstOrFail()->id,
-            'provider' => 'paystack', 'mode' => 'test', 'status' => 'test_paid', 'currency' => 'ZAR',
+            'provider' => 'legacy', 'mode' => 'test', 'status' => 'test_paid', 'currency' => 'ZAR',
             'amount_cents' => 7795, 'credits' => 150, 'billing_interval' => 'monthly', 'recurring' => true, 'recurring_status' => 'ACTIVE']);
         $this->actingAs($user)->delete('/profile', ['password' => 'password'])->assertSessionHasErrorsIn('userDeletion', 'password');
         $this->assertNotNull($user->fresh());

@@ -12,7 +12,7 @@ try {
     await page.goto(base + '/dashboard');
     await expect(page.getByRole('heading', { name: 'Current plan: Free', exact: true })).toHaveCount(0);
     await expect(page.locator('.purchased-credit-badge')).toContainText('0');
-    await page.getByRole('link', { name: 'Audit trail', exact: true }).click();
+    await page.goto(base + '/account/activity');
     await expect(page.getByRole('heading', { name: 'Account audit trail' })).toBeVisible();
     for (const name of ['Payment history', 'Credit ledger', 'Activity history']) {
         await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
@@ -27,7 +27,7 @@ try {
     if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw Error('Mobile page overflows horizontally');
     await page.screenshot({ path: 'storage/app/payment-audit-mobile.png', fullPage: true });
     if (errors.length) throw Error(errors.join('\n'));
-    console.log('Account balance, plan visibility, audit navigation, credit ledger, login history and mobile layout passed. No provider or AI calls made.');
+    console.log('Account balance, plan visibility, audit page, credit ledger, login history and mobile layout passed. No provider or AI calls made.');
 } finally {
     await browser.close();
     removeTestUser(fixture);

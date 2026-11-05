@@ -19,7 +19,7 @@ class CvDocumentExporter
         $output = $prefix.($format === 'pdf' ? '.pdf' : '.docx');
         try {
             $manifest = json_decode(file_get_contents(public_path('build/manifest.json')), true, 512, JSON_THROW_ON_ERROR);
-            $script = file_get_contents(public_path('build/'.$manifest['resources/js/app.js']['file']));
+            $script = $this->inlineModule($manifest, 'resources/js/app.js');
             $css = file_get_contents(resource_path('css/cv-paper.css'));
             $html = view('exports.cv', compact('data', 'script', 'css'))->render();
             if (config('cv_exports.driver') === 'remote') {
@@ -70,5 +70,22 @@ class CvDocumentExporter
                 }
             }
         }
+    }
+
+    private function inlineModule(array $manifest, string $entry, array $ancestors = []): string
+    {
+        if (in_array($entry, $ancestors, true)) {
+            throw new \RuntimeException('Circular export script dependency.');
+        }
+        $asset = $manifest[$entry] ?? throw new \RuntimeException('Missing export script dependency.');
+        $script = file_get_contents(public_path('build/'.$asset['file']));
+        foreach ($asset['imports'] ?? [] as $dependency) {
+            $module = $this->inlineModule($manifest, $dependency, [...$ancestors, $entry]);
+            $specifier = './'.basename($manifest[$dependency]['file']);
+            $encoded = json_encode('data:text/javascript;base64,'.base64_encode($module), JSON_THROW_ON_ERROR);
+            $script = str_replace(['"'.$specifier.'"', "'".$specifier."'"], $encoded, $script);
+        }
+
+        return $script;
     }
 }

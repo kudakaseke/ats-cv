@@ -42,7 +42,7 @@ class ProfileController extends Controller
     {
         if (BillingPayment::where('user_id', $request->user()->id)->where('recurring', true)
             ->where(fn ($query) => $query->whereNull('recurring_status')->orWhereNotIn('recurring_status', ['CANCELLED', 'EXPIRED', 'SETUP_FAILED', 'DISABLED', 'COMPLETE']))->exists()) {
-            throw ValidationException::withMessages(['password' => 'Cancel your automatic renewal on the Subscription page before deleting your account.'])->errorBag('userDeletion');
+            throw ValidationException::withMessages(['password' => 'Contact support to resolve your existing automatic renewal before deleting your account.'])->errorBag('userDeletion');
         }
         $request->validateWithBag('userDeletion', [
             'password' => ['required', 'current_password'],

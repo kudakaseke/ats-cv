@@ -11,7 +11,7 @@ if (! $app->environment('local')) {
 }
 
 if (($argv[1] ?? '') === 'create') {
-    $domain = ($argv[2] ?? '') === 'paystack' ? 'example.com' : 'example.invalid';
+    $domain = ($argv[2] ?? '') === 'payment' ? 'example.com' : 'example.invalid';
     $email = 'browser-smoke-'.bin2hex(random_bytes(8)).'@'.$domain;
     $password = bin2hex(random_bytes(16));
     User::create(['name' => 'Browser Check', 'email' => $email, 'password' => $password])

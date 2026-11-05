@@ -78,7 +78,7 @@ All Laravel web routes receive a broad **600 requests/minute/IP** ceiling, in ad
 
 | Endpoint/work | Additional limit |
 | --- | --- |
-| Payment return/status GET and PayPal success | 20/minute/user, 60/minute/IP |
+| Payment return/status GET | 20/minute/user, 60/minute/IP |
 | PDF/Word export | 5/minute/user, 20/minute/IP |
 | Job-to-CV AI analysis | 6/minute/user, 30/minute/IP |
 | Google OAuth redirect/callback | 20/minute/IP, 60/hour/IP |

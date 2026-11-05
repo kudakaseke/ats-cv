@@ -3,9 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\BillingPayment;
-use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Services\AiCreditService;
+use App\Services\Billing\PaynowGateway;
 use Database\Seeders\SubscriptionPlanSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -19,43 +19,35 @@ class SubscriptionCreditDisplayTest extends TestCase
 
     public static function plans(): array
     {
-        return ['Monthly' => ['monthly', 'Monthly', 150, 7795], 'Pro' => ['pro', 'Pro', 225, 10256], 'Annual' => ['annual', 'Annual', 2400, 77783]];
+        return ['Monthly' => ['monthly', 'Monthly', 150, 475], 'Pro' => ['pro', 'Pro', 225, 650], 'Annual' => ['annual', 'Annual', 2400, 4740]];
     }
 
     #[DataProvider('plans')]
     public function test_successful_subscription_shows_correct_credits_and_deducts_usage(string $slug, string $name, int $credits, int $amount): void
     {
         $this->seed(SubscriptionPlanSeeder::class);
-        $this->app->instance('env', 'local');
-        config(['paystack.enabled' => true, 'paystack.secret_key' => 'sk_test_subscription_fixture', 'paystack.local_test_credits' => true]);
+        config(['billing.paynow.enabled' => true, 'billing.paynow.mode' => 'live',
+            'billing.paynow.integration_id' => '123', 'billing.paynow.integration_key' => 'fixture',
+            'billing.paynow.live_currency_confirmed' => true]);
         $user = User::factory()->create();
-        $plan = SubscriptionPlan::where('slug', $slug)->firstOrFail();
-        $plan->update(['paystack_plan_code' => 'PLN_'.$slug, 'paystack_mode' => 'test', 'paystack_amount_cents' => $amount]);
         Http::preventStrayRequests();
-        Http::fake([
-            'api.paystack.co/plan/*' => Http::response(['status' => true, 'data' => ['plan_code' => 'PLN_'.$slug, 'domain' => 'test', 'currency' => 'ZAR', 'amount' => $amount, 'interval' => $plan->billing_interval]]),
-            'api.paystack.co/transaction/initialize' => function ($request) {
-                return Http::response(['data' => ['reference' => $request['reference'], 'authorization_url' => 'https://checkout.paystack.com/test-subscription-fixture']]);
-            },
-        ]);
-        $csrf = Str::random(40);
-        $this->withSession(['_token' => $csrf])->actingAs($user)->post(route('paystack.subscribe', $slug), ['billing_consent' => 1, '_token' => $csrf])->assertRedirect('https://checkout.paystack.com/test-subscription-fixture');
+        $this->mock(PaynowGateway::class, function ($mock) {
+            $mock->shouldReceive('start')->once()->andReturn('https://www.paynow.co.zw/Payment/fixture');
+            $mock->shouldReceive('status')->andReturn('paid');
+        });
+        $this->actingAs($user)->post(route('billing.start', ['provider' => 'paynow', 'plan' => $slug]), ['billing_consent' => 1])
+            ->assertRedirect('https://www.paynow.co.zw/Payment/fixture');
         $payment = BillingPayment::where('user_id', $user->id)->sole();
         $this->assertSame('pending', $payment->status);
         $this->assertSame(0, app(AiCreditService::class)->wallet($user)['purchased_credits']);
 
-        Http::fake(['api.paystack.co/transaction/verify/*' => Http::response(['status' => true, 'data' => [
-            'id' => 700001, 'reference' => $payment->reference, 'domain' => 'test', 'status' => 'success',
-            'currency' => 'ZAR', 'amount' => $amount, 'plan' => 'PLN_'.$slug, 'paid_at' => now()->toIso8601String(),
-            'customer' => ['customer_code' => 'CUS_TEST_SUBSCRIPTION', 'email' => $user->email],
-        ]])]);
         $this->get(route('billing.show', $payment->reference))->assertRedirect(route('dashboard'))
             ->assertSessionHas('payment_success', fn ($message) => str_contains($message, $credits.' credits'));
         $this->get(route('dashboard'))->assertOk()->assertDontSee('Current plan:')->assertSee($credits.' credits')
             ->assertSee('credits: '.$credits, false);
         $this->getJson(route('ai.credits'))->assertOk()->assertJson(['credits' => $credits, 'purchased_credits' => $credits]);
         $this->get(route('subscription'))->assertOk()->assertSee('Your current plan is '.$name)->assertSee($credits.' AI credits');
-        $this->get(route('account.activity'))->assertOk()->assertSee('Test payment confirmed')->assertSee($payment->reference);
+        $this->get(route('account.activity'))->assertOk()->assertSee('Paid')->assertSee($payment->reference);
         $this->get(route('billing.show', $payment->reference))->assertRedirect(route('dashboard'));
         $this->assertDatabaseCount('subscriptions', 1);
 

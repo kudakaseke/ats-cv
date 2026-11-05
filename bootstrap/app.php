@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\RecordAccountActivity;
 use App\Http\Middleware\SecurityRequestGuard;
+use App\Http\Middleware\ThrottleIngress;
 use App\Http\Middleware\WorkspaceResponseHeaders;
 use App\Services\IncidentReporter;
 use Illuminate\Foundation\Application;
@@ -21,9 +22,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->trustProxies(at: array_values(array_filter(array_map('trim', explode(',', (string) env('TRUSTED_PROXIES', ''))))),
             headers: Request::HEADER_X_FORWARDED_FOR | Request::HEADER_X_FORWARDED_PROTO | Request::HEADER_X_FORWARDED_PORT);
         $middleware->prepend(SecurityRequestGuard::class);
-        $middleware->append(\App\Http\Middleware\ThrottleIngress::class);
+        $middleware->append(ThrottleIngress::class);
         $middleware->web(append: [WorkspaceResponseHeaders::class, 'throttle:site', RecordAccountActivity::class]);
-        $middleware->validateCsrfTokens(except: ['billing/paynow/notify/*', 'billing/paypal/notify', 'paypal/webhook', 'webhooks/paystack']);
+        $middleware->validateCsrfTokens(except: ['billing/paynow/notify/*']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->dontReportDuplicates();

@@ -42,17 +42,10 @@ class PaymentService
 
     private function refreshVerified(BillingPayment $payment): void
     {
-        if ($payment->provider === 'paystack') {
-            app(PaystackGateway::class)->refresh($payment);
-
-            return;
+        if ($payment->provider !== 'paynow') {
+            throw new \DomainException('Unsupported payment provider.');
         }
-        if ($payment->provider === 'paypal' && $payment->recurring) {
-            app(PaypalSubscriptions::class)->refresh($payment);
-
-            return;
-        }
-        $gateway = $payment->provider === 'paynow' ? app(PaynowGateway::class) : app(PaypalGateway::class);
+        $gateway = app(PaynowGateway::class);
         $status = $gateway->status($payment);
         DB::transaction(function () use ($payment, $status) {
             User::whereKey($payment->user_id)->lockForUpdate()->firstOrFail();
@@ -70,7 +63,7 @@ class PaymentService
                     return;
                 }
                 $latestEnd = Subscription::where('user_id', $locked->user_id)
-                    ->when($locked->provider !== 'paynow', fn ($q) => $q->where('subscription_plan_id', $locked->subscription_plan_id))->where('status', 'active')
+                    ->where('status', 'active')
                     ->where('ends_at', '>', now())->max('ends_at');
                 $start = $latestEnd ? Carbon::parse($latestEnd) : now();
                 $subscription = new Subscription;

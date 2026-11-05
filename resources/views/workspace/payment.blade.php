@@ -28,9 +28,7 @@
         @if(session('status'))<p role="status">{{ session('status') }}</p>@endif
         <h2>{{ ucfirst($payment->provider) }} · {{ $payment->currency }} {{ number_format($payment->amount_cents / 100, 2) }}</h2>
         <p>Status: <strong>{{ ucfirst($payment->status) }}</strong>
-            @if($payment->mode === 'sandbox')
-                — PayPal sandbox test payment
-            @elseif($payment->mode === 'test')
+            @if($payment->mode === 'test')
                 — {{ ucfirst($payment->provider) }} test payment
             @endif
         </p>
@@ -41,9 +39,6 @@
         @elseif($payment->status === 'pending')
             @if($payment->provider === 'paynow' && $payment->checkout_url && app(\App\Services\Billing\PaynowGateway::class)->safeUrl($payment->checkout_url))
                 <p><a class="btn btn-primary mt-4" href="{{ $payment->checkout_url }}">Continue to Paynow checkout</a></p>
-            @endif
-            @if($payment->provider === 'paystack' && $payment->checkout_url && parse_url($payment->checkout_url, PHP_URL_SCHEME) === 'https' && parse_url($payment->checkout_url, PHP_URL_HOST) === 'checkout.paystack.com')
-                <p><a class="btn btn-primary mt-4" href="{{ $payment->checkout_url }}">Continue to Paystack checkout</a></p>
             @endif
             <p>Confirming your payment automatically. Once confirmed, you will go to your dashboard with your updated credits. You can also check the status below.</p>
             <p>Automatic checks stop after one minute. A pending payment does not mean it failed. If checkout could not open or you were charged, contact support with the reference before paying again.</p>

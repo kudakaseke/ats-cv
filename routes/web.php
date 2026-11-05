@@ -7,7 +7,6 @@ use App\Http\Controllers\CreditBillingController;
 use App\Http\Controllers\CvBuilderController;
 use App\Http\Controllers\CvCheckerController;
 use App\Http\Controllers\HomeController;
-use App\Http\Controllers\PayPalController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\WorkspaceController;
 use Illuminate\Support\Facades\Route;
@@ -30,28 +29,18 @@ Route::view('/terms', 'legal.terms')->name('terms');
 Route::view('/refund-policy', 'legal.refund')->name('refund');
 Route::view('/contact', 'legal.contact')->name('contact');
 Route::post('/billing/paynow/notify/{reference}', [BillingController::class, 'paynowNotify'])->middleware('throttle:60,1')->name('billing.paynow.notify');
-Route::post('/billing/paypal/notify', [BillingController::class, 'paypalNotify'])->middleware('throttle:60,1')->name('billing.paypal.notify');
-Route::post('/paypal/webhook', [PayPalController::class, 'handleWebhook'])->middleware('throttle:60,1')->name('paypal.webhook');
-Route::post('/webhooks/paystack', [CreditBillingController::class, 'webhook'])->middleware('throttle:120,1')->name('paystack.webhook');
 
 Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth', 'verified', 'throttle:workspace-read'])->name('dashboard');
 
 Route::middleware(['auth', 'verified', 'throttle:workspace-read'])->group(function () {
-    Route::get('/paystack/callback', [CreditBillingController::class, 'callback'])->middleware('throttle:payment-return')->name('paystack.callback');
     Route::get('/account/activity', ActivityController::class)->name('account.activity');
     Route::get('/ai/credits', [CvCheckerController::class, 'credits'])->name('ai.credits');
     Route::post('/credits/topup', [CreditBillingController::class, 'topup'])->middleware('throttle:6,1')->name('credits.topup');
-    Route::post('/paystack/subscribe/{plan}', [CreditBillingController::class, 'subscribe'])->middleware('throttle:6,1')->name('paystack.subscribe');
-    Route::post('/paystack/{reference}/cancel', [CreditBillingController::class, 'cancel'])->middleware('throttle:6,1')->name('paystack.cancel');
-    Route::post('paypal/checkout', [PayPalController::class, 'checkout'])->middleware('throttle:6,1')->name('paypal.checkout');
-    Route::get('paypal/success', [PayPalController::class, 'success'])->middleware('throttle:payment-return')->name('paypal.success');
-    Route::get('paypal/cancel', [PayPalController::class, 'cancel'])->name('paypal.cancel');
     Route::post('/billing/{provider}/{plan}', [BillingController::class, 'start'])->middleware('throttle:6,1')->name('billing.start');
     Route::get('/payments/{reference}', [BillingController::class, 'show'])->middleware('throttle:payment-return')->name('billing.show');
     Route::post('/payments/{reference}/check', [BillingController::class, 'check'])->middleware('throttle:12,1')->name('billing.check');
-    Route::post('/payments/{reference}/cancel-paypal', [BillingController::class, 'cancelPaypal'])->middleware('throttle:6,1')->name('billing.paypal.cancel');
     Route::post('/checker/rewrite', [CvCheckerController::class, 'rewrite'])->middleware('throttle:5,1')->name('checker.rewrite');
     Route::post('/checker/scan', [CvCheckerController::class, 'scan'])->middleware('throttle:ai-analysis')->name('checker.scan');
     Route::post('/checker/detect', [CvCheckerController::class, 'detect'])->middleware('throttle:30,1')->name('checker.detect');

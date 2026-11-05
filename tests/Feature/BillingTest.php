@@ -25,7 +25,7 @@ class BillingTest extends TestCase
         config(['billing.paynow.enabled' => true, 'billing.paynow.integration_id' => '123', 'billing.paynow.integration_key' => 'test-secret',
             'billing.paynow.live_currency_confirmed' => true,
             'billing.paynow.mode' => 'live', 'billing.paynow.callback_url' => null,
-            'billing.paypal.enabled' => true, 'billing.paypal.mode' => 'sandbox', 'billing.paypal.client_id' => 'test-client', 'billing.paypal.client_secret' => 'test-secret']);
+        ]);
     }
 
     public function test_paynow_local_test_uses_https_callbacks_and_never_grants_live_access(): void
@@ -126,58 +126,13 @@ class BillingTest extends TestCase
         $this->assertDatabaseHas('subscriptions', ['id' => $payment->fresh()->subscription_id, 'status' => 'cancelled']);
     }
 
-    public function test_paypal_capture_requires_matching_completed_payment_and_sandbox_never_grants_access(): void
-    {
-        $payment = $this->payment('paypal', 'sandbox');
-        $payment->update(['provider_reference' => 'ORDER123']);
-        Http::fake([
-            '*/v1/oauth2/token' => Http::response(['access_token' => 'token']),
-            '*/v2/checkout/orders/ORDER123' => Http::response(['id' => 'ORDER123', 'status' => 'APPROVED', 'purchase_units' => [[
-                'custom_id' => $payment->reference, 'amount' => ['currency_code' => 'USD', 'value' => '5.00'],
-            ]]]),
-            '*/v2/checkout/orders/ORDER123/capture' => Http::response(['status' => 'COMPLETED', 'purchase_units' => [['payments' => ['captures' => [[
-                'id' => 'CAPTURE123', 'status' => 'COMPLETED', 'amount' => ['currency_code' => 'USD', 'value' => '5.00'],
-            ]]]]]]),
-        ]);
-        app(PaymentService::class)->refresh($payment);
-        $this->assertSame('test_paid', $payment->fresh()->status);
-        $this->assertDatabaseCount('subscriptions', 0);
-        Http::assertSent(fn ($request) => str_ends_with($request->url(), '/capture') && $request->hasHeader('PayPal-Request-Id', $payment->reference.'-capture'));
-    }
-
     public function test_disabled_provider_and_missing_consent_do_not_create_payments(): void
     {
         config(['billing.paynow.enabled' => false]);
         Http::preventStrayRequests();
         $this->actingAs(User::factory()->create())->post('/billing/paynow/monthly', ['billing_consent' => 1])->assertSessionHasErrors('billing');
-        $this->post('/billing/paypal/monthly')->assertSessionHasErrors('billing_consent');
+        $this->post('/billing/paynow/monthly')->assertSessionHasErrors('billing_consent');
         $this->assertDatabaseCount('billing_payments', 0);
-    }
-
-    public function test_unverified_paypal_webhooks_are_rejected(): void
-    {
-        config(['billing.paypal.webhook_id' => 'WH_TEST']);
-        Http::fake([
-            '*/v1/oauth2/token' => Http::response(['access_token' => 'token']),
-            '*/verify-webhook-signature' => Http::response(['verification_status' => 'FAILURE']),
-        ]);
-        $this->postJson('/billing/paypal/notify', ['resource' => ['id' => 'forged']])->assertBadRequest();
-        $this->assertDatabaseCount('subscriptions', 0);
-    }
-
-    public function test_paypal_wrong_currency_does_not_capture_or_activate(): void
-    {
-        $payment = $this->payment('paypal', 'sandbox');
-        $payment->update(['provider_reference' => 'ORDER123']);
-        Http::fake([
-            '*/v1/oauth2/token' => Http::response(['access_token' => 'token']),
-            '*/v2/checkout/orders/ORDER123' => Http::response(['id' => 'ORDER123', 'status' => 'APPROVED', 'purchase_units' => [[
-                'custom_id' => $payment->reference, 'amount' => ['currency_code' => 'ZAR', 'value' => '5.00'],
-            ]]]),
-        ]);
-        $this->actingAs(User::find($payment->user_id))->post('/payments/'.$payment->reference.'/check')->assertSessionHasErrors('billing');
-        Http::assertNotSent(fn ($request) => str_ends_with($request->url(), '/capture'));
-        $this->assertDatabaseCount('subscriptions', 0);
     }
 
     private function payment(string $provider = 'paynow', string $mode = 'live'): BillingPayment
@@ -193,7 +148,7 @@ class BillingTest extends TestCase
         $payment = $this->payment();
         $this->actingAs(User::findOrFail($payment->user_id));
         Http::preventStrayRequests();
-        foreach (['test', 'live', 'sandbox'] as $mode) {
+        foreach (['test', 'live'] as $mode) {
             foreach (['pending', 'test_paid', 'paid', 'cancelled'] as $status) {
                 $payment->update(['mode' => $mode, 'status' => $status]);
                 $response = $this->get('/payments/'.$payment->reference);

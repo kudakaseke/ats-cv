@@ -1,9 +1,9 @@
-import {chromium, expect} from '@playwright/test';
+import {chromium, expect as baseExpect} from '@playwright/test';
 import {signInTestUser, removeTestUser} from './browser-auth.mjs';
 import fs from 'node:fs';
 
 const base = process.env.APP_TEST_URL || 'http://127.0.0.1:8000';
-expect.configure({timeout:15000});
+const expect = baseExpect.configure({timeout:15000});
 const browser = await chromium.launch({channel:'chrome',headless:true});
 const page = await browser.newPage({viewport:{width:1440,height:1000}});
 await page.route('https://fonts.googleapis.com/**', route => route.abort());
@@ -80,12 +80,12 @@ try {
     await page.getByRole('button',{name:'Choose Essential template',exact:true}).click();
     await expect(page.locator('.editor-paper-wrap')).toContainText(/System Audit Candidate/i);
     await expect(page.locator('.editor-paper-wrap')).toContainText('Example Organisation');
-    for (const [plan,price] of [['monthly','77.95'],['pro','102.56'],['annual','777.83']]) {
+    for (const [plan,price] of [['monthly','4.75'],['pro','6.50'],['annual','47.40']]) {
         await page.goto(base+'/subscription/'+plan+'/payment-method');
         await expect(page.getByRole('heading',{name:'Choose Payment Method',exact:true})).toBeVisible();
-        await expect(page.locator('.payment-method-card h2')).toHaveText(['Paystack','Paynow']);
+        await expect(page.locator('.payment-method-card h2')).toHaveText(['Paynow']);
         await expect(page.locator('.payment-method-card').first().getByRole('button')).toHaveCount(1);
-        await expect(page.locator('.payment-method-card').first()).toContainText('ZAR '+price);
+        await expect(page.locator('.dashboard-heading')).toContainText('US$'+price);
     }
     for (const path of ['/dashboard','/subscription','/profile','/workspace/checker','/workspace/resumes','/account/activity']) {
         for (const width of [320,390,1440]) {
@@ -98,7 +98,7 @@ try {
     const wallet=await page.evaluate(async()=>(await fetch('/ai/credits',{headers:{Accept:'application/json'}})).json());
     expect(wallet.credits).toBe(15);
     expect(errors).toEqual([]);
-    console.log('PASS: guest onboarding, paid-template lock, free-template selection, inline editing, headings, dates, review, sign-in-to-save, reopening, PDF/Word downloads, Word import, all Paystack prices and responsive workspace. No provider or AI charges made.');
+    console.log('PASS: guest onboarding, paid-template lock, free-template selection, inline editing, headings, dates, review, sign-in-to-save, reopening, PDF/Word downloads, Word import, Paynow pricing and responsive workspace. No provider or AI charges made.');
 } finally {
     await browser.close();
     removeTestUser(fixture);
