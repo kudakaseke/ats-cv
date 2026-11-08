@@ -39,9 +39,22 @@ class WorkspaceTest extends TestCase
         foreach (['monthly' => '4.75', 'pro' => '6.50', 'annual' => '47.40'] as $plan => $price) {
             $this->get('/subscription/'.$plan.'/payment-method')->assertOk()->assertSee('Choose Payment Method')
                 ->assertSee('<h2 class="sr-only">Paynow</h2>', false)->assertSee('US$'.$price)
-                ->assertSee('payment-provider-paynow');
+                ->assertDontSee('payment-provider-paystack')->assertSee('payment-provider-paynow')->assertDontSee('payment-provider-paypal');
         }
         $this->get('/subscription/free/payment-method')->assertNotFound();
+        $this->assertDatabaseCount('billing_payments', 0);
+    }
+
+    public function test_removed_providers_cannot_start_new_purchases(): void
+    {
+        $this->actingAs(User::factory()->create());
+        foreach (['paypal', 'paystack'] as $provider) {
+            $this->post('/billing/'.$provider.'/monthly', ['billing_consent' => '1'])->assertNotFound();
+            $this->postJson('/credits/topup', ['provider' => $provider, 'pack' => 'monthly', 'billing_consent' => '1'])
+                ->assertUnprocessable()->assertJsonValidationErrors('provider');
+        }
+        $this->post('/paypal/checkout', ['plan' => 'monthly', 'billing_consent' => '1'])->assertNotFound();
+        $this->post('/paystack/subscribe/monthly', ['billing_consent' => '1'])->assertNotFound();
         $this->assertDatabaseCount('billing_payments', 0);
     }
 
