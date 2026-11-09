@@ -9,6 +9,7 @@ use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\Auth\SetPasswordController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
 
@@ -40,6 +41,10 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware('auth')->group(function () {
+    Route::get('set-password', [SetPasswordController::class, 'create'])
+        ->middleware(['verified', 'throttle:auth-password'])->name('password.setup');
+    Route::post('set-password', [SetPasswordController::class, 'store'])
+        ->middleware(['verified', 'throttle:auth-password'])->name('password.setup.store');
     Route::get('verify-email', EmailVerificationPromptController::class)
         ->name('verification.notice');
 

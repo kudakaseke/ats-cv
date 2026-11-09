@@ -44,6 +44,7 @@ class RegisteredUserController extends Controller
             'email' => $request->email,
             'password' => Hash::make($request->password),
         ]);
+        $user->forceFill(['password_set_at' => now()])->save();
 
         if (! $request->session()->has('url.intended')) {
             $request->session()->put('url.intended', route('builder.start', ['questions' => 1]));

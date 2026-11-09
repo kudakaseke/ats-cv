@@ -108,18 +108,18 @@ class PaynowOnlyTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_subscription_exposes_the_topup_section_used_by_dashboard_links(): void
+    public function test_subscription_hides_the_removed_topup_section(): void
     {
-        $this->get('/subscription')->assertOk()->assertSee('id="credit-topups"', false)
-            ->assertSee('150 credits for US$4.75.')->assertSee('Buy 150 credits with Paynow (test)')
-            ->assertSee('name="provider" value="paynow"', false)->assertDontSee('PayPal')->assertDontSee('Paystack');
+        $this->get('/subscription')->assertOk()->assertDontSee('id="credit-topups"', false)
+            ->assertDontSee('Top up AI credits')->assertDontSee('Buy 150 credits with Paynow (test)')
+            ->assertDontSee('PayPal')->assertDontSee('Paystack');
     }
 
     public function test_unconfirmed_live_currency_disables_both_purchase_forms_and_topups(): void
     {
         config(['billing.paynow.mode' => 'live', 'billing.paynow.live_currency_confirmed' => false]);
         $this->get('/subscription/monthly/payment-method')->assertOk()->assertDontSee('Pay with Paynow');
-        $this->get('/subscription')->assertOk()->assertSee('Paynow unavailable');
+        $this->get('/subscription')->assertOk()->assertDontSee('Buy 150 credits');
         $this->post('/credits/topup', ['provider' => 'paynow', 'pack' => 'monthly', 'billing_consent' => 1])->assertStatus(503);
         $this->assertDatabaseCount('billing_payments', 0);
         Http::assertNothingSent();

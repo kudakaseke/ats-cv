@@ -52,25 +52,6 @@
         @endforeach
     </div>
     </section>
-    <section id="credit-topups" class="panel credit-summary subscription-section" aria-labelledby="credit-topups-heading">
-        <h2 id="credit-topups-heading">Top up AI credits</h2>
-        <p>One-time purchases add credits without changing your plan. Purchased credits do not expire each month.</p>
-        @foreach(config('ai_credits.topups') as $pack => $offer)
-            <form method="POST" action="{{ route('credits.topup') }}">
-                @csrf
-                <input type="hidden" name="provider" value="paynow">
-                <input type="hidden" name="pack" value="{{ $pack }}">
-                <p>{{ $offer['credits'] }} credits for US${{ number_format($offer['price_cents'] / 100, 2) }}.</p>
-                @if(app(\App\Http\Controllers\BillingController::class)->available('paynow'))
-                    <label class="billing-consent"><input type="checkbox" name="billing_consent" value="1" required> I agree to the <a href="{{ route('terms') }}">Terms</a> and <a href="{{ route('refund') }}">Refund Policy</a>. This is a one-time payment.</label>
-                    <button class="btn btn-primary" type="submit">Buy {{ $offer['credits'] }} credits with Paynow{{ config('billing.paynow.mode') === 'test' ? ' (test)' : '' }}</button>
-                    @if(config('billing.paynow.mode') === 'test')<p>Testing only. Test payments do not add spendable credits.</p>@endif
-                @else
-                    <button class="btn btn-outline" type="button" disabled>Paynow unavailable</button>
-                @endif
-            </form>
-        @endforeach
-    </section>
     <section id="cards" class="panel credit-summary subscription-section" aria-labelledby="cards-heading">
         <h2 id="cards-heading">Cards</h2>
         <p>Payment details are entered securely through Paynow checkout. Choose a plan above to pay.</p>

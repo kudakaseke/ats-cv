@@ -23,7 +23,7 @@
         @endforeach
     </div>
     <section class="dashboard-credit-card" aria-label="AI credit balance">
-        <div class="dashboard-credit-intro"><span class="dashboard-credit-label">YOUR AI CREDITS</span><h2>Make your next move.</h2><p>Check your match. Tailor your CV.</p><a class="btn btn-primary" href="{{ route('subscription') }}#credit-topups">Add credits</a></div>
+        <div class="dashboard-credit-intro"><span class="dashboard-credit-label">YOUR AI CREDITS</span><h2>Make your next move.</h2><p>Check your match. Tailor your CV.</p><a class="btn btn-primary" href="{{ route('subscription') }}#plans">Add credits</a></div>
         <div class="dashboard-credit-details"><div class="dashboard-credit-balance" aria-label="{{ $wallet['credits'] }} credits"><strong>{{ $wallet['credits'] }}</strong><span>credits ready to use</span></div><div class="dashboard-credit-rates"><span>Job-to-CV ATS Detector <strong>5 credits</strong></span><span>CV revamp <strong>10 credits</strong></span><span>Editing &amp; downloads <strong>Always free</strong></span></div></div>
     </section>
 </div>

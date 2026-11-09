@@ -1,6 +1,6 @@
 <x-app-layout>
     <section class="ats-checker" x-data="cvChecker({{ Js::from(['csrf' => csrf_token(), 'scanUrl' => route('checker.scan'), 'uploadUrl' => route('checker.upload'), 'rewriteUrl' => route('checker.rewrite'), 'credits' => app(\App\Services\AiCreditService::class)->displayWallet(auth()->user())['credits']]) }})">
-        <header class="scanner-compact-header"><h1>Job-to-CV ATS Detector</h1><div><span><strong x-text="credits"></strong> credits</span><a class="text-link" href="{{ route('subscription') }}#credit-topups">Top up</a></div></header>
+        <header class="scanner-compact-header"><h1>Job-to-CV ATS Detector</h1><div><span><strong x-text="credits"></strong> credits</span><a class="text-link" href="{{ route('subscription') }}#plans">View plans</a></div></header>
         <p class="scanner-costs">Job-to-CV ATS Detector &middot; 5 credits <span aria-hidden="true">/</span> Revamp &middot; 10 credits</p>
         <ol class="checker-steps" aria-label="Resume scan progress">
             <template x-for="(label, index) in ['Job description', 'Upload resume', 'ATS scan', 'View results']" :key="label">
