@@ -38,7 +38,9 @@ class BillingRecords
                 'Your '.$plan->name.' payment of '.$payment->currency.' '.number_format($payment->amount_cents / 100, 2).' is verified. Reference: '.$payment->reference.'. Your receipt is available on the Subscription page.');
             if ($subscription) {
                 $this->message($user->id, 'subscription:'.$subscription->id.':activated', 'Subscription confirmed',
-                    $plan->name.' access is confirmed from '.$subscription->starts_at->toDateString().' until '.$subscription->ends_at->toDateString().'. Credits are allocated when the paid period begins. Renew manually; no automatic deductions.');
+                    $plan->name.' access is confirmed from '.$subscription->starts_at->toDateString().' until '.$subscription->ends_at->toDateString().'. '
+                    .(config('billing.subscription_credit_timing') === 'immediate' ? 'Purchased credits are available immediately.' : 'Credits are allocated when the paid period begins.')
+                    .' Renew manually; no automatic deductions.');
             }
         } elseif (in_array($payment->status, ['cancelled', 'failed', 'reversed'], true)) {
             $this->message($payment->user_id, 'payment:'.$payment->id.':'.$payment->status, 'Payment update: '.$payment->status,

@@ -28,12 +28,47 @@ class BillingTest extends TestCase
         ]);
     }
 
+    public function test_checkout_return_rechecks_recent_pending_status_and_redirects_after_verified_payment(): void
+    {
+        config(['performance.queue_payment_checks' => false]);
+        foreach (['test', 'live'] as $mode) {
+            $payment = $this->payment(mode: $mode);
+            $payment->update(['verified_at' => now(), 'provider_status' => 'Created', 'credits' => 150]);
+            $user = User::findOrFail($payment->user_id);
+            Http::swap(new Factory);
+            Http::fake(['*' => Http::response($this->signed(['reference' => $payment->reference,
+                'amount' => '5.00', 'paynowreference' => 'PN'.$payment->id, 'status' => 'Paid']))]);
+            $url = route('billing.paynow.return', $payment->reference);
+            $this->actingAs($user)->get($url)->assertRedirect(route('dashboard'))->assertSessionHas('payment_success');
+            $this->get($url)->assertRedirect(route('dashboard'));
+            Http::assertSentCount(1);
+            $this->assertSame($mode === 'live' ? 'paid' : 'test_paid', $payment->fresh()->status);
+            $this->assertSame($mode === 'live' ? 150 : 15, app(\App\Services\AiCreditService::class)->wallet($user)['credits']);
+            $this->assertSame($mode === 'live' ? 'monthly' : 'free', app(\App\Services\PlanService::class)->current($user)->slug);
+            $this->actingAs(User::factory()->create())->get($url)->assertNotFound();
+        }
+        $this->assertDatabaseCount('subscriptions', 1);
+    }
+
+    public function test_checkout_return_does_not_trust_browser_success_parameters(): void
+    {
+        $payment = $this->payment();
+        $payment->update(['verified_at' => now(), 'provider_status' => 'Created']);
+        config(['performance.queue_payment_checks' => false]);
+        Http::fake(['*' => Http::response($this->signed(['reference' => $payment->reference,
+            'amount' => '5.00', 'paynowreference' => 'PN'.$payment->id, 'status' => 'Created']))]);
+        $this->actingAs(User::findOrFail($payment->user_id))->get(route('billing.paynow.return', $payment->reference).'?status=Paid')
+            ->assertOk()->assertSee('Confirming your payment');
+        $this->assertSame('pending', $payment->fresh()->status);
+        $this->assertDatabaseCount('subscriptions', 0);
+    }
+
     public function test_paynow_local_test_uses_https_callbacks_and_never_grants_live_access(): void
     {
         config(['billing.paynow.mode' => 'test', 'billing.paynow.callback_url' => 'https://example.trycloudflare.com']);
         Http::fake(['*' => Http::response($this->signed(['status' => 'Ok', 'browserurl' => 'https://www.paynow.co.zw/Payment/test', 'pollurl' => 'https://www.paynow.co.zw/interface/checkpayment?guid=test']))]);
         $this->actingAs(User::factory()->create())->post('/billing/paynow/monthly', ['billing_consent' => 1])->assertRedirect('https://www.paynow.co.zw/Payment/test');
-        Http::assertSent(fn ($request) => str_starts_with($request['resulturl'], 'https://example.trycloudflare.com/billing/paynow/notify/') && ! isset($request['authemail']));
+        Http::assertSent(fn ($request) => str_starts_with($request['resulturl'], 'https://example.trycloudflare.com/billing/paynow/notify/') && str_starts_with($request['returnurl'], 'https://example.trycloudflare.com/billing/paynow/return/') && ! isset($request['authemail']));
         $payment = BillingPayment::sole();
         $this->assertSame('test', $payment->mode);
         Http::swap(new Factory);

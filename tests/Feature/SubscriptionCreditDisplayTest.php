@@ -43,7 +43,7 @@ class SubscriptionCreditDisplayTest extends TestCase
 
         $this->get(route('billing.show', $payment->reference))->assertRedirect(route('dashboard'))
             ->assertSessionHas('payment_success', fn ($message) => str_contains($message, $credits.' credits'));
-        $this->get(route('dashboard'))->assertOk()->assertDontSee('Current plan:')->assertSee($credits.' credits')
+        $this->get(route('dashboard'))->assertOk()->assertSee('Current plan: '.$name)->assertSee($credits.' credits')
             ->assertSee('credits: '.$credits, false);
         $this->getJson(route('ai.credits'))->assertOk()->assertJson(['credits' => $credits, 'purchased_credits' => $credits]);
         $this->get(route('subscription'))->assertOk()->assertSee('Your current plan is '.$name)->assertSee($credits.' AI credits');

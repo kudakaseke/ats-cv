@@ -21,7 +21,7 @@ class SubscriptionSectionsTest extends TestCase
         foreach ([$owner, $other] as $user) {
             BillingPayment::create(['user_id' => $user->id, 'reference' => 'history-user-'.$user->id,
                 'subscription_plan_id' => SubscriptionPlan::where('slug', 'monthly')->firstOrFail()->id,
-                'provider' => 'paynow', 'mode' => 'test', 'status' => 'test_paid', 'currency' => 'USD',
+                'provider' => 'paystack', 'mode' => 'test', 'status' => 'test_paid', 'currency' => 'ZAR',
                 'amount_cents' => 7795, 'credits' => 150, 'billing_interval' => 'monthly', 'paid_at' => now()]);
         }
         $this->actingAs($owner)->get('/subscription')->assertOk()
@@ -29,7 +29,7 @@ class SubscriptionSectionsTest extends TestCase
             ->assertSee('id="cards"', false)->assertSee('id="payment-history"', false)
             ->assertSee(route('billing.show', 'history-user-'.$owner->id))
             ->assertDontSee(route('billing.show', 'history-user-'.$other->id))
-            ->assertSee('Test payment confirmed')->assertSee('USD 77.95')->assertSee('SAST');
+            ->assertSee('Test payment confirmed')->assertSee('ZAR 77.95')->assertSee('SAST');
     }
 
     public function test_active_plan_has_subscription_dates_and_empty_history_is_clear(): void

@@ -1,6 +1,7 @@
 <div class="workspace-dashboard">
     @if(session('payment_success'))<section class="panel" role="status">{{ session('payment_success') }}</section>@endif
     @php($wallet = app(\App\Services\AiCreditService::class)->displayWallet(auth()->user()))
+    <p class="scanner-costs">Current plan: {{ app(\App\Services\PlanService::class)->current(auth()->user())->name }}</p>
     <header class="dashboard-welcome"><div><span>Your workspace</span><h1>Your next move.<br><em>Starts here.</em></h1></div><p>Check the CV you have, tailor it to a job,<br>or start something new.</p></header>
     <div class="dashboard-action-grid reference-feature-grid" aria-label="Dashboard tools">
         @foreach ([

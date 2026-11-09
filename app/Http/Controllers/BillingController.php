@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\ProcessPaynowNotification;
 use App\Jobs\RefreshPayment;
 use App\Models\BillingPayment;
+use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Services\AiCreditService;
@@ -26,7 +28,7 @@ class BillingController extends Controller
         if (! $this->available($provider)) {
             return to_route('subscription')->withErrors(['billing' => ucfirst($provider).' checkout is not available yet.']);
         }
-        if (config('billing.paynow.plan_change_policy') !== 'end_of_cycle' && $request->user()->subscriptions()->where('status', 'active')->where('ends_at', '>', now())
+        if (config('billing.paynow.plan_change_policy') !== 'end_of_cycle' && $request->user()->subscriptions()->whereIn('status', Subscription::availableStatuses())->where('ends_at', '>', now())
             ->where('subscription_plan_id', '!=', $offer->id)->exists()) {
             return to_route('subscription')->withErrors(['billing' => 'Please wait for your current paid plan to end before switching plans.']);
         }
@@ -34,17 +36,19 @@ class BillingController extends Controller
             User::whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
             if ($provider === 'paynow') {
                 $existing = BillingPayment::where('user_id', $request->user()->id)->where('provider', 'paynow')
-                    ->where('mode', config('billing.paynow.mode'))->where('status', 'pending')->where('kind', 'subscription')->first();
+                    ->where('mode', config('billing.paynow.mode'))->where('status', 'pending')->where('kind', 'subscription')->lockForUpdate()->first();
                 if ($existing) {
                     return $existing;
                 }
                 // Serialize the active-plan check with fulfillment and concurrent checkouts.
-                if (config('billing.paynow.plan_change_policy') !== 'end_of_cycle' && $request->user()->subscriptions()->where('status', 'active')->where('ends_at', '>', now())
+                if (config('billing.paynow.plan_change_policy') !== 'end_of_cycle' && $request->user()->subscriptions()->whereIn('status', Subscription::availableStatuses())->where('ends_at', '>', now())
                     ->where('subscription_plan_id', '!=', $offer->id)->exists()) {
                     return null;
                 }
-                // At most one prepaid renewal period may be waiting to start.
-                if ($request->user()->subscriptions()->where('status', 'active')->where('starts_at', '>', now())->exists()) {
+                // Immediate-credit purchases may extend an already prepaid term.
+                // Keep the former limit for deferred or after-expiry billing.
+                if ((config('billing.subscription_credit_timing') !== 'immediate' || config('billing.paynow.plan_change_policy') === 'after_expiry')
+                    && $request->user()->subscriptions()->whereIn('status', Subscription::availableStatuses())->where('starts_at', '>', now())->exists()) {
                     return null;
                 }
             }
@@ -60,11 +64,19 @@ class BillingController extends Controller
                 'credits' => config('ai_credits.plans.'.$offer->slug),
                 'recurring' => false,
             ]);
-        });
+        }, 3);
         if (! $payment) {
             return to_route('subscription')->withErrors(['billing' => 'An existing subscription or prepaid renewal is still open. Contact support before starting another purchase.']);
         }
         if ($provider === 'paynow' && ! $payment->wasRecentlyCreated) {
+            if ($payment->subscription_plan_id !== $offer->id || $payment->amount_cents !== $offer->price_cents
+                || $payment->currency !== $offer->currency) {
+                $existingPlan = SubscriptionPlan::findOrFail($payment->subscription_plan_id);
+
+                return to_route('subscription.payment-methods', $offer->slug)->withErrors(['billing' => 'You have an unfinished '.$existingPlan->name.' checkout for '.$payment->currency.' '.number_format($payment->amount_cents / 100, 2).
+                    '. No '.$offer->name.' checkout was started. Review the existing checkout in Payment History, cancel it at Paynow if unwanted, and check its status before trying again.']);
+            }
+
             return to_route('billing.show', $payment->reference);
         }
         try {
@@ -90,7 +102,7 @@ class BillingController extends Controller
 
         if ($payment->status === 'pending') {
             try {
-                $this->refreshOrQueue($payment, $service);
+                $this->refreshOrQueue($payment, $service, $request->routeIs('billing.paynow.return'));
                 $payment->refresh();
             } catch (\Throwable $exception) {
                 report($exception);
@@ -129,9 +141,14 @@ class BillingController extends Controller
         return to_route('billing.show', $reference)->with('status', 'Payment status checked.');
     }
 
-    private function refreshOrQueue(BillingPayment $payment, PaymentService $service): void
+    private function refreshOrQueue(BillingPayment $payment, PaymentService $service, bool $checkoutReturn = false): void
     {
-        if ($payment->provider === 'paynow' && $payment->verified_at?->gt(now()->subSeconds(30))) {
+        if ($payment->provider !== 'paynow') {
+            return;
+        }
+        // The customer may have paid immediately after a pending status check.
+        // Verify that checkout return now; ordinary polling keeps its cooldown.
+        if (! $checkoutReturn && $payment->verified_at?->gt(now()->subSeconds(30))) {
             return;
         }
         if (config('performance.queue_payment_checks')) {
@@ -148,7 +165,17 @@ class BillingController extends Controller
         $message = 'Payment successful. '.($plan ?? 'Your plan').' is confirmed. Your available balance is '.$wallet['credits'].' credits.';
         if ($payment->status === 'test_paid') {
             $message = 'Test payment successful. '.($plan ?? 'Your purchase').' confirmed: '.$payment->currency.' '.number_format($payment->amount_cents / 100, 2).'. This was a test transaction; your live plan and credits are unchanged.';
+            if ($payment->subscription_id && Subscription::localTestCreditsEnabled()) {
+                $message = 'Test payment successful. '.($plan ?? 'Your plan').' confirmed for local testing. Your available balance is '.$wallet['credits'].' credits. No live payment was recorded.';
+            }
 
+        }
+
+        $period = $payment->subscription_id ? Subscription::find($payment->subscription_id) : null;
+        if ($period && in_array($period->status, Subscription::availableStatuses(), true) && $period->starts_at?->isFuture()) {
+            $message .= $period->credits_granted_upfront
+                ? ' Its '.$payment->credits.' credits have been added now. The '.$plan.' access period starts on '.$period->starts_at->timezone('Africa/Johannesburg')->format('d M Y').'; credits will not be added again then.'
+                : ' Your '.$plan.' subscription starts on '.$period->starts_at->timezone('Africa/Johannesburg')->format('d M Y').'. Its '.$payment->credits.' credits become available then; this purchase does not refill your current period.';
         }
 
         if ($request->expectsJson()) {
@@ -164,32 +191,27 @@ class BillingController extends Controller
     {
         abort_if(strlen($request->getContent()) > 65536, 413);
         parse_str($request->getContent(), $data);
-        $valid = $gateway->verify($data);
+        abort_unless($gateway->verify($data), 400);
         $safe = array_intersect_key(array_change_key_case($data, CASE_LOWER), array_flip(['reference', 'amount', 'paynowreference', 'status']));
         $safe = array_map(fn ($value) => is_scalar($value) ? mb_substr((string) $value, 0, 255) : '[invalid]', $safe);
-        $fingerprint = hash('sha256', $request->getContent());
+        ksort($safe);
+        $fingerprint = hash('sha256', json_encode($safe, JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR));
         $payment = BillingPayment::where('reference', $reference)->where('provider', 'paynow')->first();
-        DB::table('payment_notifications')->insertOrIgnore(['billing_payment_id' => $payment?->id, 'fingerprint' => $fingerprint,
-            'payload' => json_encode($safe, JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR), 'hash_valid' => $valid,
-            'error' => $valid ? null : 'Invalid hash', 'created_at' => now(), 'updated_at' => now()]);
-        try {
-            abort_unless($valid, 400);
-        } catch (\RuntimeException $exception) {
-            abort(400);
-        }
         $data = array_change_key_case($data, CASE_LOWER);
         abort_unless(is_string($data['reference'] ?? null) && hash_equals($reference, $data['reference']), 400);
         abort_unless($payment, 404);
         if (! $gateway->matches($payment, $data)) {
-            DB::table('payment_notifications')->where('fingerprint', $fingerprint)->update(['error' => 'Payment details mismatch']);
             abort(400);
         }
+        DB::table('payment_notifications')->insertOrIgnore(['billing_payment_id' => $payment->id, 'fingerprint' => $fingerprint,
+            'payload' => json_encode($safe, JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR), 'hash_valid' => true,
+            'error' => null, 'created_at' => now(), 'updated_at' => now()]);
         if (DB::table('payment_notifications')->where('fingerprint', $fingerprint)->whereNotNull('processed_at')->exists()) {
             return response('OK');
         }
         // A signed provider notification can recover a poll URL lost to an initialization timeout.
         // Once stored, it is never replaced by incoming callbacks.
-        if (! $payment->poll_url && is_string($data['pollurl'] ?? null) && $gateway->safeUrl($data['pollurl'])) {
+        if (! $payment->poll_url && is_string($data['pollurl'] ?? null) && $gateway->safePollUrl($data['pollurl'])) {
             DB::transaction(function () use ($payment, $data) {
                 User::whereKey($payment->user_id)->lockForUpdate()->firstOrFail();
                 $locked = BillingPayment::whereKey($payment->id)->lockForUpdate()->firstOrFail();
@@ -198,6 +220,11 @@ class BillingController extends Controller
                 }
             });
             $payment->refresh();
+        }
+        if (config('performance.queue_payment_checks')) {
+            ProcessPaynowNotification::dispatch($fingerprint);
+
+            return response('OK');
         }
         try {
             if (! $payment->poll_url && ! $payment->merchant_trace) {

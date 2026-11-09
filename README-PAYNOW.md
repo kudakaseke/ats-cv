@@ -32,7 +32,7 @@ BILLING_BUSINESS_ADDRESS="Your business address"
 
 The application sends per-transaction URLs in every initialization request:
 
-- Customer return: `GET https://your-public-host/payments/{reference}`. Authentication and ownership are required. A logged-out customer signs in before viewing their payment.
+- Customer return: `GET https://your-public-host/billing/paynow/return/{reference}`. Authentication and ownership are required. A logged-out customer signs in before viewing their payment.
 - Server result: `POST https://your-public-host/billing/paynow/notify/{reference}`. This endpoint is public, rate-limited and CSRF-exempt. Its body must have a valid Paynow hash.
 
 These existing routes replace the alternative `/paynow/return`, `/paynow/webhook` and `/payments/paynow/result` names in the supplied prompts. Do not enter literal `{reference}` in a dashboard setting; the application provides the real URL for each payment. Return/result environment variables with different names are not used. The initialization endpoint and accepted provider hosts are fixed to official production HTTPS Paynow hosts, including for merchant test transactions. There is deliberately no arbitrary configurable API base or user-supplied poll URL.
@@ -80,10 +80,10 @@ Notifications store a SHA256 body fingerprint and only bounded reference, amount
 Paynow purchases are one-time, customer-authorized payments. No tokenization, card storage or automatic deductions are enabled. Hosted checkout exposes only the channels enabled by the merchant; the application does not claim that Visa, Mastercard, EcoCash or OneMoney is enabled for an account. Express mobile checkout is optional in the prompts and is not implemented.
 
 - Same-plan early renewal begins at the end of all existing paid access, not at the payment date. Monthly/Pro add a calendar month; Annual adds a calendar year, without day overflow.
-- `PAYNOW_PLAN_CHANGE_POLICY=end_of_cycle` permits every paid-plan transition after the existing paid period. New credit allowances begin at the new period's start; current credits/time remain available under the existing policy until then. No proration or immediate upgrades are assumed. Set the policy to `after_expiry` to block changes until current access ends.
-- Only one future prepaid period is allowed, and only one unresolved subscription checkout per user/provider/mode. A repeat checkout resumes that attempt. Top-ups similarly resume an unresolved Paynow top-up. A pending attempt with no recoverable provider URL requires support review, not repeated initialization or an unverified cancellation.
+- `PAYNOW_PLAN_CHANGE_POLICY=end_of_cycle` permits every paid-plan transition after the existing paid period. Access changes begin at the new period's start. Repeat-purchase credits are added immediately under SUBSCRIPTION_CREDIT_TIMING=immediate. No proration or immediate upgrades are assumed. Set the policy to `after_expiry` to block changes until current access ends.
+- With immediate credit allocation, multiple paid future periods may be purchased sequentially. Deferred allocation or after-expiry billing retains the one-future-period limit. Only one unresolved subscription checkout per user/provider/mode is allowed. A repeat checkout resumes that attempt. Top-ups similarly resume an unresolved Paynow top-up. A pending attempt with no recoverable provider URL requires support review, not repeated initialization or an unverified cancellation.
 - Cancelling renewal reminders stops reminders, not an already purchased period. Paid-to-Free happens naturally at the end of the final purchased period if no new payment is made. No documents/accounts are deleted. Refund a future purchased period through the refund review process rather than pretending it was never paid.
-- The existing credit policy remains: monthly allowances reset per paid period, annual allowance lasts the paid year, purchased top-ups persist, failed AI operations restore eligible reserved credits, and all spending serializes on the user row. A future renewal does not refill current-period credits.
+- The existing credit policy remains: monthly allowances reset per paid period, annual allowance lasts the paid year, purchased top-ups persist, failed AI operations restore eligible reserved credits, and all spending serializes on the user row. An early renewal adds the new allowance immediately to remaining subscription credits; the combined balance expires at the end of the extended paid term and is not granted again at the next period start.
 - Expired periods are marked `expired` by maintenance; the existing access service already checks dates on each request. A cancelled/refunded funding period revokes its associated access. Refund/dispute of subscription funding removes its remaining allowance; consumed AI usage is not retroactively billed as new debt. Purchased top-up reversals use the existing balance/debt rules.
 
 ## Results, receipts, mail and admin
@@ -112,7 +112,7 @@ Billing messages cover verified payment, confirmed paid period, cancellation, fa
 | POST | `/admin/billing/{reference}/reconcile` | Admin provider verification |
 | POST | `/admin/billing/{reference}/review` | Admin refund/dispute audit notes |
 
-Other existing providers retain their own existing CSRF exemptions and implementation; they were not deleted to meet the Paynow-only visible checkout requirement.
+Paynow is the only enabled payment integration. Retired provider schema is handled by the archival migrations described below.
 
 ## Manual merchant test checklist
 
@@ -123,7 +123,7 @@ Other existing providers retain their own existing CSRF exemptions and implement
 5. Return before the result arrives, and separately receive the result before browser return. Replay a signed result; verify one entitlement/ledger allocation/receipt for approved live verification in a controlled release test.
 6. Interrupt initialization and confirm a second click does not create a second provider request. Confirm a later signed result with a valid poll URL recovers the original attempt.
 7. Test wrong signature, wrong amount/reference, invalid poll host, cross-user receipt/status access and non-admin access. All must fail without fulfillment.
-8. Test early monthly/annual renewal and a paid plan change: old period remains intact, next period begins at old expiry, credits switch once when it starts.
+8. Test early monthly/annual renewal and a paid plan change: old period remains intact, next period begins at old expiry, purchased credits become available immediately and are not granted again when that next period starts.
 9. Test expiration, reminder cancellation, receipt download, mail delivery/retry, refund/dispute review and scheduled missed-result reconciliation.
 10. Confirm actual supported hosted payment channels, settlement currency, refund process, notification delivery and operational monitoring with Paynow before approving live processing.
 
@@ -132,3 +132,49 @@ Other existing providers retain their own existing CSRF exemptions and implement
 Run `php artisan test --compact`. `PaynowLifecycleTest` uses fake HTTP responses, independent response signatures and a published provider hash vector to cover all documented statuses, duplicate result/return ordering, callback recovery, signed initialization errors, timeout ambiguity, amount/reference/currency mismatch, SSRF restrictions, receipts/admin authorization, monthly/annual early renewal, end-of-cycle plan changes, expiration, cancellation and mail-outbox failure isolation. Existing billing, AI reservation/restoration/overspending and application regression tests remain in the suite. SQLite tests verify sequential idempotency and locking structure; they are not a substitute for parallel transaction testing on the production database engine.
 
 `APP_TEST_URL=http://127.0.0.1:8017 node scripts/paynow-smoke.mjs` checks the three visible Paynow plan pages, mobile layout and status/check UI using a temporary local user. It never clicks checkout or contacts Paynow. A real merchant test checkout is still required to validate merchant configuration and external reachability.
+
+`php scripts/payment-concurrency-audit.php` creates and migrates a disposable MySQL database with a strictly validated `ats_cv_payment_audit_` name, runs up to eight PHP workers using simulated signed provider responses, and removes that database afterward. It checks duplicate verification, different users, simultaneous checkout, sequential renewal periods, and wallet overspending. It requires database-creation permission and never runs migrations against the customer database. This is a concurrency correctness test, not a production throughput benchmark.
+
+## Payment abuse controls
+
+Checkout and top-up routes share limits of 6/minute and 30/hour per authenticated user plus 120/minute per IP. Status checks allow 12/minute per user and 300/minute per IP; browser returns allow 20/minute per user and 600/minute per IP. Existing workspace and site limits also apply.
+
+Callbacks have independent ingress limits of 100/second and 3,000/minute per IP, plus 60/minute per payment reference. Ordinary page limits do not consume this callback allowance. Callback bodies over 16 KiB are rejected before sessions; callback routes do not create browser sessions. Invalid signatures, unknown payments and mismatched details are rejected before notification storage or provider requests. Valid decoded payloads use a canonical fingerprint so URL re-encoding cannot bypass deduplication. Limit violations return HTTP 429 with `Retry-After`.
+
+Provider verification uses a 90-second shared-cache lock per payment. Provider I/O runs outside database transactions; entitlement and wallet changes use short transactions locking the user/payment rows. A busy verification is retryable. Paid states cannot regress to pending/cancelled, and reversals cannot be reactivated by a late Paid response. Poll URLs require the exact HTTPS Paynow payment-status endpoint with redirects disabled.
+
+For multiple application hosts, use the same Redis cache/limiter and database on every host (`CACHE_STORE=redis`, `CACHE_LIMITER=redis`), durable queues and supervised `payments` workers. Keep queue `retry_after` longer than the 180-second job timeout (database/Redis defaults are 240 seconds). Run the scheduler every minute, monitor failed jobs and stale payments, and restrict trusted proxies to real proxy addresses. Put request-body/connection limits and bot/DDoS filtering at the reverse proxy or WAF; application throttling cannot absorb a network-level flood. Capacity-test the deployed infrastructure and agree callback volume limits with Paynow before increasing them.
+
+
+## Retired provider database cleanup (8 November 2026)
+
+The two `2026_11_08` migrations remove `paystack_receipts`, `paypal_subscription_receipts`, the three `paystack_*` plan fields, and the unused `hosted_reference`, `hosted_page_slug`, `capture_reference`, `provider_plan_id` and `provider_customer_id` payment fields. Historical migration definitions remain unchanged for upgrade compatibility; a fresh installation ends with the cleaned schema.
+
+Before each drop, the migrations encrypt and verify the old rows in `retired_billing_records`. Its source/id uniqueness makes retries safe. It is an accounting archive, not a gateway integration. No payment rows, subscription links, wallet balances or credit ledger entries are deleted. Generic recurring flags/statuses remain only to detect unresolved historical agreements and prevent duplicate billing or account deletion; no automatic billing is enabled.
+
+Deployment: put the app in maintenance mode, pause queue workers, take and verify a full database backup and securely retain the original APP_KEY, deploy the Paynow-only code and Composer lockfile, run `composer install --no-dev --optimize-autoloader`, `php artisan migrate --force`, `php artisan config:clear`, and `php artisan view:clear`. Inspect migrated table/column names and archived row counts before resuming workers and traffic. Run the documented mocked suite against a disposable database first. Do not run `migrate:fresh` on customer data.
+
+Rollback requires the pre-deployment full database backup and previous application release; these cleanup migrations intentionally refuse a lossy `down()`. Preserve APP_KEY: encrypted payment URLs and the accounting archive depend on it. An encrypted local full snapshot was verified before the local cleanup; it is stored under ignored `storage/app/billing-backup-*.encrypted` and is not a portable SQL dump. For production use the database engine's tested backup/restore tooling, including a restore rehearsal.
+
+Optional separate environment credentials are `PAYNOW_TEST_INTEGRATION_ID`, `PAYNOW_TEST_INTEGRATION_KEY`, `PAYNOW_LIVE_INTEGRATION_ID` and `PAYNOW_LIVE_INTEGRATION_KEY`. Set only the credentials for the intended deployment. Existing shared `PAYNOW_INTEGRATION_ID`/`PAYNOW_INTEGRATION_KEY` remain the compatibility fallback. Empty mode-specific values also fall back to shared credentials. Never commit actual secrets. Existing local keys were preserved and the local integration remains in test mode.
+
+
+With `QUEUE_PAYMENT_CHECKS=true` and a durable `BACKGROUND_QUEUE_CONNECTION`, validated result notifications enqueue `ProcessPaynowNotification` on `payments` and return promptly. The job uses the persisted notification fingerprint, retries five times with backoff, records sanitized failures and marks successful processing idempotently. Keep the worker running; callbacks never grant credits before the worker verifies Paynow. Local synchronous verification remains available for development.
+
+Checkout returns bypass the ordinary 30-second status-check cooldown so a recent Created response does not delay confirmation of a subsequent payment. Returns still require authentication, ownership and server-side Paynow verification. Successful test returns redirect to the dashboard with a test confirmation; they do not grant live credits or activate a live plan. Existing payment-history links continue to use `/payments/{reference}`.
+
+Plan selection is checked when resuming an unfinished checkout. An existing Monthly order is never silently used for a Pro or Annual selection. The app blocks the new selection with a clear message until the old Paynow attempt is resolved; it does not alter historical prices or blindly create a second charge. Checkout review and Paynow descriptions include the selected plan and credit allowance.
+
+
+## Optional local test subscriptions
+
+Set `PAYNOW_LOCAL_TEST_CREDITS=true` only in local development with `PAYNOW_MODE=test` to exercise subscription credits and plan access after a signed, verified test payment. This opt-in is ignored outside APP_ENV=local and when Paynow mode is live. Default test checkout still grants no entitlements. Sandbox subscriptions use the separate `sandbox_active` status; legacy `test_active` records are never enabled. Payments remain `test_paid` and do not generate live receipts or live revenue.
+
+Pro grants 225 credits and Annual grants 2,400 for the applicable period. Existing purchased credits remain intact. Repeated verification cannot refill spent credits or create duplicate subscriptions. Disabling the option excludes sandbox subscriptions and expires their remaining wallet allowance; restoring it recovers only unspent allowance. Existing renewal timing and no-proration rules also apply to local test subscriptions. Test top-ups do not create spendable credits. Never deploy a development database as a production database; production must retain its own real payment and wallet records.
+
+
+## Immediate credits for repeat subscription purchases
+
+With `SUBSCRIPTION_CREDIT_TIMING=immediate` (the selected default), each verified early renewal or plan change adds its credit snapshot immediately. Paid access periods stay sequential. Existing remaining subscription credits and the new allowance form a pool valid until the extended paid term ends. The future subscription has `credits_granted_upfront=true`, preventing any second grant on its start date. Set the timing to `next_period` only to restore the former delayed-allocation behavior for future purchases.
+
+The wallet and reserved AI operations track funding sources per subscription. Spending uses the oldest available subscription source first; failed AI calls restore only valid, non-refunded sources. Refunds remove the unspent credits funded by that payment without taking another purchase's credits. Separate purchased top-up credits are preserved. Local test pools are excluded outside local payment testing. The additive November 8 migration adds the upfront marker and nullable source maps; existing payment and ledger history is not rewritten. An existing verified future purchase can be reconciled once to apply the new timing; its unique ledger reference prevents replay.

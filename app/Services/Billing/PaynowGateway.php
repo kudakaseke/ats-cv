@@ -3,6 +3,7 @@
 namespace App\Services\Billing;
 
 use App\Models\BillingPayment;
+use App\Models\SubscriptionPlan;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -70,8 +71,9 @@ class PaynowGateway
             'id' => config('billing.paynow.integration_id'),
             'reference' => $payment->reference,
             'amount' => number_format($payment->amount_cents / 100, 2, '.', ''),
-            'additionalinfo' => $payment->kind === 'topup' ? 'atscvdetector '.$payment->credits.' AI credits - one-time purchase' : 'atscvdetector '.($payment->billing_interval === 'annually' ? 'annual' : 'monthly').' access - one-time payment',
-            'returnurl' => $callback('billing.show'),
+            'additionalinfo' => $payment->kind === 'topup' ? 'atscvdetector '.$payment->credits.' AI credits - one-time purchase'
+                : 'atscvdetector '.SubscriptionPlan::findOrFail($payment->subscription_plan_id)->name.' - '.$payment->credits.' AI credits - '.($payment->billing_interval === 'annually' ? 'one year' : 'one month').' access - one-time payment',
+            'returnurl' => $callback('billing.paynow.return'),
             'resulturl' => $callback('billing.paynow.notify'),
             'status' => 'Message',
         ];
@@ -92,7 +94,7 @@ class PaynowGateway
         if (strtolower($result['status'] ?? '') === 'error') {
             throw new \DomainException('Paynow rejected checkout initialization.');
         }
-        if (strtolower($result['status'] ?? '') !== 'ok' || ! $this->safeUrl($result['pollurl'] ?? '') || ! $this->safeUrl($result['browserurl'] ?? '')) {
+        if (strtolower($result['status'] ?? '') !== 'ok' || ! $this->safePollUrl($result['pollurl'] ?? '') || ! $this->safeUrl($result['browserurl'] ?? '')) {
             throw new \RuntimeException('Unable to start Paynow checkout.');
         }
         DB::transaction(function () use ($payment, $result) {
@@ -115,6 +117,11 @@ class PaynowGateway
             && ! parse_url($url, PHP_URL_USER) && ! parse_url($url, PHP_URL_PASS)
             && ! parse_url($url, PHP_URL_FRAGMENT)
             && in_array(parse_url($url, PHP_URL_PORT), [null, 443], true);
+    }
+
+    public function safePollUrl(string $url): bool
+    {
+        return $this->safeUrl($url) && strtolower(rtrim((string) parse_url($url, PHP_URL_PATH), '/')) === '/interface/checkpayment';
     }
 
     public function matches(BillingPayment $payment, array $data): bool
@@ -140,12 +147,19 @@ class PaynowGateway
 
                 return 'pending';
             }
-            if (! $this->matches($payment, $trace) || ! $this->safeUrl($trace['pollurl'] ?? '')) {
+            if (! $this->matches($payment, $trace) || ! $this->safePollUrl($trace['pollurl'] ?? '')) {
                 throw new \RuntimeException('Paynow trace could not be verified.');
             }
-            $payment->update(['poll_url' => $trace['pollurl'], 'provider_reference' => $trace['paynowreference']]);
+            DB::transaction(function () use ($payment, $trace) {
+                $locked = BillingPayment::whereKey($payment->id)->lockForUpdate()->firstOrFail();
+                if (! $this->matches($locked, $trace)) {
+                    throw new \RuntimeException('Paynow trace reference mismatch.');
+                }
+                $locked->update(['poll_url' => $locked->poll_url ?? $trace['pollurl'], 'provider_reference' => $trace['paynowreference']]);
+            });
+            $payment->refresh();
         }
-        if (! $payment->poll_url || ! $this->safeUrl($payment->poll_url)) {
+        if (! $payment->poll_url || ! $this->safePollUrl($payment->poll_url)) {
             return 'pending';
         }
         $result = $this->parse(Http::asForm()->timeout(20)->withoutRedirecting()->post($payment->poll_url, [])->throw()->body());
@@ -156,9 +170,15 @@ class PaynowGateway
         if ($reference === '' || ($payment->provider_reference && $payment->provider_reference !== $reference)) {
             throw new \RuntimeException('Payment reference does not match.');
         }
-        $payment->update(['provider_reference' => $reference, 'provider_status' => $result['status'] ?? 'Unknown',
-            'verified_at' => now(), 'verification_attempts' => $payment->verification_attempts + 1,
-            'next_check_at' => now()->addMinutes(in_array(strtolower($result['status'] ?? ''), ['paid', 'awaiting delivery', 'delivered', 'refunded', 'disputed', 'cancelled'], true) ? 1440 : 5)]);
+        DB::transaction(function () use ($payment, $reference, $result) {
+            $locked = BillingPayment::whereKey($payment->id)->lockForUpdate()->firstOrFail();
+            if ($locked->provider_reference && $locked->provider_reference !== $reference) {
+                throw new \RuntimeException('Payment reference does not match.');
+            }
+            $locked->update(['provider_reference' => $reference, 'provider_status' => $result['status'] ?? 'Unknown',
+                'verified_at' => now(), 'verification_attempts' => $locked->verification_attempts + 1,
+                'next_check_at' => now()->addMinutes(in_array(strtolower($result['status'] ?? ''), ['paid', 'awaiting delivery', 'delivered', 'refunded', 'disputed', 'cancelled'], true) ? 1440 : 5)]);
+        });
 
         return match (strtolower($result['status'] ?? '')) {
             'paid', 'awaiting delivery', 'delivered' => 'paid',
