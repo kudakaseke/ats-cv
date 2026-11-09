@@ -1,7 +1,7 @@
 <x-app-layout>
     <div class="dashboard-heading"><div><h1>Subscription</h1><p>Your current plan is {{ $currentPlan->name }}. You have {{ $wallet['credits'] }} AI credits.</p></div></div>
     <nav class="subscription-sections" aria-label="Subscription sections">
-        <a href="#active-plan">Active Plan</a><a href="#plans">Plans</a><a href="#cards">Cards</a><a href="#payment-history">Payment History</a>
+        <a href="#active-plan">Active Plan</a><a href="#plans">Plans</a><a href="#payment-history">Payment History</a>
     </nav>
     <section id="active-plan" class="subscription-section" aria-labelledby="active-plan-heading">
         <div class="panel credit-summary">
@@ -25,7 +25,7 @@
     @foreach($scheduledSubscriptions as $scheduled)
         <section class="panel credit-summary"><h2>Next paid period: {{ $scheduled->plan->name }}</h2><p>Starts {{ $scheduled->starts_at->format('d M Y') }} and ends {{ $scheduled->ends_at->format('d M Y') }}. {{ $scheduled->credits_granted_upfront ? 'Credits from this purchase have already been added to your available balance.' : 'The new credit allowance becomes available when this period starts.' }}</p></section>
     @endforeach
-    <section class="panel credit-summary"><h2>My AI Credits</h2><strong>{{ $wallet['credits'] }} credits</strong><p>{{ $wallet['subscription_credits'] }} subscription/welcome credits &middot; {{ $wallet['topup_credits'] }} purchased credits.</p>@if($wallet['credit_debt'])<p>{{ $wallet['credit_debt'] }} credits deducted from available balance for a refunded purchase already used.</p>@endif<p>Job-to-CV ATS Detector: 5 credits. Revamp: 10 credits. One complete workflow: 15 credits. Manual editing and downloads use no credits.</p><p>Subscription credits expire at the paid term?s end. Early renewal adds credits immediately and keeps the remaining subscription balance available until the extended term ends. Purchased credits remain in your balance. Free accounts receive 15 welcome credits once.</p></section>
+    <section class="panel credit-summary"><h2>My AI Credits</h2><strong>{{ $wallet['credits'] }} credits</strong><p>{{ $wallet['subscription_credits'] }} subscription/welcome credits &middot; {{ $wallet['topup_credits'] }} purchased credits.</p>@if($wallet['credit_debt'])<p>{{ $wallet['credit_debt'] }} credits deducted from available balance for a refunded purchase already used.</p>@endif<p>Job-to-CV ATS Detector: 5 credits. Revamp: 10 credits. One complete workflow: 15 credits. Manual editing and downloads use no credits.</p><p>Subscription credits expire at the end of the paid term. Early renewal adds credits immediately and keeps the remaining subscription balance available until the extended term ends. Purchased credits remain in your balance. Free accounts receive 15 welcome credits once.</p></section>
     <x-input-error :messages="$errors->get('billing')" class="my-4" />
     @if(session('billing_status'))<p class="my-4" role="status">{{ session('billing_status') }}</p>@endif
     </section>
@@ -51,12 +51,6 @@
             </article>
         @endforeach
     </div>
-    </section>
-    <section id="cards" class="panel credit-summary subscription-section" aria-labelledby="cards-heading">
-        <h2 id="cards-heading">Cards</h2>
-        <p>Payment details are entered securely through Paynow checkout. Choose a plan above to pay.</p>
-        <p>Card details are not stored or displayed in your account here.</p>
-        <a class="text-link" href="#plans">Choose a plan</a>
     </section>
     <section id="payment-history" class="panel audit-panel subscription-section" aria-labelledby="payment-history-heading">
         <h2 id="payment-history-heading">Payment History</h2>

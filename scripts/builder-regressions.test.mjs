@@ -9,7 +9,7 @@ function builder(fetch = async () => ({ ok: true, status: 200, json: async () =>
         Alpine: { data: (_name, value) => { factory = value; } },
         clearTimeout, setTimeout, Promise, fetch, FormData, window,
     });
-    return factory({ draft: {}, templates: [], saveUrl: '/draft', csrf: 'test' });
+    return factory({ draft: {}, templates: [], saveUrl: '/draft', finishUrl: '/finish', csrf: 'test' });
 }
 
 test('empty optional sections and placeholder text are omitted in every normal layout', () => {
@@ -215,4 +215,109 @@ test('the position question opens departments and selects its matching role', as
     assert.equal(step, 3);
     assert.equal(cv.category, 'By Department');
     assert.equal(cv.departmentRoles.it, 'Software Developer');
+});
+
+
+test('failed navigation saves offer explicit discard and preserve changes on cancel', async () => {
+    let destination;
+    let discard = false;
+    const cv = builder(async () => ({ ok: false, status: 422, json: async () => ({ errors: { 'data.email': ['The email field must be a valid email address.'] } }) }), {
+        confirm: () => discard,
+        location: { assign: url => { destination = url; } },
+    });
+    cv.data.email = 'invalid';
+    await cv.leave('/dashboard');
+    assert.equal(destination, undefined);
+    assert.equal(cv.busy, false);
+    assert.equal(cv.data.email, 'invalid');
+    assert.equal(cv.discarding, false);
+    discard = true;
+    await cv.leave('/dashboard');
+    assert.equal(destination, '/dashboard');
+    assert.equal(cv.discarding, true);
+});
+
+test('every configured non-department category is exposed without duplicate templates', () => {
+    const cv = builder();
+    cv.templates = [{ id: 'position', category: 'By Position' }, { id: 'simple', category: 'Simple' }];
+    cv.category = 'All';
+    assert.deepEqual(Array.from(cv.templateGroups.flatMap(group => group.templates.map(t => t.id))).sort(), ['position', 'simple']);
+});
+
+
+test('an overlong inline edit is retained for correction instead of saving an older value', () => {
+    const cv = builder();
+    cv.data.name = 'Previous name';
+    const value = 'N'.repeat(151);
+    const field = { dataset: { field: 'name' }, textContent: value };
+    cv.commitInline({ target: { closest: () => field } });
+    assert.equal(cv.data.name, value);
+    assert.match(cv.error, /too long/);
+});
+
+test('finish waits until edits made during an in-flight save have also been persisted', async () => {
+    const requests = [];
+    const destinations = [];
+    const cv = builder((_url, options) => new Promise(resolve => requests.push({ payload: JSON.parse(options.body), resolve })), {
+        location: { assign: url => destinations.push(url) },
+    });
+    cv.data.name = 'Before slow save';
+    const finishing = cv.finish();
+    await new Promise(setImmediate);
+    cv.data.name = 'Latest name';
+    requests[0].resolve({ ok: true, status: 200, json: async () => ({ saved: true }) });
+    await new Promise(setImmediate);
+    assert.equal(destinations.length, 0, 'must not navigate after saving only stale data');
+    assert.equal(requests.length, 2);
+    assert.equal(requests[1].payload.data.name, 'Latest name');
+    requests[1].resolve({ ok: true, status: 200, json: async () => ({ saved: true }) });
+    await finishing;
+    assert.deepEqual(destinations, ['/finish']);
+});
+
+
+test('company and school names accept the same 200-character limit as the server', () => {
+    const cv = builder();
+    for (const [path, row, key] of [['experience.0.company', cv.data.experience[0], 'company'], ['education.0.school', cv.data.education[0], 'school']]) {
+        const value = 'A'.repeat(175);
+        cv.commitInline({ target: { closest: () => ({ dataset: { field: path }, textContent: value }) } });
+        assert.equal(row[key], value);
+        assert.equal(cv.error, '');
+    }
+});
+
+test('clearing the name during a slow save keeps the editor open with a required-name error', async () => {
+    const requests = [];
+    let navigated = false;
+    const cv = builder(() => new Promise(resolve => requests.push(resolve)), { location: { assign: () => { navigated = true; } } });
+    cv.data.name = 'Original name';
+    const finishing = cv.finish();
+    await new Promise(setImmediate);
+    cv.data.name = '';
+    requests[0]({ ok: true, status: 200, json: async () => ({ saved: true }) });
+    await new Promise(setImmediate);
+    requests[1]({ ok: true, status: 200, json: async () => ({ saved: true }) });
+    await finishing;
+    assert.equal(navigated, false);
+    assert.equal(cv.busy, false);
+    assert.match(cv.error, /enter your name/);
+});
+
+
+test('a stale successful save cannot finish when the latest edit fails server validation', async () => {
+    const requests = [];
+    const destinations = [];
+    const cv = builder(() => new Promise(resolve => requests.push(resolve)), { location: { assign: url => destinations.push(url) } });
+    cv.data.name = 'Valid original';
+    const finishing = cv.finish();
+    await new Promise(setImmediate);
+    cv.data.name = 'N'.repeat(151);
+    requests[0]({ ok: true, status: 200, json: async () => ({ saved: true }) });
+    await new Promise(setImmediate);
+    requests[1]({ ok: false, status: 422, json: async () => ({ errors: { 'data.name': ['The name must not be greater than 150 characters.'] } }) });
+    await finishing;
+    assert.deepEqual(destinations, []);
+    assert.equal(cv.busy, false);
+    assert.equal(cv.data.name.length, 151);
+    assert.match(cv.error, /150 characters/);
 });

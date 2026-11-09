@@ -72,6 +72,11 @@ class User extends Authenticatable implements MustVerifyEmail
         'email_verification_code_attempts',
     ];
 
+    public function canSetInitialPassword(): bool
+    {
+        return (bool) $this->google_id && $this->password_setup_required && ! $this->password_set_at;
+    }
+
     /**
      * Get the attributes that should be cast.
      *
@@ -83,6 +88,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'is_admin' => 'boolean',
             'email_verified_at' => 'datetime',
             'password_set_at' => 'datetime',
+            'password_setup_required' => 'boolean',
             'email_verification_code_expires_at' => 'datetime',
             'password' => 'hashed',
         ];

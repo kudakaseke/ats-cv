@@ -1,5 +1,5 @@
 window.cvChecker = (boot) => ({
-    step: 1, job: '', resumeText: '', filename: '', busy: false, error: '', result: null,
+    step: 1, industry: '', job: '', resumeText: '', filename: '', busy: false, error: '', result: null,
     modalOpen: false, aiDraft: null, originalScore: null, dragging: false,
     credits: boot.credits ?? 0, operations: {}, confirmedKeywords: [],
     processing: '', progress: 0, progressTimer: null,
@@ -25,7 +25,7 @@ window.cvChecker = (boot) => ({
         return score >= 80 ? 'High requirements match' : score >= 50 ? 'Moderate requirements match' : 'Low requirements match';
     },
     operation(feature) {
-        const fingerprint = JSON.stringify([this.job, this.resumeText, feature === 'revamp' ? this.confirmedKeywords : []]);
+        const fingerprint = JSON.stringify([this.industry, this.job, this.resumeText, feature === 'revamp' ? this.confirmedKeywords : []]);
         if (this.operations[feature]?.fingerprint !== fingerprint) {
             // randomUUID requires HTTPS; getRandomValues also works on local-network HTTP previews.
             const bytes = crypto.getRandomValues(new Uint8Array(16));
@@ -47,7 +47,10 @@ window.cvChecker = (boot) => ({
     },
     async request(url, options) {
         const response = await fetch(url, { ...options, headers: { Accept: 'application/json', 'X-CSRF-TOKEN': boot.csrf, ...(options.headers || {}) } });
-        const body = await response.json().catch(() => ({}));
+        let parsed = true;
+        const decoded = await response.json().catch(() => { parsed = false; return null; });
+        const validBody = parsed && decoded !== null && typeof decoded === 'object' && !Array.isArray(decoded);
+        const body = validBody ? decoded : {};
         if (Number.isInteger(body.credits_remaining)) {
             this.credits = body.credits_remaining;
             window.dispatchEvent(new CustomEvent('credits-updated'));
@@ -55,12 +58,22 @@ window.cvChecker = (boot) => ({
         if (response.status === 401 || response.status === 419) throw new Error('Your session has expired. Please sign in again, then retry.');
         if (response.status === 429) throw new Error('Too many requests. Please wait a moment before trying again.');
         if (!response.ok) {
-            if (response.status === 503) this.operations = {};
+            // A proxy failure may hide a completed, charged operation. Preserve its ID
+            // unless our API confirms that this exact request failed and can be retried anew.
+            if (response.status === 503 && body.operation_failed === true && typeof options.body === 'string') {
+                let requestId;
+                try { requestId = JSON.parse(options.body).operation_id; } catch { /* Uploads have no operation ID. */ }
+                if (requestId && body.operation_id === requestId) {
+                    for (const [feature, operation] of Object.entries(this.operations)) {
+                        if (operation.id === requestId) delete this.operations[feature];
+                    }
+                }
+            }
             const message = Object.values(body.errors || {}).flat()[0] || body.message || 'Something went wrong. Please try again.';
             const reference = body.reference || response.headers.get('X-Error-Reference');
             throw new Error(message + (/^[0-9a-f-]{36}$/i.test(reference || '') ? ` (Reference: ${reference})` : ''));
         }
-        if (!response.headers.get('Content-Type')?.includes('application/json')) throw new Error('The server returned an unexpected response. Please reload and try again.');
+        if (!validBody || !response.headers.get('Content-Type')?.includes('application/json')) throw new Error('The server returned an unexpected response. Please reload and try again.');
         return body;
     },
     async upload(file) {
@@ -92,7 +105,10 @@ window.cvChecker = (boot) => ({
         this.busy = true; this.error = '';
         this.startProgress('scan');
         try {
-            const result = await this.request(boot.scanUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job_description: this.job, resume_text: text, operation_id: this.operation('analyse') }) });
+            const result = await this.request(boot.scanUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ industry: this.industry, job_description: this.job, resume_text: text, operation_id: this.operation('analyse') }) });
+            if (!Array.isArray(result.matched) || !Array.isArray(result.missing) || !Number.isFinite(result.keyword_score) || !Number.isFinite(result.total)) {
+                throw new Error('The server returned an unexpected response. Please retry your existing request.');
+            }
             delete this.operations.analyse;
             this.progress = 100;
             this.resumeText = text; this.result = result; this.confirmedKeywords = [];
@@ -109,7 +125,11 @@ window.cvChecker = (boot) => ({
         this.busy = true; this.error = '';
         this.startProgress('fix');
         try {
-            this.aiDraft = await this.request(boot.rewriteUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job_description: this.job, resume_text: this.resumeText, confirmed_keywords: this.confirmedKeywords, operation_id: this.operation('revamp') }) });
+            const draft = await this.request(boot.rewriteUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ industry: this.industry, job_description: this.job, resume_text: this.resumeText, confirmed_keywords: this.confirmedKeywords, operation_id: this.operation('revamp') }) });
+            if (typeof draft.rewritten_resume !== 'string' || !draft.rewritten_resume.trim()) {
+                throw new Error('The server returned an unexpected response. Please retry your existing request.');
+            }
+            this.aiDraft = draft;
             this.stopProgress(); this.progress = 100;
             await this.$nextTick();
             this.$refs.generatedForm.requestSubmit();

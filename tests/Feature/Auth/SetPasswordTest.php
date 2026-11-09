@@ -16,7 +16,7 @@ class SetPasswordTest extends TestCase
     private function googleUser(): User
     {
         $user = User::factory()->create(['email' => 'person@gmail.com']);
-        $user->forceFill(['google_id' => 'google-subject', 'password_set_at' => null])->save();
+        $user->forceFill(['google_id' => 'google-subject', 'password_set_at' => null, 'password_setup_required' => true])->save();
 
         return $user;
     }
@@ -85,6 +85,57 @@ class SetPasswordTest extends TestCase
         $emailUser = User::factory()->create();
         $this->actingAs($emailUser)->post('/set-password', ['email' => $emailUser->email,
             'password' => 'new-password', 'password_confirmation' => 'new-password'])->assertForbidden();
+    }
+
+    public function test_legacy_google_account_with_known_password_and_null_marker_cannot_use_setup(): void
+    {
+        $user = $this->googleUser();
+        $user->forceFill(['password_setup_required' => false])->save();
+        $original = $user->password;
+        $this->actingAs($user)->get('/set-password')->assertRedirect(route('profile.edit'));
+        $this->post('/set-password', ['email' => $user->email, 'password' => 'replacement-password',
+            'password_confirmation' => 'replacement-password'])->assertForbidden();
+        $this->assertSame($original, $user->fresh()->password);
+        $this->get('/profile')->assertSee('Current Password')->assertDontSee(route('password.setup'));
+    }
+
+    public function test_migration_protects_existing_google_passwords_without_replacing_the_hash(): void
+    {
+        $migration = require database_path('migrations/2026_11_09_000002_track_explicit_initial_password_setup.php');
+        $migration->down();
+        $user = User::factory()->create(['password' => 'existing-chosen-password']);
+        $user->forceFill(['google_id' => 'legacy-subject', 'password_set_at' => null])->save();
+        $original = $user->password;
+        $migration->up();
+        $this->assertFalse($user->fresh()->password_setup_required);
+        $this->assertSame($original, $user->fresh()->password);
+        $this->actingAs($user)->post('/set-password', ['email' => $user->email,
+            'password' => 'replacement-password', 'password_confirmation' => 'replacement-password'])->assertForbidden();
+    }
+
+    public function test_password_recovery_revokes_initial_setup_permission(): void
+    {
+        $user = $this->googleUser();
+        $token = \Illuminate\Support\Facades\Password::broker()->createToken($user);
+        $this->post('/reset-password', ['token' => $token, 'email' => $user->email,
+            'password' => 'recovered-password', 'password_confirmation' => 'recovered-password'])
+            ->assertSessionHasNoErrors()->assertRedirect(route('login'));
+        $this->assertTrue(Hash::check('recovered-password', $user->fresh()->password));
+        $this->assertFalse($user->fresh()->password_setup_required);
+        $this->actingAs($user->fresh())->post('/set-password', ['email' => $user->email,
+            'password' => 'replacement-password', 'password_confirmation' => 'replacement-password'])->assertForbidden();
+    }
+
+    public function test_proven_current_password_change_revokes_initial_setup_permission(): void
+    {
+        $user = $this->googleUser();
+        $this->actingAs($user)->from('/profile')->put('/password', ['current_password' => 'password',
+            'password' => 'changed-password', 'password_confirmation' => 'changed-password'])
+            ->assertSessionHasNoErrors()->assertRedirect('/profile');
+        $this->assertTrue(Hash::check('changed-password', $user->fresh()->password));
+        $this->assertFalse($user->fresh()->password_setup_required);
+        $this->post('/set-password', ['email' => $user->email,
+            'password' => 'replacement-password', 'password_confirmation' => 'replacement-password'])->assertForbidden();
     }
 
     public function test_guest_and_unverified_users_cannot_set_a_password(): void

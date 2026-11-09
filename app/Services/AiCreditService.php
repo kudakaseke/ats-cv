@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Subscription;
 use App\Models\User;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
@@ -249,7 +250,12 @@ class AiCreditService
             if ($old) {
                 abort_unless($old->feature === $feature && hash_equals($old->request_hash, $hash), 409, 'This operation belongs to different input.');
                 abort_if($old->status === 'reserved', 409, 'This request is still processing. Please wait before retrying.');
-                abort_if($old->status === 'failed', 503, 'This request failed and its credits were refunded. Start a new request to retry.');
+                if ($old->status === 'failed') {
+                    throw new HttpResponseException(response()->json([
+                        'message' => 'This request failed and its credits were refunded. Start a new request to retry.',
+                        'operation_failed' => true, 'operation_id' => $operationId,
+                    ], 503));
+                }
 
                 return (object) ['cached' => true, 'result' => json_decode(Crypt::decryptString($old->result), true, 64, JSON_THROW_ON_ERROR)];
             }

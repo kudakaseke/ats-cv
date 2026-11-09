@@ -6,47 +6,67 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ config('app.name') }} · Workspace</title>
     <link rel="icon" href="{{ asset('favicon.png').'?v=minimal-cv-3' }}" type="image/png"><link rel="icon" href="{{ asset('favicon.svg').'?v=minimal-cv-3' }}" type="image/svg+xml" sizes="any">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@200;300;400;500;600;700;800&display=swap" rel="stylesheet">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
 </head>
 <body data-workspace>
     <a class="skip-link" href="#main">Skip to content</a>
-    <div class="workspace-shell" x-data="{ sidebar: false, mobile: window.innerWidth <= 900 }" @resize.window.debounce="mobile = window.innerWidth <= 900; if (!mobile) sidebar = false" @keydown.escape.window="sidebar = false">
-        <div class="sidebar-overlay" x-cloak x-show="sidebar" @click="sidebar = false"></div>
-        <aside id="workspace-navigation" class="workspace-sidebar" :class="{ 'sidebar-open': sidebar }" :inert="mobile && !sidebar ? '' : null">
-            <a class="workspace-brand" href="{{ route('dashboard') }}" aria-label="ATS CV Detector dashboard"><x-logo-image /></a>
+    <div class="workspace-shell" x-data="workspaceNavigation()" @resize.window.debounce="resize()" @keydown.window="handleKey($event)">
+        <div class="sidebar-overlay" x-cloak x-show="sidebar" @click="closeSidebar()"></div>
+        <aside x-ref="navigation" :role="mobile && sidebar ? 'dialog' : null" :aria-modal="mobile && sidebar ? 'true' : null" aria-label="Workspace menu" id="workspace-navigation" class="workspace-sidebar" :class="{ 'sidebar-open': sidebar }" :inert="mobile && !sidebar ? '' : null">
+            @php($sidebarPlan = app(\App\Services\PlanService::class)->current(auth()->user()))
+            <a class="workspace-brand" href="{{ route('dashboard') }}" aria-label="ATS CV Detector home"><x-logo-image /><span class="sidebar-current-plan">{{ $sidebarPlan->name }} plan</span></a>
+            <button type="button" class="sidebar-close-button" x-cloak x-show="mobile" @click="closeSidebar()" aria-label="Close sidebar"><x-icon name="arrow-left" />Close menu</button>
             <nav aria-label="Workspace navigation">
-                @foreach ([['dashboard', 'layout-dashboard', 'Dashboard', route('dashboard')], ['checker', 'scan-text', 'Job-to-CV ATS Detector', route('workspace.module', 'checker')], ['detect', 'file-check-2', 'ATS Checker', route('workspace.module', 'detect')], ['builder', 'file-plus-2', 'Create CV', route('workspace.module', 'builder')], ['drafts', 'file-pen-line', 'Drafts', route('workspace.module', 'drafts')], ['resumes', 'folder-open', 'My CVs', route('workspace.module', 'resumes')], ['subscription', 'credit-card', 'Subscription', route('subscription')]] as $item)
-                    @php($active = request()->routeIs($item[0]) || request()->route('module') === $item[0])
-                    <a class="sidebar-link {{ $active ? 'active' : '' }}" href="{{ $item[3] }}" @click="sidebar = false" @if($active) aria-current="page" @endif><x-icon :name="$item[1]" />{{ $item[2] }}</a>
+                @foreach ([
+                    'Overview' => [['dashboard', 'house', 'Home', route('dashboard')]],
+                    'CV Analysis' => [['checker', 'scan-text', 'Job-to-CV ATS Detector', route('workspace.module', 'checker')], ['detect', 'file-check-2', 'ATS Checker', route('workspace.module', 'detect')], ['history', 'history', 'Saved checks', route('workspace.module', 'history')]],
+                    'CV Toolkit' => [['builder', 'file-plus-2', 'Create CV', route('workspace.module', 'builder')], ['resumes', 'folder-open', 'My CVs', route('workspace.module', 'resumes')], ['drafts', 'file-pen-line', 'Drafts', route('workspace.module', 'drafts')]],
+                    'Account' => [['subscription', 'credit-card', 'Subscription', route('subscription')], ['profile', 'user-round', 'Account settings', route('profile.edit')], ['account.activity', 'history', 'Audit trail', route('account.activity')]],
+                ] as $group => $items)
+                    <div class="sidebar-nav-group" role="group" aria-label="{{ $group }}">
+                        <h2 class="sidebar-group-heading">{{ $group }}</h2>
+                        @foreach($items as $item)
+                            @php($active = request()->routeIs($item[0], $item[0].'.*') || request()->route('module') === $item[0])
+                            <a class="sidebar-link {{ $active ? 'active' : '' }}" href="{{ $item[3] }}" @click="closeSidebar()" @if($active) aria-current="page" @endif><x-icon :name="$item[1]" />{{ $item[2] }}</a>
+                        @endforeach
+                    </div>
                 @endforeach
-                @if(auth()->user()->is_admin)<a class="sidebar-link" href="{{ route('admin.billing') }}"><x-icon name="credit-card" />Billing management</a>@endif
+                @if(auth()->user()->is_admin)
+                    <div class="sidebar-nav-group" role="group" aria-label="Administration">
+                        <h2 class="sidebar-group-heading">Administration</h2>
+                        <a class="sidebar-link {{ request()->routeIs('admin.billing*') ? 'active' : '' }}" href="{{ route('admin.billing') }}" @click="closeSidebar()" @if(request()->routeIs('admin.billing*')) aria-current="page" @endif><x-icon name="credit-card" />Billing management</a>
+                    </div>
+                @endif
             </nav>
             <form method="POST" action="{{ route('logout') }}" class="sidebar-logout">
                 @csrf
                 <button class="sidebar-link" type="submit"><x-icon name="log-out" />Sign out</button>
             </form>
         </aside>
-        <div class="workspace-main">
+        <div class="workspace-main" :inert="mobile && sidebar ? '' : null">
             <header class="workspace-topbar">
-                <button class="mobile-menu-button" @click="sidebar = !sidebar" :aria-expanded="sidebar" aria-controls="workspace-navigation" aria-label="Toggle sidebar"><x-icon name="menu" /></button>
+                <button class="mobile-menu-button" x-ref="menuToggle" @click="openSidebar()" :aria-expanded="sidebar" aria-controls="workspace-navigation" aria-label="Toggle sidebar"><x-icon name="menu" /></button>
                 @php($headerWallet = app(\App\Services\AiCreditService::class)->displayWallet(auth()->user()))
                 <a class="purchased-credit-badge" href="{{ route('subscription.payment-methods', 'monthly') }}"
-                    x-data="{ credits: @js($headerWallet['purchased_credits']), available: @js($headerWallet['credits']), checking: false,
+                    x-data="{ available: @js($headerWallet['credits']), checking: false,
                         async refreshCredits() {
                             if (this.checking) return;
                             this.checking = true;
                             try {
                                 const response = await fetch(@js(route('ai.credits')), { headers: { Accept: 'application/json' } });
-                                if (response.ok) { const wallet = await response.json(); this.credits = wallet.purchased_credits; this.available = wallet.credits; }
+                                if (response.ok) { const wallet = await response.json(); this.available = wallet.credits; }
                             } catch (error) { /* Keep the last known balance. */ }
                             finally { this.checking = false; }
                         }
                     }"
                     @focus.window="refreshCredits()" @credits-updated.window="refreshCredits()"
                     :aria-label="available + ' credits available. Top up credits.'"
-                    title="Purchased credits remaining">
-                    <strong x-text="credits">{{ $headerWallet['purchased_credits'] }}</strong>
+                    title="Available credits remaining">
+                    <strong x-text="available">{{ $headerWallet['credits'] }}</strong>
                     <span>Credits</span>
                     <span x-show="available <= 20" @if($headerWallet['credits'] > 20) x-cloak @endif>Top up</span>
                 </a>

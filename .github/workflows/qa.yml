@@ -1,0 +1,37 @@
+name: Application QA
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, sqlite3, pdo_sqlite, zip, gd
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements-ats.txt
+      - run: composer install --no-interaction --prefer-dist
+      - run: cp .env.example .env && php artisan key:generate
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: php artisan test --compact
+        env:
+          CV_PYTHON_BINARY: python
+          CV_BROWSER_CHANNEL: chromium
+      - run: npm run test:builder-regressions
+      - run: npm run test:checker-regressions
+      - run: npm run test:browser
+        env:
+          CV_PYTHON_BINARY: python
+          CV_BROWSER_CHANNEL: chromium

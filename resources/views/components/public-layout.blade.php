@@ -8,7 +8,10 @@
     <meta name="description" content="Understand your CV, express your experience, and prepare for your next career move with atscvdetector">
     <title>{{ $title }} · atscvdetector</title>
     <link rel="icon" href="{{ asset('favicon.png').'?v=minimal-cv-3' }}" type="image/png"><link rel="icon" href="{{ asset('favicon.svg').'?v=minimal-cv-3' }}" type="image/svg+xml" sizes="any">
-    @vite(['resources/css/app.css', 'resources/js/public.js'])
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@200;300;400;500;600;700;800&display=swap" rel="stylesheet">
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="public-site">
     <a class="skip-link" href="#main">Skip to content</a>

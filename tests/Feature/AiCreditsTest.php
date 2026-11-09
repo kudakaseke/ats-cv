@@ -106,6 +106,23 @@ class AiCreditsTest extends TestCase
         $this->assertSame(5, $this->credits()->wallet($user)['credits']);
     }
 
+    public function test_free_account_header_shows_spendable_welcome_credits_and_remaining_balance(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user)->get('/dashboard')->assertOk()
+            ->assertSee('<strong x-text="available">15</strong>', false)
+            ->assertSee('this.available = wallet.credits;', false);
+        $this->getJson('/ai/credits')->assertOk()
+            ->assertJsonPath('credits', 15)->assertJsonPath('purchased_credits', 0);
+
+        $this->useCredits($user);
+        $this->get('/dashboard')->assertOk()
+            ->assertSee('<strong x-text="available">5</strong>', false);
+        $this->getJson('/ai/credits')->assertOk()->assertJsonPath('credits', 5);
+        $this->assertSame(1, DB::table('ai_credit_transactions')
+            ->where('user_id', $user->id)->where('type', 'welcome')->count());
+    }
+
     public function test_monthly_workflow_costs_fifteen_and_only_paid_renewal_restores_allowance(): void
     {
         $user = User::factory()->create();
@@ -214,6 +231,39 @@ class AiCreditsTest extends TestCase
         $this->assertDatabaseCount('cv_analyses', 1);
         $this->assertDatabaseHas('ai_usage_logs', ['input_tokens' => 123, 'output_tokens' => 45, 'credits_charged' => 5]);
         $this->postJson('/checker/scan', [...$input, 'resume_text' => 'Different CV'])->assertConflict();
+    }
+
+    public function test_confirmed_scan_failure_identifies_the_failed_request_and_replay_refunds_only_once(): void
+    {
+        $user = User::factory()->create();
+        config(['services.openai.key' => 'fake-key']);
+        Http::fake(['*' => Http::response(['error' => 'unavailable'], 503)]);
+        $id = (string) Str::uuid();
+        $input = ['job_description' => 'PHP HTML', 'resume_text' => 'PHP', 'operation_id' => $id];
+        $this->actingAs($user)->postJson('/checker/scan', $input)->assertStatus(503)
+            ->assertJsonPath('operation_failed', true)->assertJsonPath('operation_id', $id)->assertJsonPath('credits_remaining', 15);
+        $providerCalls = Http::recorded()->count();
+        $this->postJson('/checker/scan', $input)->assertStatus(503)
+            ->assertJsonPath('operation_failed', true)->assertJsonPath('operation_id', $id);
+        Http::assertSentCount($providerCalls);
+        $this->assertSame(15, $this->credits()->wallet($user)['credits']);
+        $this->assertSame(1, DB::table('ai_credit_transactions')->where('type', 'failed_usage_refund')->count());
+        $this->assertDatabaseCount('ai_operations', 1);
+    }
+
+    public function test_failed_rewrite_replay_identifies_the_refunded_operation_without_contacting_ai(): void
+    {
+        $user = User::factory()->create();
+        $id = (string) Str::uuid();
+        $input = ['job_description' => 'PHP', 'resume_text' => 'PHP', 'confirmed_keywords' => []];
+        $operation = $this->credits()->reserve($user, 'revamp', $id, $input);
+        $this->credits()->finish($user, $operation->id, null);
+        Http::preventStrayRequests();
+        $this->actingAs($user)->postJson('/checker/rewrite', [...$input, 'operation_id' => $id])->assertStatus(503)
+            ->assertJsonPath('operation_failed', true)->assertJsonPath('operation_id', $id);
+        Http::assertNothingSent();
+        $this->assertSame(15, $this->credits()->wallet($user)['credits']);
+        $this->assertDatabaseCount('ai_operations', 1);
     }
 
     public function test_analysis_failure_refunds_credits_and_does_not_save_a_result(): void

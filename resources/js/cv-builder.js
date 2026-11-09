@@ -26,7 +26,7 @@ Alpine.data('cvBuilder', (boot) => ({
     reviewZoom: 100, reviewing: Boolean(boot.savedAccount || boot.reviewRequested), editorExpanded: false, downloadMenu: false, downloading: '',
     departments: boot.departments || [], departmentRoles: {},
     positionFeatured: boot.positionFeatured || [], positionGroups: boot.positionGroups || [], positionSearch: '', positionIndustry: 'All', positionLimit: 12,
-    category: 'All', tab: 'personal', importing: false, importError: '', saveState: 'Your draft stays in this browser session', busy: false, error: '', successMessage: '', successTimer: null, timer: null, saveQueue: Promise.resolve(),
+    category: 'All', tab: 'personal', importing: false, importError: '', saveState: 'Your draft stays in this browser session', busy: false, discarding: false, error: '', successMessage: '', successTimer: null, timer: null, saveQueue: Promise.resolve(),
     init() {
         // Laravel stores empty optional fields as null; restore editable string values.
         for (const [key, fallback] of Object.entries(defaults())) {
@@ -51,7 +51,7 @@ Alpine.data('cvBuilder', (boot) => ({
         window.addEventListener('beforeprint', this._beforePrint);
         window.addEventListener('afterprint', this._afterPrint);
         this._beforeUnload = event => {
-            if (['Unsaved changes', 'Saving…', 'Could not save'].includes(this.saveState)) {
+            if (!this.discarding && ['Unsaved changes', 'Saving…', 'Could not save'].includes(this.saveState)) {
                 event.preventDefault();
                 event.returnValue = '';
             }
@@ -188,7 +188,7 @@ Alpine.data('cvBuilder', (boot) => ({
     async download(format) {
         if (!['pdf', 'word'].includes(format) || this.downloading) return;
         if (!this.reviewing || !this.data.name.trim()) { this.startReview(); return; }
-        if (!boot.authenticated) { if (await this.save()) window.location.assign(boot.continueUrl); return; }
+        if (!boot.authenticated) { if (await this.saveLatest()) window.location.assign(boot.continueUrl); return; }
         this.downloading = format; this.downloadMenu = false; this.error = '';
         try {
             const response = await fetch(boot.exportUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': boot.csrf }, body: JSON.stringify({ step: 4, data: this.data, format }) });
@@ -214,7 +214,7 @@ Alpine.data('cvBuilder', (boot) => ({
         if (/student|graduate|intern|entry/i.test(this.data.role)) return ['graduate', 'minimal', 'essential'];
         return ['double-column', 'elegant', 'precision'];
     },
-    templateCategories: ['Modern', 'Simple', 'Traditional', 'Creative', 'ATS Pass'],
+    templateCategories: ['Modern', 'Simple', 'Traditional', 'Creative', 'ATS Pass', 'By Position'],
     selectCategory(category) {
         this.category = category;
         this.$nextTick(() => {
@@ -329,7 +329,7 @@ Alpine.data('cvBuilder', (boot) => ({
         this.data.template = template.id;
         this.reviewing = false;
         await this.go(4);
-        if (this.data.imported_text && !boot.authenticated && await this.save()) window.location.assign(boot.continueUrl);
+        if (this.data.imported_text && !boot.authenticated && await this.saveLatest()) window.location.assign(boot.continueUrl);
     },
     async responseData(response, fallback) {
         let result = {};
@@ -350,36 +350,59 @@ Alpine.data('cvBuilder', (boot) => ({
     },
     async save() {
         clearTimeout(this.timer);
-        const payload = JSON.stringify({ step: this.step, data: this.data, resume_id: boot.resumeId ?? null });
+        const payload = this.draftPayload();
         const task = this.saveQueue.catch(() => {}).then(async () => {
             this.saveState = 'Saving…';
             try {
                 const response = await fetch(boot.saveUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': boot.csrf }, body: payload });
                 await this.responseData(response, 'Unable to save. Please try again.');
-                const current = payload === JSON.stringify({ step: this.step, data: this.data, resume_id: boot.resumeId ?? null });
+                const current = payload === this.draftPayload();
                 this.saveState = current ? (boot.savedAccount ? 'Saved to your account' : 'Draft saved for this session') : 'Unsaved changes';
                 if (current) this.error = '';
                 return true;
             } catch (error) {
-                if (payload === JSON.stringify({ step: this.step, data: this.data, resume_id: boot.resumeId ?? null })) { this.saveState = 'Could not save'; this.error = error.message; }
+                if (payload === this.draftPayload()) { this.saveState = 'Could not save'; this.error = error.message; }
                 return false;
             }
         });
         this.saveQueue = task;
         return task;
     },
+    draftPayload() {
+        return JSON.stringify({ step: this.step, data: this.data, resume_id: boot.resumeId ?? null });
+    },
+    async saveLatest() {
+        // An older successful request must not authorize navigation away from newer edits.
+        while (true) {
+            const snapshot = this.draftPayload();
+            const saved = await this.save();
+            if (snapshot === this.draftPayload()) return saved;
+        }
+    },
     async finish() {
         if (this.busy) return;
         if (!this.data.name.trim()) { this.tab = 'personal'; this.error = 'Please enter your name before continuing.'; return; }
         this.busy = true;
-        if (await this.save()) window.location.assign(boot.finishUrl);
-        else this.busy = false;
+        if (await this.saveLatest()) {
+            if (!this.data.name.trim()) {
+                this.busy = false; this.tab = 'personal'; this.error = 'Please enter your name before continuing.';
+                return;
+            }
+            window.location.assign(boot.finishUrl);
+        } else this.busy = false;
     },
     async leave(url) {
         if (this.busy || this.downloading) return;
         this.busy = true;
-        if (await this.save()) window.location.assign(url);
-        else this.busy = false;
+        if (await this.saveLatest()) window.location.assign(url);
+        else {
+            this.busy = false;
+            if (window.confirm('Your latest changes could not be saved. Leave without saving these changes?')) {
+                this.discarding = true;
+                clearTimeout(this.timer);
+                window.location.assign(url);
+            }
+        }
     },
     async upload(event) {
         const file = event.target.files?.[0]; if (!file) return;
@@ -646,7 +669,7 @@ Alpine.data('cvBuilder', (boot) => ({
         for (const part of parts.slice(0, -1)) target = target?.[part];
         if (!target) return;
         const key = parts.at(-1);
-        const limits = { name: 150, role: 150, email: 255, phone: 80, location: 150, website: 255, skills: 2000, title: 200, company: 150, school: 150, degree: 200, period: 150, institution: 200, level: 100 };
+        const limits = { name: 150, role: 150, email: 255, phone: 80, location: 150, website: 255, skills: 2000, title: 200, company: 200, school: 200, degree: 200, period: 150, institution: 200, level: 100 };
         // innerText applies visual text-transform rules and can silently uppercase saved names.
         let text = field.textContent ?? field.innerText;
         if (field.cloneNode) {
@@ -670,12 +693,13 @@ Alpine.data('cvBuilder', (boot) => ({
         if (parts[0] === 'references') {
             value = value.split('\n').map(line => line.split('|').map(part => part.trim()).filter(Boolean).join(' | ')).filter(Boolean).join('\n');
         }
-        if (parts[0] === 'section_titles' && (!value || value.length > 100)) { this.error = 'Use a section heading between 1 and 100 characters.'; return; }
-        if (value.length > (limits[key] || 5000)) { this.error = 'This field is too long. Please shorten it.'; return; }
-        if (parts[0] === 'languages' && key === 'level' && value && !['Native', 'Fluent', 'Advanced', 'Intermediate', 'Beginner'].includes(value)) { this.error = 'Use Native, Fluent, Advanced, Intermediate or Beginner for proficiency.'; return; }
+        // Keep invalid edits in the draft so validation cannot silently save an older value.
         target[key] = value;
         const nextField = event.relatedTarget?.dataset?.field;
         if (nextField && this.$nextTick) this.$nextTick(() => this.$root.querySelector(`[data-field="${nextField}"]`)?.focus());
+        if (parts[0] === 'section_titles' && (!value || value.length > 100)) { this.error = 'Use a section heading between 1 and 100 characters.'; return; }
+        if (value.length > (limits[key] || 5000)) { this.error = 'This field is too long. Please shorten it.'; return; }
+        if (parts[0] === 'languages' && key === 'level' && value && !['Native', 'Fluent', 'Advanced', 'Intermediate', 'Beginner'].includes(value)) { this.error = 'Use Native, Fluent, Advanced, Intermediate or Beginner for proficiency.'; return; }
     },
     pasteInline(event) {
         if (!event.target.closest('[data-field]')) return;

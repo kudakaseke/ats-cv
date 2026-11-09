@@ -5,7 +5,7 @@
     "scripts": {
         "build": "vite build",
         "dev": "vite",
-        "test:browser": "node scripts/browser-smoke.mjs",
+        "test:browser": "node scripts/qa-browser-suite.mjs",
         "test:workspace-actions": "node scripts/workspace-actions-smoke.mjs",
         "test:exports": "php scripts/audit-exports.php",
         "test:builder": "node scripts/builder-smoke.mjs",
@@ -15,11 +15,10 @@
         "test:template-parity": "node scripts/template-parity-smoke.mjs",
         "test:downloads": "node scripts/download-smoke.mjs",
         "test:checker": "node scripts/checker-smoke.mjs",
+        "test:checker-regressions": "node --test scripts/checker-operation.test.mjs",
         "test:checker-ai": "node scripts/checker-smoke.mjs --ai",
         "test:ats-analysis": "node scripts/verify-ats.mjs",
-        "test:checker-pdf": "node scripts/checker-smoke.mjs --ai --pdf",
-        "test:navigation": "node --test scripts/navigation-feedback.test.mjs",
-        "test:navigation-browser": "node scripts/navigation-smoke.mjs"
+        "test:checker-pdf": "node scripts/checker-smoke.mjs --ai --pdf"
     },
     "devDependencies": {
         "@playwright/test": "^1.64.0",

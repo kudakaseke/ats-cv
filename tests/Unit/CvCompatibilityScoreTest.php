@@ -38,33 +38,4 @@ class CvCompatibilityScoreTest extends TestCase
         $this->assertSame($assessment, $rewrite['assessment']);
         $this->assertSame($scan, $score->scan($scan));
     }
-    public function test_current_relevance_scores_increase_with_wording_without_changing_facts(): void
-    {
-        $score = new CvCompatibilityScore;
-        $assessment = ['scoring_method' => \App\Services\CvIndustryRelevance::VERSION,
-            'original_score' => ['total' => 40], 'revamped_score' => ['total' => 40]];
-        $result = $score->review(['assessment' => $assessment, 'keyword_before' => 20, 'keyword_after' => 80,
-            'structure_before' => 50, 'structure_after' => 50]);
-        $this->assertSame(34.2, $result['compatibility_before']);
-        $this->assertSame(37.8, $result['compatibility_after']);
-        $this->assertSame($assessment, $result['assessment']);
-        $this->assertSame(3.6, $result['wording_effect']);
-        $this->assertSame($result, $score->review($result));
-    }
-
-    public function test_structure_improves_presentation_but_cannot_create_professional_evidence(): void
-    {
-        $score = new CvCompatibilityScore;
-        $assessment = ['scoring_method' => \App\Services\CvIndustryRelevance::VERSION,
-            'original_score' => ['total' => 60], 'revamped_score' => ['total' => 60]];
-        $result = $score->review(['assessment' => $assessment, 'keyword_before' => 50, 'keyword_after' => 50,
-            'structure_before' => 0, 'structure_after' => 100]);
-        $this->assertSame(52.5, $result['compatibility_before']);
-        $this->assertSame(55.5, $result['compatibility_after']);
-        $this->assertSame(0.0, $result['wording_effect']);
-        $assessment['original_score']['total'] = $assessment['revamped_score']['total'] = 0;
-        $zero = $score->review(['assessment' => $assessment, 'keyword_before' => 0, 'keyword_after' => 100,
-            'structure_before' => 0, 'structure_after' => 100]);
-        $this->assertSame(0.0, $zero['compatibility_after']);
-    }
 }

@@ -10,7 +10,7 @@ try {
     await expect(page.getByText('15 credits',{exact:true})).toBeVisible();
     await page.goto(base+'/subscription');
     await expect(page.locator('#plan-monthly')).toContainText('$4.75');
-    await expect(page.locator('#plan-pro')).toContainText('$6.25');
+    await expect(page.locator('#plan-pro')).toContainText('$6.50');
     await expect(page.locator('#plan-annual')).toContainText('US$47.40');
     await expect(page.locator('#credit-topups')).toContainText('150 credits');
     await expect(page.locator('#credit-topups')).toContainText('US$4.75');

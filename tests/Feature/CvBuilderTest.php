@@ -21,6 +21,15 @@ class CvBuilderTest extends TestCase
         $this->actingAs(User::factory()->create());
     }
 
+    public function test_draft_email_validation_uses_a_readable_attribute_name(): void
+    {
+        $payload = $this->payload();
+        $payload['data']['email'] = 'not-an-email';
+        $this->postJson('/get-started/draft', $payload)->assertUnprocessable()
+            ->assertJsonValidationErrors('data.email')
+            ->assertJsonFragment(['The email field must be a valid email address.']);
+    }
+
     public function test_degree_grade_survives_draft_saving_and_rejects_overlong_values(): void
     {
         $draft = $this->payload();

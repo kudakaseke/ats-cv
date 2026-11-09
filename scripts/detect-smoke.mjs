@@ -2,16 +2,17 @@ import { chromium, expect } from '@playwright/test';
 import { signInTestUser, removeTestUser } from './browser-auth.mjs';
 
 const base = process.env.APP_TEST_URL || 'http://127.0.0.1:8000';
-const browser = await chromium.launch({ channel: 'chrome', headless: true });
+const browser = await chromium.launch({ ...(process.env.BROWSER_CHANNEL ? { channel: process.env.BROWSER_CHANNEL } : {}), headless: true });
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    page.setDefaultTimeout(15000);
+    page.setDefaultNavigationTimeout(20000);
 const errors = [];
 page.on('pageerror', error => errors.push(error.message));
 let fixture;
 try {
     fixture = await signInTestUser(page, base);
     await page.goto(`${base}/dashboard`);
-    expect(await page.locator('.dashboard-action-card h2').allTextContents()).toEqual(['Job-to-CV ATS Detector', 'Create CV', 'View Templates', 'Plan', 'Settings', 'ATS Checker']);
-    await page.locator('.dashboard-action-card').filter({ has: page.getByRole('heading', { name: 'ATS Checker', exact: true }) }).click();
+    await page.locator('.dashboard-tool-card').filter({ has: page.getByRole('heading', { name: 'ATS Checker', exact: true }) }).getByRole('link').click();
     await expect(page.getByRole('heading', { name: 'ATS Checker', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Check ATS readiness' }).click();
     await expect(page.getByRole('alert')).toHaveText('Upload your CV or paste its text first.');

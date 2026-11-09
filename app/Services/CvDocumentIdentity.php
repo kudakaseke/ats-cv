@@ -15,9 +15,10 @@ class CvDocumentIdentity
         return hash_equals(hash('sha256', self::normalise($left)), hash('sha256', self::normalise($right)));
     }
 
-    public static function signature(string $job, string $resume): string
+    public static function signature(string $job, string $resume, ?string $industry = null): string
     {
         $identity = [self::normalise($job), self::normalise($resume)];
+        if ($industry !== null && $industry !== '') $identity[] = $industry;
         return hash('sha256', json_encode($identity, JSON_THROW_ON_ERROR));
     }
 }

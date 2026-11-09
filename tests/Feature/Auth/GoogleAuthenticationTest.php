@@ -37,6 +37,7 @@ class GoogleAuthenticationTest extends TestCase
         $user = User::sole();
         $this->assertTrue($user->hasVerifiedEmail());
         $this->assertSame('subject', $user->google_id);
+        $this->assertTrue($user->canSetInitialPassword());
         $this->assertAuthenticatedAs($user);
         $this->post('/logout');
         $this->googleCallback()->assertRedirect('/dashboard');
@@ -52,6 +53,7 @@ class GoogleAuthenticationTest extends TestCase
         $this->googleCallback()->assertRedirect('/dashboard');
         $this->assertAuthenticatedAs($user);
         $this->assertSame($password, $user->fresh()->password);
+        $this->assertFalse($user->fresh()->canSetInitialPassword());
     }
 
     public function test_unverified_email_is_rejected(): void

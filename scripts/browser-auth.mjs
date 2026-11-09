@@ -1,9 +1,11 @@
 import { execFileSync } from 'node:child_process';
 
 export async function signInTestUser(page, base = process.env.APP_TEST_URL || 'http://127.0.0.1:8015', options = {}) {
-    const fixture = JSON.parse(execFileSync('php', ['scripts/browser-fixture.php', 'create', ...(options.paymentTest ? ['payment'] : [])], { encoding: 'utf8' }));
+    const fixture = JSON.parse(execFileSync('php', ['scripts/browser-fixture.php', 'create', ...(options.paymentTest ? ['payment'] : []), ...(options.pro ? ['pro'] : [])], { encoding: 'utf8' }));
     try {
-        await page.goto(`${base}/login`);
+        await page.addInitScript(() => localStorage.setItem('ats_cookie_notice_v1', 'seen'));
+        await page.route(/fonts\.(googleapis|gstatic)\.com/, route => route.abort());
+        await page.goto(`${base}/login`, { waitUntil: 'domcontentloaded' });
         await page.getByLabel('Email', { exact: true }).fill(fixture.email);
         await page.getByLabel('Password', { exact: true }).fill(fixture.password);
         await page.getByRole('button', { name: /^(Log in|Sign in)$/i }).click();

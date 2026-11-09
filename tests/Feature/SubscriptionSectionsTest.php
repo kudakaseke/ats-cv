@@ -26,7 +26,7 @@ class SubscriptionSectionsTest extends TestCase
         }
         $this->actingAs($owner)->get('/subscription')->assertOk()
             ->assertSee('id="active-plan"', false)->assertSee('id="plans"', false)
-            ->assertSee('id="cards"', false)->assertSee('id="payment-history"', false)
+            ->assertDontSee('id="cards"', false)->assertDontSee('href="#cards"', false)->assertSee('id="payment-history"', false)
             ->assertSee(route('billing.show', 'history-user-'.$owner->id))
             ->assertDontSee(route('billing.show', 'history-user-'.$other->id))
             ->assertSee('Test payment confirmed')->assertSee('ZAR 77.95')->assertSee('SAST');
@@ -40,6 +40,6 @@ class SubscriptionSectionsTest extends TestCase
             'status' => 'active', 'starts_at' => now()->subDay(), 'ends_at' => now()->addYear()]);
         $this->actingAs($user)->get('/subscription')->assertOk()->assertSee('Active subscription')
             ->assertSee('Paid access until')->assertSee('2400 credits per paid year.')
-            ->assertSee('No payments yet.')->assertSee('Card details are not stored or displayed');
+            ->assertSee('No payments yet.')->assertDontSee('Card details are not stored or displayed');
     }
 }

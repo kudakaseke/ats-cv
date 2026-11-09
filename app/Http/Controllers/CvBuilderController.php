@@ -164,12 +164,22 @@ class CvBuilderController extends Controller
         ];
     }
 
+    private function draftAttributes(): array
+    {
+        $attributes = [];
+        foreach (array_keys($this->draftRules()) as $key) {
+            $attributes[$key] = str_replace(['data.', '_', '.*.'], ['', ' ', ' '], $key);
+        }
+
+        return $attributes;
+    }
+
     public function export(Request $request, CvDocumentExporter $exporter)
     {
         $rules = $this->draftRules();
         $rules['format'] = ['required', Rule::in(['pdf', 'word'])];
         $rules['data.name'] = ['required', 'string', 'max:150'];
-        $validated = $request->validate($rules);
+        $validated = $request->validate($rules, [], $this->draftAttributes());
         $this->checkTemplateAccess($request, $validated['data']['template']);
         try {
             $path = $exporter->create($validated['data'], $validated['format']);
@@ -187,7 +197,7 @@ class CvBuilderController extends Controller
 
     public function save(Request $request)
     {
-        $validated = $request->validate($this->draftRules());
+        $validated = $request->validate($this->draftRules(), [], $this->draftAttributes());
         $this->checkTemplateAccess($request, $validated['data']['template']);
         $previous = $request->session()->get('cv_builder', []);
         $resumeId = array_key_exists('resume_id', $validated) ? $validated['resume_id'] : ($previous['resume_id'] ?? null);

@@ -108,7 +108,6 @@ class CvAiAssessment
             $rules['relevant_experience.'.$key] = ['sometimes', 'nullable', 'numeric', 'min:0', 'max:100'];
         }
         $data = Validator::make($data, $rules)->validate();
-        $data = app(CvExperienceMatcher::class)->normaliseAssessment($data);
         if (($baseline['scoring_method'] ?? '') === CvIndustryRelevance::VERSION) {
             // A rewrite cannot silently remove specialist gaps or promote generic evidence.
             $revised = [];

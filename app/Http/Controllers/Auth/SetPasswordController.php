@@ -15,7 +15,7 @@ class SetPasswordController extends Controller
 {
     public function create(Request $request)
     {
-        if (! $request->user()->google_id || $request->user()->password_set_at) {
+        if (! $request->user()->canSetInitialPassword()) {
             return to_route('profile.edit');
         }
         return view('auth.set-password', ['user' => $request->user()]);
@@ -23,15 +23,15 @@ class SetPasswordController extends Controller
 
     public function store(Request $request)
     {
-        abort_unless($request->user()->google_id && ! $request->user()->password_set_at, 403);
+        abort_unless($request->user()->canSetInitialPassword(), 403);
         $validated = $request->validate([
             'email' => ['required', 'string', Rule::in([$request->user()->email])],
             'password' => ['required', Password::defaults(), 'confirmed'],
         ]);
         DB::transaction(function () use ($request, $validated) {
             $user = User::whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
-            abort_unless($user->google_id && ! $user->password_set_at, 403);
-            $user->forceFill(['password' => Hash::make($validated['password']), 'password_set_at' => now(),
+            abort_unless($user->canSetInitialPassword(), 403);
+            $user->forceFill(['password' => Hash::make($validated['password']), 'password_set_at' => now(), 'password_setup_required' => false,
                 'remember_token' => Str::random(60)])->save();
             if (config('session.driver') === 'database') {
                 DB::connection(config('session.connection'))->table(config('session.table', 'sessions'))

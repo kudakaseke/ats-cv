@@ -1,0 +1,64 @@
+import { chromium, expect } from '@playwright/test';
+import { randomBytes } from 'node:crypto';
+import { removeTestUser } from './browser-auth.mjs';
+const base = process.env.APP_TEST_URL || 'http://127.0.0.1:8000';
+const browser = await chromium.launch(process.env.BROWSER_CHANNEL ? { channel: process.env.BROWSER_CHANNEL } : {});
+const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+page.setDefaultTimeout(15000);
+page.setDefaultNavigationTimeout(20000);
+const email = `browser-smoke-${randomBytes(8).toString('hex')}@example.invalid`;
+const errors = [];
+page.on('pageerror', error => errors.push(error.message));
+await page.route(/fonts\.(googleapis|gstatic)\.com/, route => route.abort());
+await page.addInitScript(() => localStorage.setItem('ats_cookie_notice_v1', 'seen'));
+try {
+    await page.goto(`${base}/dashboard`);
+    await expect(page).toHaveURL(/login/);
+    await page.goto(base);
+    const faqs = page.locator('.reference-faq details');
+    await expect(faqs).toHaveCount(7);
+    for (let index = 0; index < 7; index++) {
+        await faqs.nth(index).locator('summary').click();
+        await expect(faqs.nth(index)).toHaveAttribute('open');
+        await faqs.nth(index).locator('summary').click();
+        await expect(faqs.nth(index)).not.toHaveAttribute('open');
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    const menu = page.getByRole('button', { name: 'Toggle navigation', exact: true });
+    await expect(menu).toHaveAttribute('aria-expanded', 'false');
+    await menu.click();
+    await expect(page.locator('#mobile-nav')).toBeVisible();
+    await page.locator('#mobile-nav').getByRole('link', { name: 'Pricing', exact: true }).click();
+    await expect(page).toHaveURL(/pricing/);
+    await expect(page.locator('#mobile-nav')).not.toBeVisible();
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto(`${base}/get-started?templates=1`);
+    await page.getByRole('button', { name: 'By Position', exact: true }).click();
+    await page.getByRole('button', { name: 'Choose Position Classic template', exact: true }).click();
+    await expect(page).toHaveURL(/pricing/);
+    await page.goto(`${base}/register`);
+    await page.getByLabel('Name', { exact: true }).fill('Public QA Registration');
+    await page.getByLabel('Email', { exact: true }).fill('invalid-email');
+    await page.getByLabel('Password', { exact: true }).fill('Public-QA-Temporary-Password!');
+    await page.getByLabel('Confirm Password', { exact: true }).fill('Public-QA-Temporary-Password!');
+    await page.getByRole('button', { name: 'Create account', exact: true }).click();
+    expect(await page.getByLabel('Email', { exact: true }).evaluate(el => el.validity.typeMismatch)).toBe(true);
+    await page.getByLabel('Email', { exact: true }).fill(email);
+    await page.getByRole('button', { name: 'Create account', exact: true }).click();
+    await expect(page).toHaveURL(/verify-email/);
+    const code = page.getByLabel('Verification code', { exact: true });
+    await code.fill('abcdef');
+    await page.getByRole('button', { name: 'Verify email', exact: true }).click();
+    expect(await code.evaluate(el => el.validity.patternMismatch)).toBe(true);
+    await page.getByRole('button', { name: 'Log out', exact: true }).click();
+    await expect(page).toHaveURL(base + '/');
+    await page.goto(`${base}/forgot-password`);
+    await page.getByLabel('Email', { exact: true }).fill('unknown-' + email);
+    await page.getByRole('button', { name: /Email Password Reset Link/i }).click();
+    await expect(page.getByText('If an account exists for that email, a password reset link will be sent.', { exact: true })).toBeVisible();
+    expect(errors).toEqual([]);
+    console.log('PASS: guest route protection, all FAQs, mobile navigation, paid-template gate, registration validation, verification syntax, logout and recovery acknowledgement.');
+} finally {
+    await browser.close();
+    removeTestUser({ email });
+}

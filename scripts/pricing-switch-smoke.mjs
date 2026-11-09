@@ -1,10 +1,14 @@
 import { chromium, expect } from '@playwright/test';
 import { signInTestUser, removeTestUser } from './browser-auth.mjs';
 const base = process.env.APP_TEST_URL || 'http://127.0.0.1:8000';
-const browser = await chromium.launch({ channel: 'chrome' });
+const browser = await chromium.launch({ ...(process.env.BROWSER_CHANNEL ? { channel: process.env.BROWSER_CHANNEL } : {}) });
 let fixture;
 try {
     const page = await browser.newPage();
+    page.setDefaultTimeout(15000);
+    page.setDefaultNavigationTimeout(20000);
+    await page.route(/fonts\.(googleapis|gstatic)\.com/, route => route.abort());
+    await page.addInitScript(() => localStorage.setItem('ats_cookie_notice_v1', 'seen'));
     for (const width of [1366, 390]) {
         await page.setViewportSize({ width, height: 768 });
         await page.goto(base + '/pricing');
@@ -14,12 +18,12 @@ try {
         await expect(card.locator('.reference-price:visible')).toContainText('4.75');
         await card.getByRole('switch').check();
         await expect(card.locator('h3:visible')).toHaveText('Pro');
-        await expect(card.locator('.reference-price:visible')).toContainText('6.25');
+        await expect(card.locator('.reference-price:visible')).toContainText('6.50');
         await expect(card.locator('ul:visible')).toContainText('225 credits');
         await expect(card.locator('a:visible')).toHaveAttribute('href', /#plan-pro$/);
         await card.getByRole('switch').uncheck();
         await expect(card.locator('ul:visible')).toContainText('150 credits');
-        await expect(page.locator('#pricing article').last()).toContainText('200 credits');
+        await expect(page.locator('#pricing article').last()).toContainText('2,400 credits');
         const sizing = await page.locator('#pricing').evaluate(e => ({ height: e.offsetHeight, overflow: document.documentElement.scrollWidth > innerWidth }));
         expect(sizing.overflow).toBe(false);
         // Full plan feature lists may extend below the viewport.

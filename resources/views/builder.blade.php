@@ -3,6 +3,7 @@
 <head>
     <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Build your CV · atscvdetector</title><link rel="icon" href="{{ asset('favicon.png').'?v=minimal-cv-3' }}" type="image/png"><link rel="icon" href="{{ asset('favicon.svg').'?v=minimal-cv-3' }}" type="image/svg+xml" sizes="any">
+    <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="builder-body">
@@ -36,11 +37,11 @@
         </section>
         <section class="builder-question" x-show="step === 5">
             <h1>Upload your CV or resume</h1>
-            <p>We?ll transfer your summary, experience, education, skills and other details into your chosen template.</p>
+            <p>We will transfer your summary, experience, education, skills and other details into your chosen template.</p>
             <div class="builder-import">
                 <label for="cv-upload">Choose a PDF or Word document</label><p>PDF or DOCX, maximum 2 MB. Review the imported details for accuracy.</p>
                 <input id="cv-upload" x-ref="upload" type="file" accept=".pdf,.docx" @change="upload($event)" :disabled="importing">
-                <p x-show="importing" role="status">Reading your document?</p><p x-show="importError" x-text="importError" role="alert" class="import-error"></p>
+                <p x-show="importing" role="status">Reading your document...</p><p x-show="importError" x-text="importError" role="alert" class="import-error"></p>
             </div>
         </section>
         <section class="builder-question builder-question-compact" x-show="step === 2">
@@ -57,7 +58,7 @@
                 <p>Free includes {{ count(config('cv_access.free_templates')) }} templates. <a href="{{ route('pricing') }}">Upgrade to unlock all {{ count($templates) }} designs.</a></p>
             @endif
             <div class="builder-filters" x-ref="templateFilters" role="group" aria-label="Template categories"><template x-for="filter in ['All', ...templateCategories, 'By Department']"><button @click="selectCategory(filter)" :class="{ selected: category === filter }" :aria-pressed="category === filter" x-text="filter"></button></template></div>
-            <section class="position-gallery department-gallery" x-show="category === 'By Department'" aria-labelledby="departments-heading">
+            <section class="position-gallery department-gallery" x-show="category === 'All' || category === 'By Department'" aria-labelledby="departments-heading">
                 <h2 id="departments-heading" class="template-group-heading">By Department <small x-text="departmentExamples.length + ' templates'"></small></h2>
                 <p class="position-gallery-intro">Choose your department, select a role, and use its template.</p>
                 <div class="template-grid">
@@ -104,11 +105,25 @@
                     <x-score-pair :wording="$comparison['keyword_after'] ?? null" :wording-before="$comparison['keyword_before'] ?? null" :compatibility="$comparison['compatibility_after'] ?? null" :compatibility-before="$comparison['compatibility_before'] ?? null" />
                     @if(isset($comparison['compatibility_before'], $comparison['compatibility_after']) && ($comparison['keyword_after'] ?? 0) > ($comparison['keyword_before'] ?? 0))
                         @php($wordingGain = $comparison['keyword_after'] - $comparison['keyword_before'])
-                        <p>Wording Match increased by {{ $wordingGain }} points, contributing {{ $comparison['wording_effect'] ?? round($wordingGain * 0.2, 2) }} points to the ATS Compatibility change. Qualifications and experience are assessed separately.</p>
+                        <p>Wording Match increased by {{ $wordingGain }} points, contributing {{ round($wordingGain * 0.2, 2) }} points to the ATS Compatibility change. Qualifications and experience are assessed separately.</p>
                     @endif
-                    <p>Review your new CV below, then download as PDF or Word.</p>
+                    @if(isset($comparison['assessment']))<details open><summary>Job requirements and recommendations</summary><x-ai-assessment :assessment="$comparison['assessment']" :revised="true" /></details>@endif
+                    <p>These scores measure different things. Review your new CV below, then download as PDF or Word.</p>
                     <p class="checker-comparison-note">Scores and comparisons describe the AI-generated version before manual edits.</p>
-                    @include('workspace.partials.revamp-review', ['comparison' => $comparison])
+                    @if(!empty($comparison['green_flags']))<div class="checker-green-flags"><h3>Qualification strengths</h3><ul>@foreach($comparison['green_flags'] as $flag)<li>{{ $flag }}</li>@endforeach</ul>@if($comparison['certificate_bonus'] ?? 0)<p>Includes {{ $comparison['certificate_bonus'] }} additional certificate bonus points.</p>@endif</div>@endif
+                    @if(!empty($comparison['added_keywords']))<p><strong>Requirements added:</strong> {{ implode(', ', $comparison['added_keywords']) }}</p>@endif
+                    @if(!empty($comparison['changes']))<details open><summary>What AI changed</summary><ul>@foreach($comparison['changes'] as $change)<li>{{ $change }}</li>@endforeach</ul></details>@endif
+                    @if(!empty($comparison['remaining_keywords']) || !empty($comparison['warnings']))
+                        <details open class="missing-requirements"><summary>Requirements still missing ({{ count($comparison['remaining_keywords'] ?? []) }})</summary>
+                            @if(!empty($comparison['warnings']))<section class="checker-review-warnings" role="note"><h3>Warnings</h3><ul>@foreach($comparison['warnings'] as $warning)<li>{{ $warning }}</li>@endforeach</ul></section>@endif
+                            @if(!empty($comparison['remaining_groups']))
+                                <div class="missing-requirement-groups">@foreach($comparison['remaining_groups'] as $category => $requirements)@if($requirements)<section><h3>{{ ['qualifications' => 'Qualifications', 'skills' => 'Skills', 'competencies' => 'Competencies'][$category] ?? ucfirst($category) }}</h3><ul>@foreach($requirements as $requirement)<li>{{ $requirement }}</li>@endforeach</ul></section>@endif @endforeach</div>
+                            @else<ul>@foreach($comparison['remaining_keywords'] ?? [] as $requirement)<li>{{ $requirement }}</li>@endforeach</ul>@endif
+                            <p>Add these only where you have supporting skills or experience.</p>
+                        </details>
+                    @endif
+                    @if(($comparison['keyword_after'] ?? $comparison['after']) <= ($comparison['keyword_before'] ?? $comparison['before']))<p>Wording Match has not increased. This does not mean ATS Compatibility is unchanged; compare its original and revamped scores above. Only add skills and experience you can support.</p>@endif
+                    @if(isset($comparison['original_text'], $comparison['revised_text']))<details><summary>Compare original and tailored text</summary><div class="checker-text-comparison"><div><h3>Original CV</h3><pre>{{ $comparison['original_text'] }}</pre></div><div><h3>Tailored CV</h3><pre>{{ $comparison['revised_text'] }}</pre></div></div></details>@endif
                 </section>
             @endif
             <div class="editor-intro"><h1 x-text="reviewing ? 'Review your CV.' : 'Make your CV yours.'"></h1><p x-text="reviewing ? 'This preview shows the page layout used for your PDF download. Check your details before downloading. Word may flow differently in your document app.' : 'Click any text on your CV to edit it. Add entries directly in each section, then select Review CV.'"></p></div>

@@ -1,9 +1,9 @@
-import {chromium, expect as baseExpect} from '@playwright/test';
+import {chromium, expect} from '@playwright/test';
 import {signInTestUser, removeTestUser} from './browser-auth.mjs';
 import fs from 'node:fs';
 
 const base = process.env.APP_TEST_URL || 'http://127.0.0.1:8000';
-const expect = baseExpect.configure({timeout:15000});
+expect.configure({timeout:15000});
 const browser = await chromium.launch({channel:'chrome',headless:true});
 const page = await browser.newPage({viewport:{width:1440,height:1000}});
 await page.route('https://fonts.googleapis.com/**', route => route.abort());
@@ -85,7 +85,7 @@ try {
         await expect(page.getByRole('heading',{name:'Choose Payment Method',exact:true})).toBeVisible();
         await expect(page.locator('.payment-method-card h2')).toHaveText(['Paynow']);
         await expect(page.locator('.payment-method-card').first().getByRole('button')).toHaveCount(1);
-        await expect(page.locator('.dashboard-heading')).toContainText('US$'+price);
+        await expect(page.locator('.payment-method-card').first()).toContainText('US$'+price);
     }
     for (const path of ['/dashboard','/subscription','/profile','/workspace/checker','/workspace/resumes','/account/activity']) {
         for (const width of [320,390,1440]) {
@@ -98,7 +98,7 @@ try {
     const wallet=await page.evaluate(async()=>(await fetch('/ai/credits',{headers:{Accept:'application/json'}})).json());
     expect(wallet.credits).toBe(15);
     expect(errors).toEqual([]);
-    console.log('PASS: guest onboarding, paid-template lock, free-template selection, inline editing, headings, dates, review, sign-in-to-save, reopening, PDF/Word downloads, Word import, Paynow pricing and responsive workspace. No provider or AI charges made.');
+    console.log('PASS: guest onboarding, paid-template lock, free-template selection, inline editing, headings, dates, review, sign-in-to-save, reopening, PDF/Word downloads, Word import, all Paynow prices and responsive workspace. No provider or AI charges made.');
 } finally {
     await browser.close();
     removeTestUser(fixture);
