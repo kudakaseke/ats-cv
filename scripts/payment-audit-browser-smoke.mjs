@@ -11,7 +11,7 @@ try {
     fixture = await signInTestUser(page, base);
     await page.goto(base + '/dashboard');
     await expect(page.getByRole('heading', { name: 'Current plan: Free', exact: true })).toHaveCount(0);
-    await expect(page.locator('.purchased-credit-badge')).toContainText('0');
+    await expect(page.locator('.purchased-credit-badge strong')).toHaveText('15');
     await page.getByRole('link', { name: 'Audit trail', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Account audit trail' })).toBeVisible();
     for (const name of ['Payment history', 'Credit ledger', 'Activity history']) {
