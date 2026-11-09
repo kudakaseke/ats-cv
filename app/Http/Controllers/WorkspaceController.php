@@ -7,9 +7,6 @@ use App\Models\CvAnalysis;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Services\AiCreditService;
-use App\Services\CvCompatibilityScore;
-use App\Services\CvExperienceMatcher;
-use App\Services\CvJobRequirements;
 use App\Services\PlanService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -54,7 +51,6 @@ class WorkspaceController extends Controller
 
         return view('workspace.subscription', [
             'currentPlan' => $currentPlan,
-            'scheduledSubscriptions' => $request->user()->subscriptions()->with('plan')->where('status', 'active')->where('starts_at', '>', now())->orderBy('starts_at')->get(),
             'activeSubscription' => $request->user()->subscriptions()->where('subscription_plan_id', $currentPlan->id)
                 ->whereIn('status', Subscription::availableStatuses())
                 ->whereNotNull('starts_at')->where('starts_at', '<=', now())
@@ -65,6 +61,7 @@ class WorkspaceController extends Controller
                 ->orderByDesc('billing_payments.id')->paginate(10, ['*'], 'payments'),
             'remaining' => intdiv($wallet['credits'], config('ai_credits.costs.analyse')),
             'wallet' => $wallet,
+            'scheduledSubscriptions' => $request->user()->subscriptions()->with('plan')->whereIn('status', Subscription::availableStatuses())->where('starts_at', '>', now())->orderBy('starts_at')->get(),
             'plans' => SubscriptionPlan::where('is_active', true)->orderBy('price_cents')->get(),
         ]);
     }
@@ -75,17 +72,16 @@ class WorkspaceController extends Controller
 
         $results = $analysis->results;
         if (isset($results['experience_check'])) {
-            $results['experience_check'] = app(CvExperienceMatcher::class)->reconcile($results['experience_check'], $results['assessment'] ?? $results['ai_analysis']['assessment'] ?? null);
+            $results['experience_check'] = app(\App\Services\CvExperienceMatcher::class)->reconcile($results['experience_check'], $results['assessment'] ?? $results['ai_analysis']['assessment'] ?? null);
         }
-        if (($results['scoring_basis'] ?? '') !== CvJobRequirements::VERSION) {
+        if (($results['scoring_basis'] ?? '') !== \App\Services\CvJobRequirements::VERSION) {
             // Saved checks do not retain the original CV wording. Do not pretend
             // their old keyword counts were produced by the new weighted method.
             $results['legacy_wording_score'] = $results['keyword_score'] ?? $analysis->score;
             $results['keyword_score'] = null;
             $results['certificate_bonus'] = 0;
         }
-        $analysis->results = app(CvCompatibilityScore::class)->scan($results);
-
+        $analysis->results = app(\App\Services\CvCompatibilityScore::class)->scan($results);
         return view('workspace.analysis', compact('analysis'));
     }
 

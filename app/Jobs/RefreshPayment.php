@@ -35,7 +35,7 @@ class RefreshPayment implements ShouldBeUnique, ShouldQueue
 
     public function handle(PaymentService $service): void
     {
-        if ($payment = BillingPayment::find($this->paymentId)) {
+        if ($payment = BillingPayment::whereKey($this->paymentId)->where('provider', 'paynow')->first()) {
             $service->refresh($payment);
         }
     }

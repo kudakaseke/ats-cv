@@ -11,12 +11,18 @@ class Subscription extends Model
 
     protected function casts(): array
     {
-        return ['starts_at' => 'datetime', 'ends_at' => 'datetime', 'cancelled_at' => 'datetime', 'auto_renew' => 'boolean'];
+        return ['starts_at' => 'datetime', 'ends_at' => 'datetime', 'cancelled_at' => 'datetime', 'auto_renew' => 'boolean', 'credits_granted_upfront' => 'boolean'];
     }
 
     public static function availableStatuses(): array
     {
-        return ['active'];
+        return self::localTestCreditsEnabled() ? ['active', 'sandbox_active'] : ['active'];
+    }
+
+    public static function localTestCreditsEnabled(): bool
+    {
+        return app()->environment('local') && config('billing.paynow.mode') === 'test'
+            && (bool) config('billing.paynow.local_test_credits');
     }
 
     public function plan(): BelongsTo

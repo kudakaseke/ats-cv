@@ -50,13 +50,15 @@
         @elseif($payment->status === 'failed')
             <p>Payment could not be completed. No credits were added. You can retry or contact support with your reference.</p>
             <a class="btn btn-outline" href="{{ route('subscription') }}">Retry payment</a>
+        @elseif($payment->status === 'closed')
+            <p>This local checkout was closed because its payment provider was removed. It will no longer be checked. Contact support with the reference if you paid through that provider.</p>
         @elseif($payment->status === 'abandoned')
             <p>Payment was not completed. No credits were added.</p>
         @else
             <p>This payment is {{ $payment->status }}. Contact support if you need assistance.</p>
         @endif
         @if($payment->recurring)<p>Automatic renewal status: {{ $payment->recurring_status ?? 'Awaiting setup' }}. Renewals are {{ $payment->currency }} {{ number_format($payment->amount_cents / 100, 2) }} {{ $payment->billing_interval === 'annually' ? 'every year' : 'every month' }} until cancelled.</p>@endif
-        <form method="POST" action="{{ route('billing.check', $payment->reference) }}">@csrf<button class="btn btn-primary mt-4" type="submit">Check payment status</button></form>
+        @if($payment->provider === 'paynow')<form method="POST" action="{{ route('billing.check', $payment->reference) }}">@csrf<button class="btn btn-primary mt-4" type="submit">Check payment status</button></form>@endif
         <p class="mt-4"><a class="text-link" href="{{ route('subscription') }}">Back to subscription</a></p>
     </section>
 </x-app-layout>

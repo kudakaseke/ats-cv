@@ -19,6 +19,34 @@ class AiCreditsTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_restored_allowance_can_expire_again_without_breaking_ats_or_duplicating_expiry(): void
+    {
+        $user = User::factory()->create();
+        $subscription = $this->paid($user, 'annual');
+        $this->credits()->wallet($user);
+        $original = DB::table('ai_wallets')->where('user_id', $user->id)->first();
+        $subscription->update(['status' => 'cancelled']);
+        $this->credits()->wallet($user);
+        // Reproduce an allowance restored by the former local-test configuration.
+        // Its original immutable expiry must remain in the ledger.
+        DB::table('ai_credit_transactions')->where('user_id', $user->id)->where('type', 'subscription_expired')
+            ->update(['reference' => 'expire:'.$original->allocation_reference]);
+        DB::table('ai_credit_transactions')->insert(['user_id' => $user->id, 'reference' => 'restore-fixture',
+            'type' => 'subscription_restored', 'subscription_delta' => $original->subscription_credits,
+            'topup_delta' => 0, 'debt_delta' => 0, 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('ai_wallets')->where('user_id', $user->id)->update([
+            'allocation_reference' => $original->allocation_reference, 'subscription_credits' => $original->subscription_credits,
+            'topup_credits' => 50, 'expires_at' => $original->expires_at]);
+        $this->actingAs($user)->get('/workspace/checker')->assertOk()->assertSee('Job-to-CV ATS Detector');
+        $this->getJson('/ai/credits')->assertOk()->assertJsonPath('credits', 50);
+        $this->get('/dashboard')->assertOk();
+        $this->get('/subscription')->assertOk();
+        $this->assertSame(2, DB::table('ai_credit_transactions')->where('user_id', $user->id)->where('type', 'subscription_expired')->count());
+        $this->assertDatabaseHas('ai_credit_transactions', ['reference' => 'expire:'.$original->allocation_reference,
+            'subscription_delta' => -$original->subscription_credits]);
+        $this->assertSame(0, $this->credits()->wallet($user)['subscription_credits']);
+    }
+
     public function test_existing_annual_allowance_preserves_spending_and_pending_refunds_on_upgrade(): void
     {
         $user = User::factory()->create();

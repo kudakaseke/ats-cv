@@ -9,7 +9,11 @@ use App\Http\Controllers\CvCheckerController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\WorkspaceController;
+use App\Http\Middleware\RecordAccountActivity;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
+use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
+use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 Route::get('/', HomeController::class)->name('home');
 Route::view('/features', 'features')->name('features');
@@ -28,7 +32,10 @@ Route::view('/privacy', 'legal.privacy')->name('privacy');
 Route::view('/terms', 'legal.terms')->name('terms');
 Route::view('/refund-policy', 'legal.refund')->name('refund');
 Route::view('/contact', 'legal.contact')->name('contact');
-Route::post('/billing/paynow/notify/{reference}', [BillingController::class, 'paynowNotify'])->middleware('throttle:60,1')->name('billing.paynow.notify');
+Route::post('/billing/paynow/notify/{reference}', [BillingController::class, 'paynowNotify'])
+    ->withoutMiddleware([ValidateCsrfToken::class, StartSession::class,
+        ShareErrorsFromSession::class, RecordAccountActivity::class])
+    ->middleware('throttle:payment-notify')->name('billing.paynow.notify');
 
 Route::get('/dashboard', function () {
     return view('dashboard');
@@ -37,10 +44,11 @@ Route::get('/dashboard', function () {
 Route::middleware(['auth', 'verified', 'throttle:workspace-read'])->group(function () {
     Route::get('/account/activity', ActivityController::class)->name('account.activity');
     Route::get('/ai/credits', [CvCheckerController::class, 'credits'])->name('ai.credits');
-    Route::post('/credits/topup', [CreditBillingController::class, 'topup'])->middleware('throttle:6,1')->name('credits.topup');
-    Route::post('/billing/{provider}/{plan}', [BillingController::class, 'start'])->middleware('throttle:6,1')->name('billing.start');
+    Route::post('/credits/topup', [CreditBillingController::class, 'topup'])->middleware('throttle:payment-checkout')->name('credits.topup');
+    Route::post('/billing/{provider}/{plan}', [BillingController::class, 'start'])->middleware('throttle:payment-checkout')->name('billing.start');
     Route::get('/payments/{reference}', [BillingController::class, 'show'])->middleware('throttle:payment-return')->name('billing.show');
-    Route::post('/payments/{reference}/check', [BillingController::class, 'check'])->middleware('throttle:12,1')->name('billing.check');
+    Route::get('/billing/paynow/return/{reference}', [BillingController::class, 'show'])->middleware('throttle:payment-return')->name('billing.paynow.return');
+    Route::post('/payments/{reference}/check', [BillingController::class, 'check'])->middleware('throttle:payment-check')->name('billing.check');
     Route::post('/checker/rewrite', [CvCheckerController::class, 'rewrite'])->middleware('throttle:5,1')->name('checker.rewrite');
     Route::post('/checker/scan', [CvCheckerController::class, 'scan'])->middleware('throttle:ai-analysis')->name('checker.scan');
     Route::post('/checker/detect', [CvCheckerController::class, 'detect'])->middleware('throttle:30,1')->name('checker.detect');

@@ -27,7 +27,7 @@ class CreditBillingController extends Controller
         $payment = DB::transaction(function () use ($request, $provider, $mode, $amount, $currency, $pack) {
             User::whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
             if ($provider === 'paynow' && ($existing = BillingPayment::where('user_id', $request->user()->id)
-                ->where('provider', 'paynow')->where('mode', $mode)->where('status', 'pending')->where('kind', 'topup')->first())) {
+                ->where('provider', 'paynow')->where('mode', $mode)->where('status', 'pending')->where('kind', 'topup')->lockForUpdate()->first())) {
                 return $existing;
             }
 
@@ -35,7 +35,7 @@ class CreditBillingController extends Controller
                 'subscription_plan_id' => SubscriptionPlan::where('slug', 'free')->firstOrFail()->id, 'provider' => $provider,
                 'mode' => $mode, 'amount_cents' => (int) $amount, 'currency' => $currency, 'billing_interval' => 'monthly',
                 'kind' => 'topup', 'credits' => $pack['credits'], 'recurring' => false]);
-        });
+        }, 3);
         if ($provider === 'paynow' && ! $payment->wasRecentlyCreated) {
             return to_route('billing.show', $payment->reference)->with('status', 'Check your existing top-up before starting another payment.');
         }

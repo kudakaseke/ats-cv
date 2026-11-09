@@ -23,7 +23,7 @@ class WorkspaceResponseHeaders
         if ($request->isSecure() && app()->environment('production')) {
             $response->headers->set('Strict-Transport-Security', 'max-age=31536000');
         }
-        if ($request->user() || $request->is('login', 'register', 'forgot-password', 'reset-password/*', 'verify-email', 'get-started', 'get-started/*')) {
+        if ($request->is('billing/paynow/notify/*') || $request->user() || $request->is('login', 'register', 'forgot-password', 'reset-password/*', 'verify-email', 'get-started', 'get-started/*')) {
             $response->headers->set('Cache-Control', 'private, no-store');
         }
 

@@ -32,6 +32,10 @@ class AppServiceProvider extends ServiceProvider
         Model::preventLazyLoading(! $this->app->isProduction());
         RateLimiter::for('ingress', function (Request $request) {
             $ip = $request->ip();
+            if ($request->isMethod('POST') && $request->is('billing/paynow/notify/*')) {
+                return [Limit::perSecond(100)->by('paynow-ingress-burst:'.$ip),
+                    Limit::perMinute(3000)->by('paynow-ingress-minute:'.$ip)];
+            }
             $limits = [
                 Limit::perSecond(60)->by('ingress-burst:'.$ip),
                 Limit::perMinute(600)->by('ingress-minute:'.$ip),
@@ -46,14 +50,28 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute(20)->by('oauth-minute:'.$request->ip()),
             Limit::perHour(60)->by('oauth-hour:'.$request->ip()),
         ]);
-        RateLimiter::for('site', fn (Request $request) => Limit::perMinute(600)->by('site-ip:'.$request->ip()));
+        RateLimiter::for('site', fn (Request $request) => $request->isMethod('POST') && $request->is('billing/paynow/notify/*')
+            ? Limit::none() : Limit::perMinute(600)->by('site-ip:'.$request->ip()));
         RateLimiter::for('workspace-read', fn (Request $request) => [
             Limit::perMinute(120)->by('workspace-user:'.$request->user()->id),
             Limit::perMinute(600)->by('workspace-ip:'.$request->ip()),
         ]);
         RateLimiter::for('payment-return', fn (Request $request) => [
             Limit::perMinute(20)->by('payment-user:'.$request->user()->id),
-            Limit::perMinute(60)->by('payment-ip:'.$request->ip()),
+            Limit::perMinute(600)->by('payment-ip:'.$request->ip()),
+        ]);
+        RateLimiter::for('payment-checkout', fn (Request $request) => [
+            Limit::perMinute(6)->by('checkout-user:'.$request->user()->id),
+            Limit::perHour(30)->by('checkout-hour:'.$request->user()->id),
+            Limit::perMinute(120)->by('checkout-ip:'.$request->ip()),
+        ]);
+        RateLimiter::for('payment-check', fn (Request $request) => [
+            Limit::perMinute(12)->by('check-user:'.$request->user()->id),
+            Limit::perMinute(300)->by('check-ip:'.$request->ip()),
+        ]);
+        RateLimiter::for('payment-notify', fn (Request $request) => [
+            Limit::perMinute(60)->by('notify-reference:'.hash('sha256', (string) $request->route('reference'))),
+            Limit::perMinute(3000)->by('notify-ip:'.$request->ip()),
         ]);
         RateLimiter::for('cv-export', fn (Request $request) => [
             Limit::perMinute(5)->by('export-user:'.$request->user()->id),

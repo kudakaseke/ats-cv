@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\ProcessPaynowNotification;
 use App\Models\BillingPayment;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
@@ -13,9 +14,11 @@ use Database\Seeders\SubscriptionPlanSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
@@ -47,6 +50,126 @@ class PaynowLifecycleTest extends TestCase
     }
 
     // Independent implementation: never use the production signer to create test responses.
+    public function test_verification_does_not_hold_a_database_transaction_during_network_io(): void
+    {
+        $payment = $this->payment();
+        $baseline = DB::transactionLevel();
+        Http::fake(function () use ($payment, $baseline) {
+            $this->assertSame($baseline, DB::transactionLevel());
+
+            return Http::response($this->signed($this->payload($payment)));
+        });
+        app(PaymentService::class)->refresh($payment);
+        $this->assertSame('paid', $payment->fresh()->status);
+    }
+
+    public function test_simultaneous_verification_is_retryable_without_an_extra_provider_request(): void
+    {
+        $payment = $this->payment();
+        $lock = Cache::lock('paynow-verification:'.$payment->id, 90);
+        $this->assertTrue($lock->get());
+        try {
+            $this->notify($payment, $this->payload($payment))->assertStatus(503);
+            Http::assertNothingSent();
+            $this->assertNull(DB::table('payment_notifications')->sole()->processed_at);
+        } finally {
+            $lock->release();
+        }
+        Http::fake(['*' => Http::response($this->signed($this->payload($payment)))]);
+        $this->notify($payment, $this->payload($payment))->assertOk();
+        $this->assertDatabaseCount('subscriptions', 1);
+    }
+
+    public function test_callback_reencoding_does_not_create_another_notification(): void
+    {
+        $payment = $this->payment();
+        Http::fake(['*' => Http::response($this->signed($this->payload($payment)))]);
+        $this->notify($payment, $this->payload($payment))->assertOk();
+        $reencoded = str_replace('-', '%2D', $this->signed($this->payload($payment)));
+        $this->call('POST', '/billing/paynow/notify/'.$payment->reference, [], [], [], [], $reencoded)->assertOk();
+        $this->assertDatabaseCount('payment_notifications', 1);
+        Http::assertSentCount(1);
+    }
+
+    public function test_oversized_callback_is_rejected_without_storage_or_provider_access(): void
+    {
+        $payment = $this->payment();
+        $this->call('POST', '/billing/paynow/notify/'.$payment->reference, [], [], [], [], str_repeat('x', 16385))->assertStatus(413);
+        $this->assertDatabaseCount('payment_notifications', 0);
+        Http::assertNothingSent();
+    }
+
+    public function test_paid_cannot_regress_and_reversed_cannot_be_reactivated(): void
+    {
+        $payment = $this->payment();
+        Http::fake(['*' => Http::sequence()
+            ->push($this->signed($this->payload($payment)))
+            ->push($this->signed($this->payload($payment, 'Sent')))
+            ->push($this->signed($this->payload($payment, 'Refunded')))
+            ->push($this->signed($this->payload($payment)))]);
+        $service = app(PaymentService::class);
+        $service->refresh($payment);
+        $service->refresh($payment);
+        $this->assertSame('paid', $payment->fresh()->status);
+        $service->refresh($payment);
+        $service->refresh($payment);
+        $this->assertSame('reversed', $payment->fresh()->status);
+        $this->assertSame('cancelled', Subscription::sole()->status);
+        $this->assertSame(0, app(AiCreditService::class)->wallet(User::findOrFail($payment->user_id))['subscription_credits']);
+        $this->assertDatabaseCount('subscriptions', 1);
+    }
+
+    public function test_polling_is_restricted_to_the_provider_payment_endpoint(): void
+    {
+        $payment = $this->payment();
+        $payment->update(['poll_url' => 'https://www.paynow.co.zw/interface/initiatetransaction']);
+        app(PaymentService::class)->refresh($payment);
+        Http::assertNothingSent();
+        $this->assertSame('pending', $payment->fresh()->status);
+    }
+
+    public function test_checkout_limits_are_per_user_and_return_retry_headers(): void
+    {
+        Http::fake(['*' => Http::response($this->signed(['status' => 'Ok',
+            'browserurl' => 'https://www.paynow.co.zw/Payment/Confirm',
+            'pollurl' => 'https://www.paynow.co.zw/interface/checkpayment?guid=test']))]);
+        $this->actingAs(User::factory()->create());
+        for ($i = 0; $i < 6; $i++) {
+            $this->post('/billing/paynow/monthly', ['billing_consent' => 1])->assertRedirect();
+        }
+        $this->post('/billing/paynow/monthly', ['billing_consent' => 1])->assertStatus(429)->assertHeader('Retry-After');
+        $this->actingAs(User::factory()->create())->post('/billing/paynow/monthly', ['billing_consent' => 1])->assertRedirect();
+        Http::assertSentCount(2);
+    }
+
+    public function test_first_subscription_honors_checkout_credit_snapshot_after_catalogue_changes(): void
+    {
+        $payment = $this->payment();
+        config(['ai_credits.plans.monthly' => 100]);
+        Http::fake(['*' => Http::response($this->signed($this->payload($payment)))]);
+        app(PaymentService::class)->refresh($payment);
+        $this->assertSame(150, app(AiCreditService::class)->wallet(User::findOrFail($payment->user_id))['credits']);
+    }
+
+    public function test_callback_limits_isolate_transactions_on_a_shared_provider_ip(): void
+    {
+        for ($i = 0; $i < 60; $i++) {
+            $this->call('POST', '/billing/paynow/notify/limited', [], [], [], [], 'hash=forged')->assertBadRequest();
+        }
+        $this->call('POST', '/billing/paynow/notify/limited', [], [], [], [], 'hash=forged')->assertStatus(429)->assertHeader('Retry-After');
+        $this->call('POST', '/billing/paynow/notify/another-payment', [], [], [], [], 'hash=forged')->assertBadRequest();
+        $this->assertDatabaseCount('payment_notifications', 0);
+        Http::assertNothingSent();
+    }
+
+    public function test_callback_does_not_create_browser_sessions(): void
+    {
+        config(['session.driver' => 'database']);
+        $this->call('POST', '/billing/paynow/notify/forged', [], [], [], [], 'hash=forged')->assertBadRequest();
+        $this->assertDatabaseCount('sessions', 0);
+        $this->assertDatabaseCount('payment_notifications', 0);
+    }
+
     private function signed(array $data): string
     {
         $data['hash'] = strtoupper(hash('sha512', implode('', $data).config('billing.paynow.integration_key')));
@@ -152,6 +275,7 @@ class PaynowLifecycleTest extends TestCase
         $this->notify($payment, $this->payload($payment, overrides: ['amount' => '0.01']))->assertBadRequest();
         Http::assertNothingSent();
         $this->assertDatabaseCount('subscriptions', 0);
+        $this->assertDatabaseCount('payment_notifications', 0);
     }
 
     public function test_notification_failure_is_retryable_and_does_not_mark_it_processed(): void
@@ -207,7 +331,7 @@ class PaynowLifecycleTest extends TestCase
     }
 
     #[DataProvider('renewalPlans')]
-    public function test_early_renewal_extends_from_paid_end_and_does_not_refill_credits_early(string $slug, int $credits): void
+    public function test_early_renewal_extends_paid_time_and_adds_credits_immediately_once(string $slug, int $credits): void
     {
         $payment = $this->payment($slug);
         $user = User::findOrFail($payment->user_id);
@@ -222,9 +346,11 @@ class PaynowLifecycleTest extends TestCase
         $expected = $slug === 'annual' ? $end->copy()->addYearNoOverflow() : $end->copy()->addMonthNoOverflow();
         $this->assertTrue($renewal->ends_at->equalTo($expected));
         $this->assertSame(1, DB::table('ai_credit_transactions')->where('type', 'subscription_allocation')->count());
+        $this->assertSame($credits * 2, app(AiCreditService::class)->wallet($user)['credits']);
         $this->travelTo($end->copy()->addSecond());
-        $this->assertSame($credits, app(AiCreditService::class)->wallet($user)['credits']);
-        $this->assertSame(2, DB::table('ai_credit_transactions')->where('type', 'subscription_allocation')->count());
+        $this->assertSame($credits * 2, app(AiCreditService::class)->wallet($user)['credits']);
+        $this->assertSame(1, DB::table('ai_credit_transactions')->where('type', 'subscription_allocation')->count());
+        $this->assertSame(1, DB::table('ai_credit_transactions')->where('type', 'subscription_upfront')->count());
     }
 
     public function test_refund_or_dispute_revokes_only_funded_subscription_and_never_regrants(): void
@@ -373,7 +499,7 @@ class PaynowLifecycleTest extends TestCase
         $this->assertDatabaseCount('billing_payments', 1);
     }
 
-    public function test_paid_plan_change_preserves_current_paid_time_and_allocates_new_plan_only_at_start(): void
+    public function test_paid_plan_change_preserves_current_paid_time_and_adds_new_credits_now(): void
     {
         config(['billing.paynow.plan_change_policy' => 'end_of_cycle']);
         $payment = $this->payment('pro');
@@ -384,9 +510,9 @@ class PaynowLifecycleTest extends TestCase
         Http::fake(['*' => Http::response($this->signed($this->payload($payment)))]);
         app(PaymentService::class)->refresh($payment);
         $this->assertTrue(Subscription::findOrFail($payment->fresh()->subscription_id)->starts_at->equalTo($end));
-        $this->assertSame(2400, app(AiCreditService::class)->wallet($user)['credits']);
+        $this->assertSame(2625, app(AiCreditService::class)->wallet($user)['credits']);
         $this->travelTo($end->copy()->addSecond());
-        $this->assertSame(225, app(AiCreditService::class)->wallet($user)['credits']);
+        $this->assertSame(2625, app(AiCreditService::class)->wallet($user)['credits']);
     }
 
     public function test_unconfirmed_live_currency_cannot_contact_paynow(): void
@@ -395,6 +521,27 @@ class PaynowLifecycleTest extends TestCase
         $this->actingAs(User::factory()->create())->post('/billing/paynow/monthly', ['billing_consent' => 1])->assertSessionHasErrors('billing');
         Http::assertNothingSent();
         $this->assertDatabaseCount('subscriptions', 0);
+    }
+
+    public function test_queued_callback_acknowledges_before_polling_and_worker_fulfills_once(): void
+    {
+        Queue::fake();
+        config(['performance.queue_payment_checks' => true, 'performance.background_connection' => 'database']);
+        $payment = $this->payment();
+        $body = $this->signed($this->payload($payment));
+        $this->call('POST', '/billing/paynow/notify/'.$payment->reference, [], [], [],
+            ['CONTENT_TYPE' => 'application/x-www-form-urlencoded'], $body)->assertOk();
+        Http::assertNothingSent();
+        $this->assertDatabaseCount('subscriptions', 0);
+        Queue::assertPushed(ProcessPaynowNotification::class);
+        $job = new ProcessPaynowNotification(DB::table('payment_notifications')->sole()->fingerprint);
+        Http::fake(['*' => Http::response($this->signed($this->payload($payment)))]);
+        $job->handle(app(PaymentService::class));
+        $job->handle(app(PaymentService::class));
+        Http::assertSentCount(1);
+        $this->assertSame('paid', $payment->fresh()->status);
+        $this->assertDatabaseCount('subscriptions', 1);
+        $this->assertDatabaseCount('billing_receipts', 1);
     }
 
     public function test_merchant_trace_recovers_lost_initialization_then_polls_before_fulfilling(): void
