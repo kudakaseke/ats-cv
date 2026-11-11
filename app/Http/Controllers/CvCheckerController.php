@@ -32,6 +32,7 @@ class CvCheckerController extends Controller
         $request->validate(['operation_id' => ['sometimes', 'uuid']]);
         $data = $request->validate(['industry' => ['sometimes', 'nullable', \Illuminate\Validation\Rule::in(array_keys(config('industries')))], 'job_description' => ['required', 'string', 'max:20000'], 'resume_text' => ['required', 'string', 'max:20000']]);
         $result = $matcher->compare($data['job_description'], $data['resume_text']);
+        $result['structure_score'] = app(\App\Services\CvCompatibilityScore::class)->structureScore($data['resume_text']);
         if ($result['total'] === 0) {
             throw ValidationException::withMessages(['job_description' => 'Add the job requirements or skills so we can compare keywords.']);
         }
@@ -83,6 +84,8 @@ class CvCheckerController extends Controller
         ]);
         $request->validate(['operation_id' => ['sometimes', 'uuid']]);
         $before = $matcher->compare($data['job_description'], $data['resume_text']);
+        $compatibility = app(\App\Services\CvCompatibilityScore::class);
+        $structureBefore = $compatibility->structureScore($data['resume_text']);
         $allowed = $before['confirmable_skills'] ?? array_values($matcher->tokens($data['job_description']));
         foreach ($data['confirmed_keywords'] as $keyword) {
             if (! in_array($keyword, $allowed, true)) {
@@ -91,8 +94,9 @@ class CvCheckerController extends Controller
         }
         $operation = $credits->reserve($request->user(), 'revamp', $request->input('operation_id', (string) Str::uuid()), $data);
         if ($operation->cached) {
-            $payload = app(\App\Services\CvCompatibilityScore::class)->rewrite([...$operation->result, 'before' => $before,
-                'after' => $matcher->compare($data['job_description'], $operation->result['rewritten_resume'])]);
+            $payload = $compatibility->rewrite([...$operation->result, 'before' => $before,
+                'after' => $matcher->compare($data['job_description'], $operation->result['rewritten_resume']),
+                'structure_before' => $structureBefore, 'structure_after' => $compatibility->structureScore($operation->result['rewritten_resume'])]);
             $request->session()->put('cv_checker.generated', ['text' => $payload['rewritten_resume'], 'structured_resume' => $payload['structured_resume'],
                 'assessment' => $payload['assessment'] ?? null, 'original_text' => $data['resume_text'], 'job_description' => $data['job_description']]);
 
@@ -105,9 +109,10 @@ class CvCheckerController extends Controller
             $baseline = in_array($scan['signature'] ?? null, !empty($data['industry']) ? [$signature] : [$signature, $legacySignature], true) ? ($scan['assessment'] ?? null) : null;
             $draft = $rewriter->rewrite($data['job_description'], $data['resume_text'], $data['confirmed_keywords'], $baseline, $data['industry'] ?? null);
             $payload = [...$draft, 'before' => $before, 'after' => $matcher->compare($data['job_description'], $draft['rewritten_resume']),
+                'structure_before' => $structureBefore, 'structure_after' => $compatibility->structureScore($draft['rewritten_resume']),
                 'source_signature' => $signature,
                 'credits_used' => config('ai_credits.costs.revamp')];
-            $payload = app(\App\Services\CvCompatibilityScore::class)->rewrite($payload);
+            $payload = $compatibility->rewrite($payload);
             $credits->finish($request->user(), $operation->id, $payload, $rewriter->lastUsage);
         } catch (\Throwable $exception) {
             report($exception);

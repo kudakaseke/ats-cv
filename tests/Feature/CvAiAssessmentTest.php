@@ -91,7 +91,7 @@ class CvAiAssessmentTest extends TestCase
             return Http::response(['status' => 'completed', 'usage' => ['input_tokens' => 100, 'output_tokens' => 200], 'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => json_encode($data)]]]]]);
         });
         $input = ['job_description' => "Skills:\nmonthly reporting, SQL", 'resume_text' => "Alex Example\nPrepared monthly reports."];
-        $this->actingAs(User::factory()->create())->postJson('/checker/scan', $input)->assertOk()->assertJsonPath('compatibility_score', 55.34);
+        $this->actingAs(User::factory()->create())->postJson('/checker/scan', $input)->assertOk()->assertJsonPath('compatibility_score', 49.67)->assertJsonPath('structure_score', 0);
         $draft = $this->postJson('/checker/rewrite', [...$input, 'confirmed_keywords' => []])->assertOk()->assertJsonPath('original_score.total', 56.67)->assertJsonPath('revamped_score.total', 77.78)->json();
         $this->post('/checker/edit', ['generated' => 1, 'resume_text' => str_replace("\n", "\r\n", $draft['rewritten_resume']),
             'structured_resume' => json_encode($draft['structured_resume']), 'original_resume_text' => str_replace("\n", "\r\n", $input['resume_text']),
@@ -120,7 +120,7 @@ class CvAiAssessmentTest extends TestCase
         $this->actingAs(User::factory()->create())->withSession([
             'cv_builder' => ['step' => 4, 'data' => ['name' => 'Alex Example'], 'checker_result' => $comparison],
             'cv_checker.generated' => ['original_text' => $original, 'job_description' => $job, 'text' => $revised, 'assessment' => $assessment],
-        ])->get('/get-started')->assertOk()->assertSee('Revamped 72.22/100')->assertDontSee('Candidate Evidence Score')
+        ])->get('/get-started')->assertOk()->assertSee('Revamped 65.88/100')->assertDontSee('Candidate Evidence Score')
             ->assertSessionHas('cv_builder.checker_result.assessment.original_score.total', 56.67);
         Http::assertNothingSent();
     }
@@ -147,7 +147,7 @@ class CvAiAssessmentTest extends TestCase
             'step' => 4, 'data' => ['name' => 'Alex Example'], 'checker_result' => $comparison,
         ]])->get('/get-started')->assertOk()->assertSee('Wording Match')->assertSee('ATS Compatibility')
             ->assertSee('Original 13/100')->assertSee('Revamped 78/100')
-            ->assertSee('Original 47.94/100')->assertSee('Revamped 77.82/100')->assertDontSee('@if($revised)', false);
+            ->assertSee('Original 42.27/100')->assertSee('Revamped 70.05/100')->assertDontSee('@if($revised)', false);
         $html = $response->getContent();
         $orderedHeadings = [
             '<summary>What AI changed</summary>',
@@ -182,7 +182,7 @@ class CvAiAssessmentTest extends TestCase
         Http::preventStrayRequests();
         $this->actingAs(User::factory()->create())->withSession(['cv_builder' => [
             'step' => 4, 'data' => ['name' => 'Alex Example'], 'checker_result' => $comparison,
-        ]])->get('/get-started')->assertOk()->assertSee('Original 36/100')->assertSee('Revamped 38/100')
+        ]])->get('/get-started')->assertOk()->assertSee('Original 31.5/100')->assertSee('Revamped 33.5/100')
             ->assertSee('contributing 2 points to the ATS Compatibility change')
             ->assertDontSee('Candidate Evidence Score')->assertDontSee('45/100');
         Http::assertNothingSent();

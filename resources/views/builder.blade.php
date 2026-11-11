@@ -108,6 +108,10 @@
                         @php($wordingGain = $comparison['keyword_after'] - $comparison['keyword_before'])
                         <p>Wording Match increased by {{ $wordingGain }} points, contributing {{ round($wordingGain * 0.2, 2) }} points to the ATS Compatibility change. Qualifications and experience are assessed separately.</p>
                     @endif
+                    @if(isset($comparison['structure_before'], $comparison['structure_after']) && $comparison['structure_after'] > $comparison['structure_before'])
+                        @php($structureGain = $comparison['structure_after'] - $comparison['structure_before'])
+                        <p>Readable CV structure improved by {{ round($structureGain, 2) }} points on basic text, contact, heading, and date checks, contributing {{ round($structureGain * 0.1, 2) }} points to ATS Compatibility. This does not measure visual page layout.</p>
+                    @endif
                     <p>These scores measure different things. Review your new CV below, then download as PDF or Word.</p>
                     <p class="checker-comparison-note">Scores and comparisons describe the AI-generated version before manual edits.</p>
                     @if(($comparison['keyword_after'] ?? $comparison['after']) <= ($comparison['keyword_before'] ?? $comparison['before']))<p>Wording Match has not increased. This does not mean ATS Compatibility is unchanged; compare its original and revamped scores above. Only add skills and experience you can support.</p>@endif

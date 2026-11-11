@@ -26,6 +26,19 @@ class CvCompatibilityScoreTest extends TestCase
         }
     }
 
+    public function test_readable_structure_improvement_contributes_to_compatibility(): void
+    {
+        $score = new CvCompatibilityScore;
+        $this->assertSame(45.5, $score->calculate(45, 50, 40));
+        $this->assertSame(50.5, $score->calculate(45, 50, 90));
+
+        $assessment = ['original_score' => ['total' => 45], 'revamped_score' => ['total' => 45]];
+        $review = $score->review(['assessment' => $assessment, 'keyword_before' => 50, 'keyword_after' => 50,
+            'structure_before' => 40, 'structure_after' => 90]);
+        $this->assertSame(45.5, $review['compatibility_before']);
+        $this->assertSame(50.5, $review['compatibility_after']);
+    }
+
     public function test_scan_review_and_cached_payload_recalculation_use_identical_formula(): void
     {
         $score = new CvCompatibilityScore;

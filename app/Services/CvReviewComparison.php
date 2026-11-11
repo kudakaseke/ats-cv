@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
 
 class CvReviewComparison
 {
-    public const VERSION = 11;
+    public const VERSION = 12;
 
     public function refreshForUser(array $comparison, ?int $userId, ?array $generated = null): array
     {
@@ -106,6 +106,8 @@ class CvReviewComparison
         return ['comparison_version' => self::VERSION, 'job_description' => $job, 'method' => $after['method'],
             'before' => $before['similarity_percent'], 'after' => $after['similarity_percent'],
             'keyword_before' => $before['keyword_score'], 'keyword_after' => $after['keyword_score'],
+            'structure_before' => app(CvCompatibilityScore::class)->structureScore($original),
+            'structure_after' => app(CvCompatibilityScore::class)->structureScore($revised),
             'green_flags' => $after['green_flags'] ?? [], 'certificate_bonus' => $after['certificate_bonus'] ?? 0,
             'added_keywords' => array_values(array_diff($after['matched'], $before['matched'])),
             'remaining_keywords' => $after['missing'], 'remaining_groups' => $groups, 'warnings' => $warnings,
