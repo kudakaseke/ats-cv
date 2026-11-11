@@ -111,6 +111,26 @@ class CvCheckerTest extends TestCase
             ->assertUnprocessable()->assertJsonValidationErrors(['original_resume_text', 'job_description']);
     }
 
+    public function test_existing_tailored_draft_moves_to_reference_layout_only_once(): void
+    {
+        $this->actingAs(User::factory()->create())->post('/checker/edit', [
+            'resume_text' => "Alex Morgan\nSkills\nHTML, CSS", 'original_resume_text' => "Alex Morgan\nSkills\nHTML",
+            'job_description' => 'HTML CSS JavaScript', 'generated' => '1',
+        ])->assertRedirect(route('builder.start'));
+        $draft = session('cv_builder');
+        unset($draft['tailored_layout_version']);
+        $draft['data']['template'] = 'essential';
+        $draft['data']['section_positions'] = [['section' => 'skills', 'region' => 'cv-side', 'after' => null]];
+        $this->withSession(['cv_builder' => $draft])->get('/get-started')->assertOk()
+            ->assertSessionHas('cv_builder.data.template', 'tailored-reference')
+            ->assertSessionHas('cv_builder.data.section_positions', [])
+            ->assertSessionHas('cv_builder.tailored_layout_version', 1);
+        $draft = session('cv_builder');
+        $draft['data']['template'] = 'graduate';
+        $this->withSession(['cv_builder' => $draft])->get('/get-started')->assertOk()
+            ->assertSessionHas('cv_builder.data.template', 'graduate');
+    }
+
     public function test_pdf_upload_uses_the_bounded_pymupdf_extractor(): void
     {
         $this->mock(CvPdfExtractor::class, function ($mock) {
@@ -131,6 +151,6 @@ class CvCheckerTest extends TestCase
         $this->assertSame($comparison['before'], $comparison['after']);
         $this->assertSame([], $comparison['added_keywords']);
         $this->get('/get-started')->assertOk()->assertSee('Wording Match has not increased.')
-            ->assertSee('Compare original and tailored text')->assertSee('Requirements still missing');
+            ->assertSee('Compare original and tailored text')->assertSee('Missing requirements');
     }
 }

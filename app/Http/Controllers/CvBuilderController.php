@@ -28,6 +28,18 @@ class CvBuilderController extends Controller
         }
 
         $draft = $request->session()->get('cv_builder', []);
+        // Existing generated drafts predate the dedicated tailored layout.
+        // Migrate once so subsequent template and layout choices remain editable.
+        if (! empty($draft['review_ready']) && isset($draft['checker_result'], $draft['data']) && empty($draft['tailored_layout_version'])) {
+            $draft['data']['template'] = 'tailored-reference';
+            $draft['data']['section_positions'] = [];
+            $draft['data']['section_titles'] = array_replace($draft['data']['section_titles'] ?? [], [
+                'summary' => 'Professional Summary', 'experience' => 'Experience',
+                'achievements' => 'Key Achievements', 'skills' => 'Technical Skills',
+                'courses' => 'Certifications and Skills',
+            ]);
+            $draft['tailored_layout_version'] = 1;
+        }
         if (isset($draft['checker_result']['original_text'], $draft['data']) && empty($draft['professional_title_checked'])) {
             $original = $draft['checker_result']['original_text'];
             $oldTitle = $draft['data']['role'] ?? '';
@@ -97,6 +109,10 @@ class CvBuilderController extends Controller
 
     private function restoreCoreStrengths(array $data): array
     {
+        if (($data['template'] ?? null) === 'tailored-reference') {
+            $data = \App\Services\CvResumeFormat::builder($data);
+            $data['skills'] = (new \App\Services\CvTechnicalSkills)->format($data['skills'] ?? '', $data['role'] ?? '');
+        }
         if (($data['template'] ?? null) === 'slate') {
             $data['template'] = 'elegant';
         }

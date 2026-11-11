@@ -323,3 +323,27 @@ test('a stale successful save cannot finish when the latest edit fails server va
     assert.equal(cv.data.name.length, 151);
     assert.match(cv.error, /150 characters/);
 });
+
+test('tailored reference follows the supplied CV structure and separates employer from title', () => {
+    const cv = builder();
+    Object.assign(cv.data, {name: 'Example Applicant', role: 'Senior Accountant', email: 'example@example.com', summary: 'Verified summary.', skills: 'Technical: SQL, Python', experience: [{company: 'Example Employer', title: 'Accountant', period: '2024 - 2025', description: 'Prepared reports.'}], achievements: [{title: 'Reporting', description: 'Improved reporting.'}], education: [{degree: 'MBA', school: 'Example College', period: '2024'}], courses: [{title: 'Data Analytics', institution: 'Example Institute'}], custom_sections: [{title: 'Additional Experience', content: 'Earlier Employer, Accountant | 2020 - 2023'}]});
+    const html = cv.previewAts({id: 'tailored-reference', layout: 'ats-professional', font: 'sans'}, cv.data);
+    const headings = [...html.matchAll(/<h3>(.*?)<\/h3>/g)].map(match => match[1]);
+    assert.deepEqual(headings, ['Professional Summary', 'Experience', 'Key Achievements', 'Additional Experience', 'Technical Skills', 'Education', 'Certifications and Skills']);
+    assert.ok(html.indexOf('example@example.com') < html.indexOf('Senior Accountant'));
+    assert.match(html, /<strong>Example Employer<\/strong><span>2024 - 2025<\/span>/);
+    assert.match(html, /<p><strong>Accountant<\/strong><\/p>/);
+    assert.equal(cv.pageDimensions('tailored-reference').width, 210);
+});
+
+test('profession skill rows retain bold categories and concise lines in all layouts', () => {
+    const cv = builder();
+    const html = cv.skillMarkup('Programming: Python, PHP\nFrameworks: Laravel\nDatabases: MySQL\nTools: Git\nMethods: Agile');
+    assert.match(html, /cv-skills-grouped/);
+    assert.match(html, /<p><strong>Programming:<\/strong> Python, PHP<\/p>/);
+    assert.ok(html.indexOf('Programming:') < html.indexOf('Frameworks:'));
+    assert.ok(html.indexOf('Frameworks:') < html.indexOf('Databases:'));
+    assert.ok(html.indexOf('Databases:') < html.indexOf('Tools:'));
+    assert.ok(html.indexOf('Tools:') < html.indexOf('Methods:'));
+    assert.doesNotMatch(html, /<span>/);
+});

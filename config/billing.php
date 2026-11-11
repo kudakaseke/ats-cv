@@ -7,6 +7,7 @@ return [
         'mode' => env('PAYNOW_MODE', 'test'),
         'local_test_credits' => env('PAYNOW_LOCAL_TEST_CREDITS', false),
         'callback_url' => env('PAYNOW_CALLBACK_URL'),
+        'return_url' => env('PAYNOW_RETURN_URL'),
         'test_email' => env('PAYNOW_TEST_EMAIL'),
         'integration_id' => env(env('PAYNOW_MODE', 'test') === 'live' ? 'PAYNOW_LIVE_INTEGRATION_ID' : 'PAYNOW_TEST_INTEGRATION_ID', null) ?: env('PAYNOW_INTEGRATION_ID'),
         'integration_key' => env(env('PAYNOW_MODE', 'test') === 'live' ? 'PAYNOW_LIVE_INTEGRATION_KEY' : 'PAYNOW_TEST_INTEGRATION_KEY', null) ?: env('PAYNOW_INTEGRATION_KEY'),

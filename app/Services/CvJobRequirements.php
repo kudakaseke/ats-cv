@@ -4,7 +4,7 @@ namespace App\Services;
 
 class CvJobRequirements
 {
-    public const VERSION = 'weighted-requirements-v6';
+    public const VERSION = 'weighted-requirements-v7';
     public const WEIGHTS = ['mandatory' => 3, 'required' => 2, 'preferred' => 1];
 
     public function extract(string $job, CvKeywordMatcher $matcher): array
@@ -13,6 +13,7 @@ class CvJobRequirements
         $importance = 'required';
         $excluded = false;
         $items = [];
+        $job = preg_replace('/\b(?:core strengths?\s*\/\s*(?:key )?competenc(?:ies|es)|strengths?\s*\/\s*(?:key )?competenc(?:ies|es))\b/iu', 'Core competencies', $job);
         $job = preg_replace('/\b((?:(?:mandatory|required|essential|minimum|key|technical|core|preferred|desirable|optional)\s+)?(?:qualifications|skills|competencies|strengths|requirements)|mandatory|preferred|desirable|optional)\s*:/iu', "\n$1:", $job);
         foreach (preg_split('/\R/u', $job) as $line) {
             $line = trim(preg_replace('/^\s*(?:\d+[.)]|[\x{2022}\x{25AA}\x{25CF}\x{25E6}\x{2023}\x{25A0}*\-])\s*/u', '', $line), " \t#*");
@@ -83,6 +84,10 @@ class CvJobRequirements
                 $clause = preg_replace('/^professional certifications?\s+(?:such as|including)\s+(.+?)\s+(?:are|is|will be)\s+(?:an?\s+)?added advantage[.!]?$/iu', '$1', $clause);
                 $actualCategory = $clauseCategory === 'general' ? (preg_match('/\b(?:degree|bachelor|bachelors|bcom|bsc|diploma|certificate|certification|certified|registered|registration|licen[cs]e|grade|masters?|doctorate|phd|qualification)\b/iu', $clause) ? 'qualifications' : (preg_match('/\b(?:teamwork|integrity|adaptability|resilience|attention to detail|initiative|strengths?|competenc)/iu', $clause) ? 'competencies' : 'skills')) : $clauseCategory;
                 foreach ((new CvRequirementPhrases)->split($clause, $actualCategory) as $phrase) {
+                    $phraseCategory = $actualCategory;
+                    if ($phraseCategory !== 'qualifications' && (new CvCompetencyVocabulary)->canonical($phrase) !== null) {
+                        $phraseCategory = 'competencies';
+                    }
                     $phrase = preg_replace('/^[\s.:\-\x{2022}*]+|[\s.:\-\x{2022}*]+$/u', '', $phrase);
                     $terms = $matcher->tokens($phrase);
                     if (! $terms) continue;
@@ -93,7 +98,7 @@ class CvJobRequirements
                         $key = implode(' ', $keys);
                         $weight = self::WEIGHTS[$itemImportance];
                         if (! isset($items[$key]) || $weight > $items[$key]['weight']) {
-                            $items[$key] = ['category' => $actualCategory, 'requirement' => $label, 'importance' => $itemImportance, 'weight' => $weight];
+                            $items[$key] = ['category' => $phraseCategory, 'requirement' => $label, 'importance' => $itemImportance, 'weight' => $weight];
                         }
                     }
                 }

@@ -1,0 +1,956 @@
+{
+    "rewritten_resume": "Alex Audit\nSoftware Developer\nalex.audit@example.invalid\n\nProfessional Summary\nSoftware developer with a Diploma in Information Technology and three years of hands-on experience building and supporting internal PHP\/Laravel web applications. Skilled in investigating and resolving application issues, documenting technical changes, collaborating with end users to gather requirements, and working as part of a team to deliver effective solutions.\n\nExperience\nPosition: Junior Web Developer\nCompany: Example Studio\nPeriod: January 2023 - December 2025\nLocation: Harare\n- Developed internal web pages in PHP and Laravel for staff to record support requests.\n- Investigated and fixed bugs reported by staff.\n- Wrote notes explaining technical fixes for team documentation.\n- Used MySQL to store support request records and Git for version control.\n- Collaborated with staff to identify user requirements and trained two colleagues to use the web application.\n\nEducation\nDegree: Diploma in Information Technology\nSchool: Example Technical College\nPeriod: 2022\n\nTechnical Skills\nProgramming: PHP\nFrameworks: Laravel\nDatabases: MySQL\nTools: Git\n\nCompetencies\nWritten communication, Problem solving, Teamwork, Communication skills, Training colleagues",
+    "changes": [
+        "Expanded professional summary to clearly describe software development focus, relevant tools, and collaborative approach.",
+        "Grouped technical skills into programming, databases, and tools categories.",
+        "Rewrote experience bullets to clarify PHP\/Laravel application development, MySQL and Git use, bug investigation, documentation and collaboration with users.",
+        "Made explicit the demonstration of written communication by referencing notes written for fixes.",
+        "Elevated core strengths to highlight problem solving, written communication, teamwork, communication skills, and training colleagues supported by experience evidence.",
+        "Retained all supplied education facts without modification.",
+        "Omitted Docker from the skills as it is not evidenced on the CV.",
+        "Omitted unrelated or unsupported achievements."
+    ],
+    "unsupported_keywords": [
+        "Docker"
+    ],
+    "structured_resume": {
+        "name": "Alex Audit",
+        "role": "Software Developer",
+        "email": "alex.audit@example.invalid",
+        "phone": "",
+        "location": "",
+        "website": "",
+        "summary": "Software developer with a Diploma in Information Technology and three years of hands-on experience building and supporting internal PHP\/Laravel web applications. Skilled in investigating and resolving application issues, documenting technical changes, collaborating with end users to gather requirements, and working as part of a team to deliver effective solutions.",
+        "references": "",
+        "skills": [
+            "Programming: PHP",
+            "Frameworks: Laravel",
+            "Databases: MySQL",
+            "Tools: Git"
+        ],
+        "core_strengths": [
+            "Written communication",
+            "Problem solving",
+            "Teamwork",
+            "Communication skills",
+            "Training colleagues"
+        ],
+        "competencies": [],
+        "experience": [
+            {
+                "title": "Junior Web Developer",
+                "company": "Example Studio",
+                "period": "January 2023 - December 2025",
+                "location": "Harare",
+                "responsibilities": [
+                    "Developed internal web pages in PHP and Laravel for staff to record support requests.",
+                    "Investigated and fixed bugs reported by staff.",
+                    "Wrote notes explaining technical fixes for team documentation.",
+                    "Used MySQL to store support request records and Git for version control.",
+                    "Collaborated with staff to identify user requirements and trained two colleagues to use the web application."
+                ]
+            }
+        ],
+        "education": [
+            {
+                "degree": "Diploma in Information Technology",
+                "school": "Example Technical College",
+                "period": "2022",
+                "location": "",
+                "grade": ""
+            }
+        ],
+        "achievements": [],
+        "courses": [],
+        "languages": [],
+        "custom_sections": []
+    },
+    "assessment": {
+        "experience": {
+            "required_years": null,
+            "documented_relevant_years": 3,
+            "total_professional_years": 3,
+            "explanation": "Three years (Jan 2023 - Dec 2025) in a directly relevant junior web development role.",
+            "date_warnings": [
+                "Employment dates end before current date (2026); clarify if still employed or if a gap exists."
+            ]
+        },
+        "job_information": {
+            "title": "Software Developer",
+            "industry": "Software Development",
+            "seniority": "Entry to Junior",
+            "employment_type": ""
+        },
+        "candidate_profile": {
+            "certifications": [],
+            "projects": [],
+            "qualifications": [
+                "Diploma in Information Technology"
+            ],
+            "skills": [
+                "PHP",
+                "Laravel",
+                "MySQL",
+                "Git"
+            ],
+            "competencies": [
+                "Problem solving",
+                "Written communication",
+                "Teamwork"
+            ],
+            "experience": [
+                "Junior Web Developer (Example Studio, Jan 2023 - Dec 2025): Developed and maintained PHP\/Laravel applications, bug-fixing, collaborated with staff, documented technical fixes."
+            ]
+        },
+        "categories": {
+            "education": {
+                "applicability": "not_applicable",
+                "original_points": 0,
+                "revamped_points": 0,
+                "explanation": "Diploma in Information Technology matches the relevant field but is below the bachelor level; full diploma points awarded. No specific education requirement in the vacancy."
+            },
+            "certifications": {
+                "applicability": "not_applicable",
+                "original_points": 0,
+                "revamped_points": 0,
+                "explanation": "No professional certifications evidenced or requested."
+            },
+            "skills": {
+                "applicability": "applicable",
+                "original_points": 23.0769,
+                "revamped_points": 23.0769,
+                "explanation": "All mandatory core skills (PHP, Laravel, MySQL, Git) are directly evidenced; no Docker."
+            },
+            "competencies": {
+                "applicability": "applicable",
+                "original_points": 15,
+                "revamped_points": 15,
+                "explanation": "Problem solving, written communication, and teamwork are all demonstrated by experience evidence."
+            },
+            "experience": {
+                "applicability": "not_applicable",
+                "original_points": 0,
+                "revamped_points": 0,
+                "explanation": "Experience (Jan 2023 - Dec 2025) as Junior Web Developer performing all required duties. No explicit specified minimum or bonus for experience level."
+            },
+            "responsibilities": {
+                "applicability": "applicable",
+                "original_points": 10,
+                "revamped_points": 10,
+                "explanation": "All required responsibilities are directly evidenced in the experience section."
+            }
+        },
+        "target_profession": "Software Developer",
+        "candidate_background": "Junior Web Developer with Diploma in Information Technology and 3 years' experience developing internal PHP\/Laravel applications, bug-fixing, documenting, and collaborating with users.",
+        "score_validation_explanation": "All mandatory requirements are supported by direct evidence. The only missing item is the preferred skill Docker, which is not required. Category scores were not artificially increased, and only core skills, duties, and competencies with direct support were counted. No unrelated or unrelatedly inflated evidence. The absence of recent employment past December 2025 is noted, but does not impact technical eligibility.",
+        "professional_alignment": "DIRECT_ALIGNMENT",
+        "false_positive_risk": "low",
+        "transferable_skills_matched": [],
+        "unrelated_skills": [],
+        "missing_core_requirements": [],
+        "cross_industry_warnings": [],
+        "qualification_relevance": {
+            "status": "related field, no explicit minimum required",
+            "explanation": "Diploma in Information Technology is in a directly relevant field; bachelor not required."
+        },
+        "relevant_experience": {
+            "explanation": "Three years' direct experience in a junior software\/web developer role aligned with the responsibilities.",
+            "direct_years": 3,
+            "related_years": 0,
+            "transferable_years": 0
+        },
+        "requirements": [
+            {
+                "requirement": "PHP",
+                "evidence": "PHP (Technical Skills); Internal web pages in PHP",
+                "category": "skills",
+                "importance": "mandatory",
+                "original_status": "matched",
+                "revamped_status": "matched",
+                "relevance": "core"
+            },
+            {
+                "requirement": "Laravel",
+                "evidence": "Laravel (Technical Skills); Internal web pages in Laravel",
+                "category": "skills",
+                "importance": "mandatory",
+                "original_status": "matched",
+                "revamped_status": "matched",
+                "relevance": "core"
+            },
+            {
+                "requirement": "MySQL",
+                "evidence": "MySQL (Technical Skills); Used MySQL to store support requests",
+                "category": "skills",
+                "importance": "mandatory",
+                "original_status": "matched",
+                "revamped_status": "matched",
+                "relevance": "core"
+            },
+            {
+                "requirement": "Git",
+                "evidence": "Git (Technical Skills); Used Git to track code changes",
+                "category": "skills",
+                "importance": "mandatory",
+                "original_status": "matched",
+                "revamped_status": "matched",
+                "relevance": "core"
+            },
+            {
+                "requirement": "Docker",
+                "evidence": "",
+                "category": "skills",
+                "importance": "preferred",
+                "original_status": "not_evidenced",
+                "revamped_status": "not_evidenced",
+                "relevance": "core"
+            },
+            {
+                "requirement": "Problem solving",
+                "evidence": "Problem solving (Core Strengths); help with problems",
+                "category": "competencies",
+                "importance": "mandatory",
+                "original_status": "demonstrated",
+                "revamped_status": "demonstrated",
+                "relevance": "core"
+            },
+            {
+                "requirement": "Written communication",
+                "evidence": "Wrote notes explaining the fixes",
+                "category": "competencies",
+                "importance": "mandatory",
+                "original_status": "demonstrated",
+                "revamped_status": "demonstrated",
+                "relevance": "core"
+            },
+            {
+                "requirement": "Teamwork",
+                "evidence": "Teamwork (Core Strengths); trained two colleagues; talked to staff",
+                "category": "competencies",
+                "importance": "mandatory",
+                "original_status": "demonstrated",
+                "revamped_status": "demonstrated",
+                "relevance": "core"
+            },
+            {
+                "requirement": "Maintain internal web applications",
+                "evidence": "I made internal web pages in PHP and Laravel for staff to record support requests",
+                "category": "responsibilities",
+                "importance": "mandatory",
+                "original_status": "directly_evidenced",
+                "revamped_status": "directly_evidenced",
+                "relevance": "core"
+            },
+            {
+                "requirement": "Investigate reported issues",
+                "evidence": "I fixed bugs reported by staff",
+                "category": "responsibilities",
+                "importance": "mandatory",
+                "original_status": "directly_evidenced",
+                "revamped_status": "directly_evidenced",
+                "relevance": "core"
+            },
+            {
+                "requirement": "Document changes",
+                "evidence": "Wrote notes explaining the fixes",
+                "category": "responsibilities",
+                "importance": "mandatory",
+                "original_status": "directly_evidenced",
+                "revamped_status": "directly_evidenced",
+                "relevance": "core"
+            },
+            {
+                "requirement": "Work with users to understand requirements",
+                "evidence": "Talked to staff about what they needed",
+                "category": "responsibilities",
+                "importance": "mandatory",
+                "original_status": "directly_evidenced",
+                "revamped_status": "directly_evidenced",
+                "relevance": "core"
+            }
+        ],
+        "verified_information_to_highlight": [
+            "Direct experience maintaining and developing internal PHP\/Laravel web applications.",
+            "Demonstrated use of MySQL and Git.",
+            "Responsibilities include bug fixing, documentation, and user requirements gathering.",
+            "Worked collaboratively with staff and trained colleagues."
+        ],
+        "information_requiring_confirmation": [
+            "Current employment status after December 2025."
+        ],
+        "unsupported_job_requirements": [
+            "Docker"
+        ],
+        "questions_for_candidate": [
+            "Are you currently employed after December 2025? If so, where?",
+            "Do you have any experience using Docker, even for personal or project work?"
+        ],
+        "recommendations": [
+            "Expand on written communication skills by providing examples of technical documentation or user guides if available.",
+            "Clarify employment dates to confirm current status.",
+            "If you have used Docker, describe context and tasks."
+        ],
+        "warnings": [
+            {
+                "severity": "medium",
+                "category": "skills",
+                "requirement": "Docker",
+                "explanation": "Preferred skill in Docker not evidenced in the CV.",
+                "evidence": "",
+                "recommended_action": "Consider gaining experience with Docker and mention it if supported."
+            },
+            {
+                "severity": "low",
+                "category": "experience",
+                "requirement": "Current employment period",
+                "explanation": "Employment ended Dec 2025 (CV reviewed Nov 2026); unclear if still employed or unemployed.",
+                "evidence": "Period: January 2023 - December 2025",
+                "recommended_action": "Update CV to clarify current employment status."
+            }
+        ],
+        "core_skills_matched": [
+            "PHP",
+            "Laravel",
+            "MySQL",
+            "Git"
+        ],
+        "general_competencies_matched": [
+            "Problem solving",
+            "Written communication",
+            "Teamwork",
+            "Communication skills"
+        ],
+        "scoring_method": "relevance-weighted-requirements-v1",
+        "job_requirements": {
+            "skills": [
+                {
+                    "requirement": "PHP",
+                    "evidence": "PHP (Technical Skills); Internal web pages in PHP",
+                    "category": "skills",
+                    "importance": "mandatory",
+                    "original_status": "matched",
+                    "revamped_status": "matched",
+                    "relevance": "core"
+                },
+                {
+                    "requirement": "Laravel",
+                    "evidence": "Laravel (Technical Skills); Internal web pages in Laravel",
+                    "category": "skills",
+                    "importance": "mandatory",
+                    "original_status": "matched",
+                    "revamped_status": "matched",
+                    "relevance": "core"
+                },
+                {
+                    "requirement": "MySQL",
+                    "evidence": "MySQL (Technical Skills); Used MySQL to store support requests",
+                    "category": "skills",
+                    "importance": "mandatory",
+                    "original_status": "matched",
+                    "revamped_status": "matched",
+                    "relevance": "core"
+                },
+                {
+                    "requirement": "Git",
+                    "evidence": "Git (Technical Skills); Used Git to track code changes",
+                    "category": "skills",
+                    "importance": "mandatory",
+                    "original_status": "matched",
+                    "revamped_status": "matched",
+                    "relevance": "core"
+                },
+                {
+                    "requirement": "Docker",
+                    "evidence": "",
+                    "category": "skills",
+                    "importance": "preferred",
+                    "original_status": "not_evidenced",
+                    "revamped_status": "not_evidenced",
+                    "relevance": "core"
+                }
+            ],
+            "competencies": [
+                {
+                    "requirement": "Problem solving",
+                    "evidence": "Problem solving (Core Strengths); help with problems",
+                    "category": "competencies",
+                    "importance": "mandatory",
+                    "original_status": "demonstrated",
+                    "revamped_status": "demonstrated",
+                    "relevance": "core"
+                },
+                {
+                    "requirement": "Written communication",
+                    "evidence": "Wrote notes explaining the fixes",
+                    "category": "competencies",
+                    "importance": "mandatory",
+                    "original_status": "demonstrated",
+                    "revamped_status": "demonstrated",
+                    "relevance": "core"
+                },
+                {
+                    "requirement": "Teamwork",
+                    "evidence": "Teamwork (Core Strengths); trained two colleagues; talked to staff",
+                    "category": "competencies",
+                    "importance": "mandatory",
+                    "original_status": "demonstrated",
+                    "revamped_status": "demonstrated",
+                    "relevance": "core"
+                }
+            ],
+            "responsibilities": [
+                {
+                    "requirement": "Maintain internal web applications",
+                    "evidence": "I made internal web pages in PHP and Laravel for staff to record support requests",
+                    "category": "responsibilities",
+                    "importance": "mandatory",
+                    "original_status": "directly_evidenced",
+                    "revamped_status": "directly_evidenced",
+                    "relevance": "core"
+                },
+                {
+                    "requirement": "Investigate reported issues",
+                    "evidence": "I fixed bugs reported by staff",
+                    "category": "responsibilities",
+                    "importance": "mandatory",
+                    "original_status": "directly_evidenced",
+                    "revamped_status": "directly_evidenced",
+                    "relevance": "core"
+                },
+                {
+                    "requirement": "Document changes",
+                    "evidence": "Wrote notes explaining the fixes",
+                    "category": "responsibilities",
+                    "importance": "mandatory",
+                    "original_status": "directly_evidenced",
+                    "revamped_status": "directly_evidenced",
+                    "relevance": "core"
+                },
+                {
+                    "requirement": "Work with users to understand requirements",
+                    "evidence": "Talked to staff about what they needed",
+                    "category": "responsibilities",
+                    "importance": "mandatory",
+                    "original_status": "directly_evidenced",
+                    "revamped_status": "directly_evidenced",
+                    "relevance": "core"
+                }
+            ]
+        },
+        "original_analysis": {
+            "skills": [
+                {
+                    "requirement": "PHP",
+                    "evidence": "PHP (Technical Skills); Internal web pages in PHP",
+                    "category": "skills",
+                    "importance": "mandatory",
+                    "original_status": "matched",
+                    "revamped_status": "matched",
+                    "relevance": "core"
+                },
+                {
+                    "requirement": "Laravel",
+                    "evidence": "Laravel (Technical Skills); Internal web pages in Laravel",
+                    "category": "skills",
+                    "importance": "mandatory",
+                    "original_status": "matched",
+                    "revamped_status": "matched",
+                    "relevance": "core"
+                },
+                {
+                    "requirement": "MySQL",
+                    "evidence": "MySQL (Technical Skills); Used MySQL to store support requests",
+                    "category": "skills",
+                    "importance": "mandatory",
+                    "original_status": "matched",
+                    "revamped_status": "matched",
+                    "relevance": "core"
+                },
+                {
+                    "requirement": "Git",
+                    "evidence": "Git (Technical Skills); Used Git to track code changes",
+                    "category": "skills",
+                    "importance": "mandatory",
+                    "original_status": "matched",
+                    "revamped_status": "matched",
+                    "relevance": "core"
+                },
+                {
+                    "requirement": "Docker",
+                    "evidence": "",
+                    "category": "skills",
+                    "importance": "preferred",
+                    "original_status": "not_evidenced",
+                    "revamped_status": "not_evidenced",
+                    "relevance": "core"
+                }
+            ],
+            "competencies": [
+                {
+                    "requirement": "Problem solving",
+                    "evidence": "Problem solving (Core Strengths); help with problems",
+                    "category": "competencies",
+                    "importance": "mandatory",
+                    "original_status": "demonstrated",
+                    "revamped_status": "demonstrated",
+                    "relevance": "core"
+                },
+                {
+                    "requirement": "Written communication",
+                    "evidence": "Wrote notes explaining the fixes",
+                    "category": "competencies",
+                    "importance": "mandatory",
+                    "original_status": "demonstrated",
+                    "revamped_status": "demonstrated",
+                    "relevance": "core"
+                },
+                {
+                    "requirement": "Teamwork",
+                    "evidence": "Teamwork (Core Strengths); trained two colleagues; talked to staff",
+                    "category": "competencies",
+                    "importance": "mandatory",
+                    "original_status": "demonstrated",
+                    "revamped_status": "demonstrated",
+                    "relevance": "core"
+                }
+            ],
+            "responsibilities": [
+                {
+                    "requirement": "Maintain internal web applications",
+                    "evidence": "I made internal web pages in PHP and Laravel for staff to record support requests",
+                    "category": "responsibilities",
+                    "importance": "mandatory",
+                    "original_status": "directly_evidenced",
+                    "revamped_status": "directly_evidenced",
+                    "relevance": "core"
+                },
+                {
+                    "requirement": "Investigate reported issues",
+                    "evidence": "I fixed bugs reported by staff",
+                    "category": "responsibilities",
+                    "importance": "mandatory",
+                    "original_status": "directly_evidenced",
+                    "revamped_status": "directly_evidenced",
+                    "relevance": "core"
+                },
+                {
+                    "requirement": "Document changes",
+                    "evidence": "Wrote notes explaining the fixes",
+                    "category": "responsibilities",
+                    "importance": "mandatory",
+                    "original_status": "directly_evidenced",
+                    "revamped_status": "directly_evidenced",
+                    "relevance": "core"
+                },
+                {
+                    "requirement": "Work with users to understand requirements",
+                    "evidence": "Talked to staff about what they needed",
+                    "category": "responsibilities",
+                    "importance": "mandatory",
+                    "original_status": "directly_evidenced",
+                    "revamped_status": "directly_evidenced",
+                    "relevance": "core"
+                }
+            ]
+        },
+        "original_score": {
+            "education": 0,
+            "certifications": 0,
+            "skills": 46.15,
+            "competencies": 30,
+            "experience": 0,
+            "responsibilities": 20,
+            "total": 96.15
+        },
+        "revamped_score": {
+            "education": 0,
+            "certifications": 0,
+            "skills": 46.15,
+            "competencies": 30,
+            "experience": 0,
+            "responsibilities": 20,
+            "total": 96.15
+        },
+        "category_weights": {
+            "education": 0,
+            "certifications": 0,
+            "skills": 50,
+            "competencies": 30,
+            "experience": 0,
+            "responsibilities": 20
+        },
+        "mandatory_requirements_status": "evidenced",
+        "score_improvement": 0,
+        "score_label": "ATSDetector estimated compatibility; not an official employer ATS score"
+    },
+    "job_information": {
+        "title": "Software Developer",
+        "industry": "Software Development",
+        "seniority": "Entry to Junior",
+        "employment_type": ""
+    },
+    "candidate_profile": {
+        "certifications": [],
+        "projects": [],
+        "qualifications": [
+            "Diploma in Information Technology"
+        ],
+        "skills": [
+            "PHP",
+            "Laravel",
+            "MySQL",
+            "Git"
+        ],
+        "competencies": [
+            "Problem solving",
+            "Written communication",
+            "Teamwork"
+        ],
+        "experience": [
+            "Junior Web Developer (Example Studio, Jan 2023 - Dec 2025): Developed and maintained PHP\/Laravel applications, bug-fixing, collaborated with staff, documented technical fixes."
+        ]
+    },
+    "questions_for_candidate": [
+        "Are you currently employed after December 2025? If so, where?",
+        "Do you have any experience using Docker, even for personal or project work?"
+    ],
+    "warnings": [
+        {
+            "severity": "medium",
+            "category": "skills",
+            "requirement": "Docker",
+            "explanation": "Preferred skill in Docker not evidenced in the CV.",
+            "evidence": "",
+            "recommended_action": "Consider gaining experience with Docker and mention it if supported."
+        },
+        {
+            "severity": "low",
+            "category": "experience",
+            "requirement": "Current employment period",
+            "explanation": "Employment ended Dec 2025 (CV reviewed Nov 2026); unclear if still employed or unemployed.",
+            "evidence": "Period: January 2023 - December 2025",
+            "recommended_action": "Update CV to clarify current employment status."
+        }
+    ],
+    "job_requirements": {
+        "skills": [
+            {
+                "requirement": "PHP",
+                "evidence": "PHP (Technical Skills); Internal web pages in PHP",
+                "category": "skills",
+                "importance": "mandatory",
+                "original_status": "matched",
+                "revamped_status": "matched",
+                "relevance": "core"
+            },
+            {
+                "requirement": "Laravel",
+                "evidence": "Laravel (Technical Skills); Internal web pages in Laravel",
+                "category": "skills",
+                "importance": "mandatory",
+                "original_status": "matched",
+                "revamped_status": "matched",
+                "relevance": "core"
+            },
+            {
+                "requirement": "MySQL",
+                "evidence": "MySQL (Technical Skills); Used MySQL to store support requests",
+                "category": "skills",
+                "importance": "mandatory",
+                "original_status": "matched",
+                "revamped_status": "matched",
+                "relevance": "core"
+            },
+            {
+                "requirement": "Git",
+                "evidence": "Git (Technical Skills); Used Git to track code changes",
+                "category": "skills",
+                "importance": "mandatory",
+                "original_status": "matched",
+                "revamped_status": "matched",
+                "relevance": "core"
+            },
+            {
+                "requirement": "Docker",
+                "evidence": "",
+                "category": "skills",
+                "importance": "preferred",
+                "original_status": "not_evidenced",
+                "revamped_status": "not_evidenced",
+                "relevance": "core"
+            }
+        ],
+        "competencies": [
+            {
+                "requirement": "Problem solving",
+                "evidence": "Problem solving (Core Strengths); help with problems",
+                "category": "competencies",
+                "importance": "mandatory",
+                "original_status": "demonstrated",
+                "revamped_status": "demonstrated",
+                "relevance": "core"
+            },
+            {
+                "requirement": "Written communication",
+                "evidence": "Wrote notes explaining the fixes",
+                "category": "competencies",
+                "importance": "mandatory",
+                "original_status": "demonstrated",
+                "revamped_status": "demonstrated",
+                "relevance": "core"
+            },
+            {
+                "requirement": "Teamwork",
+                "evidence": "Teamwork (Core Strengths); trained two colleagues; talked to staff",
+                "category": "competencies",
+                "importance": "mandatory",
+                "original_status": "demonstrated",
+                "revamped_status": "demonstrated",
+                "relevance": "core"
+            }
+        ],
+        "responsibilities": [
+            {
+                "requirement": "Maintain internal web applications",
+                "evidence": "I made internal web pages in PHP and Laravel for staff to record support requests",
+                "category": "responsibilities",
+                "importance": "mandatory",
+                "original_status": "directly_evidenced",
+                "revamped_status": "directly_evidenced",
+                "relevance": "core"
+            },
+            {
+                "requirement": "Investigate reported issues",
+                "evidence": "I fixed bugs reported by staff",
+                "category": "responsibilities",
+                "importance": "mandatory",
+                "original_status": "directly_evidenced",
+                "revamped_status": "directly_evidenced",
+                "relevance": "core"
+            },
+            {
+                "requirement": "Document changes",
+                "evidence": "Wrote notes explaining the fixes",
+                "category": "responsibilities",
+                "importance": "mandatory",
+                "original_status": "directly_evidenced",
+                "revamped_status": "directly_evidenced",
+                "relevance": "core"
+            },
+            {
+                "requirement": "Work with users to understand requirements",
+                "evidence": "Talked to staff about what they needed",
+                "category": "responsibilities",
+                "importance": "mandatory",
+                "original_status": "directly_evidenced",
+                "revamped_status": "directly_evidenced",
+                "relevance": "core"
+            }
+        ]
+    },
+    "original_analysis": {
+        "skills": [
+            {
+                "requirement": "PHP",
+                "evidence": "PHP (Technical Skills); Internal web pages in PHP",
+                "category": "skills",
+                "importance": "mandatory",
+                "original_status": "matched",
+                "revamped_status": "matched",
+                "relevance": "core"
+            },
+            {
+                "requirement": "Laravel",
+                "evidence": "Laravel (Technical Skills); Internal web pages in Laravel",
+                "category": "skills",
+                "importance": "mandatory",
+                "original_status": "matched",
+                "revamped_status": "matched",
+                "relevance": "core"
+            },
+            {
+                "requirement": "MySQL",
+                "evidence": "MySQL (Technical Skills); Used MySQL to store support requests",
+                "category": "skills",
+                "importance": "mandatory",
+                "original_status": "matched",
+                "revamped_status": "matched",
+                "relevance": "core"
+            },
+            {
+                "requirement": "Git",
+                "evidence": "Git (Technical Skills); Used Git to track code changes",
+                "category": "skills",
+                "importance": "mandatory",
+                "original_status": "matched",
+                "revamped_status": "matched",
+                "relevance": "core"
+            },
+            {
+                "requirement": "Docker",
+                "evidence": "",
+                "category": "skills",
+                "importance": "preferred",
+                "original_status": "not_evidenced",
+                "revamped_status": "not_evidenced",
+                "relevance": "core"
+            }
+        ],
+        "competencies": [
+            {
+                "requirement": "Problem solving",
+                "evidence": "Problem solving (Core Strengths); help with problems",
+                "category": "competencies",
+                "importance": "mandatory",
+                "original_status": "demonstrated",
+                "revamped_status": "demonstrated",
+                "relevance": "core"
+            },
+            {
+                "requirement": "Written communication",
+                "evidence": "Wrote notes explaining the fixes",
+                "category": "competencies",
+                "importance": "mandatory",
+                "original_status": "demonstrated",
+                "revamped_status": "demonstrated",
+                "relevance": "core"
+            },
+            {
+                "requirement": "Teamwork",
+                "evidence": "Teamwork (Core Strengths); trained two colleagues; talked to staff",
+                "category": "competencies",
+                "importance": "mandatory",
+                "original_status": "demonstrated",
+                "revamped_status": "demonstrated",
+                "relevance": "core"
+            }
+        ],
+        "responsibilities": [
+            {
+                "requirement": "Maintain internal web applications",
+                "evidence": "I made internal web pages in PHP and Laravel for staff to record support requests",
+                "category": "responsibilities",
+                "importance": "mandatory",
+                "original_status": "directly_evidenced",
+                "revamped_status": "directly_evidenced",
+                "relevance": "core"
+            },
+            {
+                "requirement": "Investigate reported issues",
+                "evidence": "I fixed bugs reported by staff",
+                "category": "responsibilities",
+                "importance": "mandatory",
+                "original_status": "directly_evidenced",
+                "revamped_status": "directly_evidenced",
+                "relevance": "core"
+            },
+            {
+                "requirement": "Document changes",
+                "evidence": "Wrote notes explaining the fixes",
+                "category": "responsibilities",
+                "importance": "mandatory",
+                "original_status": "directly_evidenced",
+                "revamped_status": "directly_evidenced",
+                "relevance": "core"
+            },
+            {
+                "requirement": "Work with users to understand requirements",
+                "evidence": "Talked to staff about what they needed",
+                "category": "responsibilities",
+                "importance": "mandatory",
+                "original_status": "directly_evidenced",
+                "revamped_status": "directly_evidenced",
+                "relevance": "core"
+            }
+        ]
+    },
+    "original_score": {
+        "education": 0,
+        "certifications": 0,
+        "skills": 46.15,
+        "competencies": 30,
+        "experience": 0,
+        "responsibilities": 20,
+        "total": 96.15
+    },
+    "revamped_score": {
+        "education": 0,
+        "certifications": 0,
+        "skills": 46.15,
+        "competencies": 30,
+        "experience": 0,
+        "responsibilities": 20,
+        "total": 96.15
+    },
+    "mandatory_requirements_status": "evidenced",
+    "score_improvement": 0,
+    "changes_made": [
+        "Expanded professional summary to clearly describe software development focus, relevant tools, and collaborative approach.",
+        "Grouped technical skills into programming, databases, and tools categories.",
+        "Rewrote experience bullets to clarify PHP\/Laravel application development, MySQL and Git use, bug investigation, documentation and collaboration with users.",
+        "Made explicit the demonstration of written communication by referencing notes written for fixes.",
+        "Elevated core strengths to highlight problem solving, written communication, teamwork, communication skills, and training colleagues supported by experience evidence.",
+        "Retained all supplied education facts without modification.",
+        "Omitted Docker from the skills as it is not evidenced on the CV.",
+        "Omitted unrelated or unsupported achievements."
+    ],
+    "recommendations": [
+        "Expand on written communication skills by providing examples of technical documentation or user guides if available.",
+        "Clarify employment dates to confirm current status.",
+        "If you have used Docker, describe context and tasks."
+    ],
+    "unresolved_requirements": [
+        "Docker"
+    ],
+    "revamped_cv": {
+        "contact_information": {
+            "name": "Alex Audit",
+            "role": "Software Developer",
+            "email": "alex.audit@example.invalid",
+            "phone": "",
+            "location": "",
+            "website": ""
+        },
+        "professional_summary": "Software developer with a Diploma in Information Technology and three years of hands-on experience building and supporting internal PHP\/Laravel web applications. Skilled in investigating and resolving application issues, documenting technical changes, collaborating with end users to gather requirements, and working as part of a team to deliver effective solutions.",
+        "professional_experience": [
+            {
+                "title": "Junior Web Developer",
+                "company": "Example Studio",
+                "period": "January 2023 - December 2025",
+                "location": "Harare",
+                "responsibilities": [
+                    "Developed internal web pages in PHP and Laravel for staff to record support requests.",
+                    "Investigated and fixed bugs reported by staff.",
+                    "Wrote notes explaining technical fixes for team documentation.",
+                    "Used MySQL to store support request records and Git for version control.",
+                    "Collaborated with staff to identify user requirements and trained two colleagues to use the web application."
+                ]
+            }
+        ],
+        "education": [
+            {
+                "degree": "Diploma in Information Technology",
+                "school": "Example Technical College",
+                "period": "2022",
+                "location": "",
+                "grade": ""
+            }
+        ],
+        "certifications": [],
+        "skills": [
+            "Programming: PHP",
+            "Frameworks: Laravel",
+            "Databases: MySQL",
+            "Tools: Git"
+        ],
+        "projects": [],
+        "competencies_and_strengths": [
+            "Written communication",
+            "Problem solving",
+            "Teamwork",
+            "Communication skills",
+            "Training colleagues"
+        ],
+        "references": ""
+    }
+}

@@ -50,6 +50,7 @@ class CvKeywordMatcher
             $evidence[] = 'Planning organising';
         }
         $text .= ' '.implode(' ', $evidence);
+        $text = (new CvCompetencyVocabulary)->normalise($text);
         $phrases = [
             '/\bteam\s+(?:player|work)\b/iu' => 'teamwork',
             '/\bdetail.oriented\b/iu' => 'attention to detail',

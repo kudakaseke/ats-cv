@@ -97,7 +97,7 @@ class CvAiAssessmentTest extends TestCase
             'structured_resume' => json_encode($draft['structured_resume']), 'original_resume_text' => str_replace("\n", "\r\n", $input['resume_text']),
             'job_description' => str_replace("\n", "\r\n", $input['job_description']), 'ai_changes' => $draft['changes'], 'score' => 100])->assertRedirect(route('builder.start'))
             ->assertSessionHas('cv_builder.checker_result.assessment.original_score.total', 56.67);
-        $this->assertSame('Skills', session('cv_builder.data.section_titles.skills'));
+        $this->assertSame('Technical Skills', session('cv_builder.data.section_titles.skills'));
         $this->assertSame('Competencies', session('cv_builder.data.section_titles.core_strengths'));
         $this->get('/get-started')->assertOk()->assertDontSee('Candidate Evidence Score')->assertSee('Warnings and eligibility gaps');
         Http::assertSent(function ($request) {
@@ -130,8 +130,8 @@ class CvAiAssessmentTest extends TestCase
         $assessment = app(CvAiAssessment::class)->normalise($this->assessment());
         foreach ([false, true] as $revised) {
             $this->blade('<x-ai-assessment :assessment="$assessment" :revised="$revised" />', compact('assessment', 'revised'))
-                ->assertSee('Job requirements and recommendations')->assertSee('Warnings and eligibility gaps')
-                ->assertSee('Mandatory requirements')->assertDontSee('Candidate Evidence')
+                ->assertSee('Recommendation')->assertSee('Job requirements')->assertSee('CV / Resume')->assertSee('Warnings')
+                ->assertSee('Mandatory')->assertDontSee('Candidate Evidence')
                 ->assertDontSee('/100')->assertDontSee('@if', false)->assertDontSee('@endif', false);
         }
     }
@@ -141,12 +141,27 @@ class CvAiAssessmentTest extends TestCase
         $comparison = app(\App\Services\CvReviewComparison::class)->make('SQL', 'Alex Example', 'Alex Example');
         $comparison['keyword_before'] = 13;
         $comparison['keyword_after'] = 78;
+        $comparison['changes'] = ['Rewrote the professional summary.'];
         $comparison['assessment'] = app(CvAiAssessment::class)->normalise($this->assessment());
-        $this->actingAs(User::factory()->create())->withSession(['cv_builder' => [
+        $response = $this->actingAs(User::factory()->create())->withSession(['cv_builder' => [
             'step' => 4, 'data' => ['name' => 'Alex Example'], 'checker_result' => $comparison,
         ]])->get('/get-started')->assertOk()->assertSee('Wording Match')->assertSee('ATS Compatibility')
             ->assertSee('Original 13/100')->assertSee('Revamped 78/100')
             ->assertSee('Original 47.94/100')->assertSee('Revamped 77.82/100')->assertDontSee('@if($revised)', false);
+        $html = $response->getContent();
+        $orderedHeadings = [
+            '<summary>What AI changed</summary>',
+            '<summary id="assessment-recommendations-title">Recommendation</summary>',
+            '<summary id="assessment-requirements-title">Job requirements</summary>',
+            '<summary id="assessment-missing-title">Missing requirements',
+            '<summary>Compare original and tailored text</summary>',
+            '<summary id="assessment-warnings-title">Warnings</summary>',
+        ];
+        $positions = array_map(fn ($heading) => strpos($html, $heading), $orderedHeadings);
+        $this->assertNotContains(false, $positions);
+        for ($index = 1; $index < count($positions); $index++) {
+            $this->assertLessThan($positions[$index], $positions[$index - 1]);
+        }
     }
 
     public function test_missing_compatibility_is_shown_as_unavailable_instead_of_zero(): void

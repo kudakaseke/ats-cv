@@ -1,0 +1,6 @@
+{
+    "note": "Synthetic audit data, not a real applicant.",
+    "job_description": "Software Developer\r\nRequired skills:\r\nPHP, Laravel, MySQL, Git\r\nRequired competencies:\r\nProblem solving\r\nWritten communication\r\nTeamwork\r\nResponsibilities:\r\nMaintain internal web applications, investigate reported issues, document changes and work with users to understand requirements.\r\nPreferred skills:\r\nDocker",
+    "original_resume": "Alex Audit\r\nalex.audit@example.invalid\r\nSoftware Developer\r\nProfessional Summary\r\nI do websites and help with problems.\r\nTechnical Skills\r\nPHP, Laravel, MySQL, Git\r\nExperience\r\nPosition: Junior Web Developer\r\nCompany: Example Studio\r\nPeriod: January 2023 - December 2025\r\nLocation: Harare\r\n- I made internal web pages in PHP and Laravel for staff to record support requests.\r\n- I fixed bugs reported by staff and wrote notes explaining the fixes.\r\n- I used MySQL to store support requests and Git to track code changes.\r\n- I talked to staff about what they needed and trained two colleagues to use the application.\r\nEducation\r\nDegree: Diploma in Information Technology\r\nSchool: Example Technical College\r\nPeriod: 2022\r\nCore Strengths\r\nGood communication skills, Teamwork, Problem solving",
+    "confirmed_keywords": []
+}

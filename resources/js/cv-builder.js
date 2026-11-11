@@ -17,6 +17,11 @@ const normaliseSections = data => {
         .map(value => value.trim()).filter(Boolean).map(value => [value.toLocaleLowerCase(), value])).values()];
     const section_titles = {...(data.section_titles || {})};
     if (/^strengths\s*(?:and|&|\/)\s*competenc(?:ies|es)$/i.test(section_titles.core_strengths || '')) section_titles.core_strengths = 'Competencies';
+    if (data.template === 'tailored-reference') {
+        for (const [field, title] of Object.entries({summary: 'Professional Summary', experience: 'Experience', skills: 'Technical Skills'})) {
+            if (!section_titles[field] || /^(summary|professional summary|relevant experience|professional experience|experience|speciali[sz]ed skills|technical skills)$/i.test(section_titles[field])) section_titles[field] = title;
+        }
+    }
     return {...data, section_titles, core_strengths: strengths.join(', '), competencies: ''};
 };
 
@@ -485,7 +490,7 @@ Alpine.data('cvBuilder', (boot) => ({
     },
     move(section, index, direction) { const next = index + direction; if (next < 0 || next >= this.data[section].length) return; const rows = this.data[section]; [rows[index], rows[next]] = [rows[next], rows[index]]; },
     atsExample(template) {
-        const image = template.id !== 'ats-professional';
+        const image = !['ats-professional', 'tailored-reference'].includes(template.id);
         const base = { ...sample, name: 'John Doe', role: image ? '' : 'DATA SCIENCE GRADUATE | WEB DEVELOPER | IT PROFESSIONAL', location: image ? 'London, UK' : 'Harare, Zimbabwe', summary: image ? '' : sample.summary, achievements: [], courses: [], languages: [], custom_sections: [] };
         const responsibility = image ? 'Coordinated cross-functional projects across multiple departments and locations, working with analysts, managers and operational teams to improve service delivery.\nIntroduced clearer reporting and practical workflows through research and collaboration, reducing manual work and improving the accuracy of business information.\nSupported team development through training, documentation and knowledge sharing, helping colleagues adopt new processes and deliver consistent results.' : 'Coordinated cross-functional projects, working with colleagues across departments to improve service delivery.\nIntroduced clearer reporting and practical workflows, reducing manual work and improving accuracy.\nSupported team development through training, documentation and regular knowledge sharing.';
         base.experience = [
@@ -508,6 +513,12 @@ Alpine.data('cvBuilder', (boot) => ({
     },
     skillMarkup(value, grouped = false) {
         const lines = String(value || '').split('\n').map(line => line.trim()).filter(Boolean);
+        if (lines.some(line => /^[^:]+:/.test(line))) {
+            return `<div class="cv-skills-grouped">${lines.map(line => {
+                const colon = line.indexOf(':');
+                return colon > 0 ? `<p><strong>${escape(line.slice(0, colon))}:</strong> ${escape(line.slice(colon + 1).trim())}</p>` : `<p>${escape(line)}</p>`;
+            }).join('')}</div>`;
+        }
         if (grouped) value = lines.map(line => line.replace(/^[^:]+:\s*/, '')).join(', ');
         const skills = [...new Set(String(value || '').split(/[,;\n|]+/).map(skill => skill.trim()).filter(Boolean))];
         return skills.length ? `<div class="cv-skills">${skills.map(skill => `<span>${escape(skill)}</span>`).join('')}</div>` : '';
@@ -558,7 +569,7 @@ Alpine.data('cvBuilder', (boot) => ({
             summary: section('summary', '', paragraph(d.summary)), experience, education,
             skills: section('skills', 'Core Skills', this.skillMarkup(d.skills, template.category === 'By Department')),
             courses: section('courses', 'Certificates', rows(d.courses, row => `<div class="cv-entry"><div class="position-entry-heading"><h4>${text(row.title)}</h4>${row.period ? `<span>${text(row.period)}</span>` : ''}</div><p class="position-entry-subheading">${text(row.institution)}</p></div>`)),
-            achievements: section('achievements', 'Achievements', rows(d.achievements, row => `<div class="cv-entry"><h4>${text(row.title)}</h4>${paragraph(row.description)}</div>`)),
+            achievements: section('achievements', reference ? 'Key Achievements' : 'Achievements', rows(d.achievements, row => `<div class="cv-entry"><h4>${text(row.title)}</h4>${paragraph(row.description)}</div>`)),
             languages: section('languages', 'Languages', rows(d.languages, row => `<p>${text(row.name)}${row.level ? ` &middot; ${text(row.level)}` : ''}</p>`)),
             core_strengths: section('core_strengths', 'Competencies', this.skillMarkup(d.core_strengths)),
             competencies: section('competencies', 'Key Competencies', paragraph(d.competencies)),
@@ -573,7 +584,8 @@ Alpine.data('cvBuilder', (boot) => ({
         return this.applySectionLayout(`<article data-template="${text(template.id)}" class="cv-paper cv-position${template.category === 'By Department' ? ' cv-department-ats' : ''} template-${text(template.id)} template-${text(template.layout)} layout-${text(template.layout)} font-${text(template.font)}${template.uppercase_name ? ' position-uppercase' : ''}" style="--cv-accent:#333"><div class="position-intro">${header}<div class="cv-lead">${blocks.summary}</div></div><div class="cv-columns"><div class="cv-main">${allOrder.map(id => blocks[id]).join('')}</div><aside class="cv-side"></aside></div></article>`, d);
     },
     previewAts(template, d) {
-        const word = template.id === 'ats-professional';
+        const word = ['ats-professional', 'tailored-reference'].includes(template.id);
+        const reference = template.id === 'tailored-reference';
         const compact = template.id === 'ats-compact';
         const text = value => String(value ?? '').trim();
         const section = (id, title, content) => content ? `<section data-section="${id}" class="cv-section"><h3>${escape(title)}</h3>${content}</section>` : '';
@@ -583,20 +595,21 @@ Alpine.data('cvBuilder', (boot) => ({
             return `<li${nested ? ' class="ats-nested"' : ''}>${escape(line.replace(/^[\s\u2022\u25cb*-]+/, '').replace(/^o\s+/, '').trim())}</li>`;
         }).join('')}</ul>` : '';
         const entries = (items, render) => (items || []).filter(row => Object.entries(row).some(([key, value]) => key !== 'level' && text(value))).map(render).join('');
-        const experience = section('experience', word ? 'Professional experience' : 'Experience', entries(d.experience, row => {
+        const experience = section('experience', reference ? 'Experience' : word ? 'Professional experience' : 'Experience', entries(d.experience, row => {
             const company = [row.company, compact ? row.location : ''].filter(Boolean).join(' - ');
+            if (reference) return `<div class="cv-entry"><div class="ats-entry-heading"><strong>${escape(row.company || row.title)}</strong><span>${escape(row.period)}</span></div>${row.company ? `<p><strong>${escape(row.title)}</strong></p>` : ''}${paragraph(row.location)}${bullets(row.description)}</div>`;
             if (word) return `<div class="cv-entry"><div class="ats-entry-heading"><strong>${escape([row.company, row.title].filter(Boolean).join(' - '))}</strong><span>${escape(row.period)}</span></div>${paragraph(row.location)}${bullets(row.description)}</div>`;
             return `<div class="cv-entry"><div class="ats-entry-heading"><strong>${escape(company || row.title)}</strong>${compact ? '' : `<span>${escape(row.period)}</span>`}</div><div class="ats-entry-subheading"><span>${row.company ? escape(row.title) : ''}</span><span>${escape(compact ? row.period : row.location)}</span></div>${bullets(row.description)}</div>`;
         }));
         const education = section('education', 'Education', entries(d.education, row => `<div class="cv-entry"><div class="ats-entry-heading"><strong>${escape(word ? row.school || row.degree : [row.school || row.degree, compact ? row.location : ''].filter(Boolean).join(' - '))}</strong><span>${escape(row.period)}</span></div>${word ? paragraph([row.school ? row.degree : '', row.location].filter(Boolean).join(' · ')) : `<div class="ats-entry-subheading"><span>${row.school ? escape(row.degree) : ''}</span>${compact ? '' : `<span>${escape(row.location)}</span>`}</div>`}${row.grade ? paragraph(row.grade) : ''}</div>`));
-        const summary = section('summary', 'Professional summary', paragraph(d.summary));
+        const summary = section('summary', 'Professional Summary', paragraph(d.summary));
         const skillLines = this.skillMarkup(d.skills, word);
-        const skills = section('skills', word ? 'Technical skills' : 'Additional', skillLines);
-        const achievements = section('achievements', 'Achievements', entries(d.achievements, row => `<div class="cv-entry"><strong>${escape(row.title)}</strong>${paragraph(row.description)}</div>`));
+        const skills = section('skills', reference ? 'Technical Skills' : word ? 'Technical Skills' : 'Additional', skillLines);
+        const achievements = section('achievements', reference ? 'Key Achievements' : 'Achievements', entries(d.achievements, row => `<div class="cv-entry"><strong>${escape(row.title)}</strong>${paragraph(row.description)}</div>`));
         const courses = entries(d.courses, row => word
             ? `<div class="cv-entry"><div class="ats-entry-heading"><span>${escape(row.title)}</span><span>${escape(row.period || '')}</span></div>${paragraph(row.institution)}</div>`
             : `<p><strong>${escape(row.title)}</strong>${row.institution ? ' | ' + escape(row.institution) : ''}</p>`);
-        const certification = section('courses', word ? 'Certification' : 'Certifications & training', courses);
+        const certification = section('courses', reference ? 'Certifications and Skills' : word ? 'Certification' : 'Certifications & training', courses);
         const languages = section('languages', 'Languages', entries(d.languages, row => `<p>${escape(row.name)}${row.level ? ' - ' + escape(row.level) : ''}</p>`));
         const custom = d.custom_sections || [];
         const leadership = custom.filter(row => /leadership/i.test(row.title));
@@ -609,9 +622,11 @@ Alpine.data('cvBuilder', (boot) => ({
         const strengths = section('core_strengths', 'Competencies', this.skillMarkup(d.core_strengths));
         const references = section('references', 'References', this.referenceMarkup(d.references));
         const imageAdditional = compact ? section('skills', 'Additional', skillLines + (courses ? `<div data-section="courses">${courses}</div>` : '') + entries(d.languages, row => `<p data-section="languages"><strong>Languages:</strong> ${escape(row.name)}${row.level ? ' - ' + escape(row.level) : ''}</p>`)) : skills;
-        const content = word ? `${summary}${experience}${education}${certification}${skills}${additional}${leadershipSection}${achievements}${languages}${strengths}${references}` : `${experience}${leadershipSection}${education}${imageAdditional}${summary}${achievements}${compact ? '' : certification}${additional}${strengths}${compact ? '' : languages}${references}`;
+        const additionalExperience = reference ? custom.filter(row => /^additional experience$/i.test(row.title.trim())).map(row => section('custom_sections', row.title, this.titledContentMarkup(row.content))).join('') : '';
+        const otherSections = reference ? custom.filter(row => !/^additional experience$/i.test(row.title.trim())).map(row => section('custom_sections', row.title, this.titledContentMarkup(row.content))).join('') : '';
+        const content = reference ? `${summary}${experience}${achievements}${additionalExperience}${skills}${education}${certification}${otherSections}${languages}${strengths}${references}` : word ? `${summary}${experience}${education}${certification}${skills}${additional}${leadershipSection}${achievements}${languages}${strengths}${references}` : `${experience}${leadershipSection}${education}${imageAdditional}${summary}${achievements}${compact ? '' : certification}${additional}${strengths}${compact ? '' : languages}${references}`;
         const contacts = word || compact ? [d.location, d.phone, d.email, d.website] : [d.email, d.phone, d.location, d.website];
-        return this.applySectionLayout(`<article data-template="${escape(template.id)}" class="cv-paper cv-ats ${word ? 'cv-department-ats cv-word-reference' : ''} layout-${template.layout} font-${template.font}" style="--cv-accent:#111"><header data-section="personal" class="cv-header"><h2>${escape(d.name)}</h2>${word && d.role ? `<p class="cv-role">${escape(d.role)}</p>` : ''}<div class="cv-contact">${contacts.map(text).filter(Boolean).map(value => `<span>${escape(value)}</span>`).join('')}</div></header><div class="ats-content">${content}</div></article>`, d);
+        return this.applySectionLayout(`<article data-template="${escape(template.id)}" class="cv-paper cv-ats ${word ? 'cv-department-ats cv-word-reference' : ''} ${reference ? 'cv-tailored-reference' : ''} layout-${template.layout} font-${template.font}" style="--cv-accent:#111"><header data-section="personal" class="cv-header"><h2>${escape(d.name)}</h2>${word && !reference && d.role ? `<p class="cv-role">${escape(d.role)}</p>` : ''}<div class="cv-contact">${contacts.map(text).filter(Boolean).map(value => `<span>${escape(value)}</span>`).join('')}</div>${reference && d.role ? `<p class="cv-role">${escape(d.role)}</p>` : ''}</header><div class="ats-content">${content}</div></article>`, d);
     },
     templateStructure(id) {
         const design = this.templates.find(template => template.id === id)?.design_id;
@@ -835,7 +850,7 @@ Alpine.data('cvBuilder', (boot) => ({
                     for (const attribute of skillField.attributes) grid.setAttribute(attribute.name, attribute.value);
                     grid.classList.add('cv-skills');
                     const formatted = document.createElement('div');
-                    formatted.innerHTML = this.skillMarkup(this.data[fieldName], fieldName === 'skills' && (template.category === 'By Department' || template.id === 'ats-professional'));
+                    formatted.innerHTML = this.skillMarkup(this.data[fieldName], fieldName === 'skills' && (template.category === 'By Department' || ['ats-professional', 'tailored-reference'].includes(template.id)));
                     grid.classList.toggle('cv-skills-grouped', Boolean(formatted.firstElementChild?.classList.contains('cv-skills-grouped')));
                     grid.innerHTML = formatted.firstElementChild?.innerHTML || '<span></span>';
                     grid.firstElementChild.dataset.placeholder = fieldName === 'skills' ? 'Add a skill' : 'Add a strength';
@@ -918,10 +933,21 @@ Alpine.data('cvBuilder', (boot) => ({
     paginateDepartment(paper) {
         // Measure the actual document at its print width, never shrink its text.
         const host = window.document.createElement('div');
-        host.style.cssText = 'position:absolute;left:-100000px;top:0;width:816px;visibility:hidden;pointer-events:none';
+        host.style.cssText = `position:absolute;left:-100000px;top:0;width:${this.pageDimensions(paper.dataset.template).designWidth}px;visibility:hidden;pointer-events:none`;
+        if (paper.dataset.template === 'tailored-reference') host.className = 'tailored-pages-host';
         const pages = window.document.createElement('div');
-        pages.className = 'cv-document-pages';
+        pages.className = 'cv-document-pages' + (paper.dataset.template === 'tailored-reference' ? ' cv-tailored-pages' : '');
         host.append(pages); window.document.body.append(host);
+        if (paper.dataset.template === 'tailored-reference') {
+            const measure = paper.cloneNode(true);
+            measure.style.height = 'auto';
+            measure.style.minHeight = '0';
+            host.append(measure);
+            if (measure.getBoundingClientRect().height > this.pageDimensions('tailored-reference').designHeight) {
+                paper.classList.add('cv-tailored-compact');
+            }
+            measure.remove();
+        }
         let page;
         const newPage = () => {
             page = paper.cloneNode(false);
@@ -1040,7 +1066,7 @@ Alpine.data('cvBuilder', (boot) => ({
             text.className = 'canvas-date-toggle'; text.textContent = period;
             button.replaceWith(text);
         });
-        return template.category === 'By Department' || template.id === 'ats-professional' ? this.paginateDepartment(paper) : paper.outerHTML;
+        return template.category === 'By Department' || ['ats-professional', 'tailored-reference'].includes(template.id) ? this.paginateDepartment(paper) : paper.outerHTML;
     },
     applySectionLayout(html, data) {
         if (!data.hidden_sections?.length && !data.section_positions?.length && !Object.keys(data.section_titles || {}).length) return html;

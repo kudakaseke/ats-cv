@@ -22,13 +22,14 @@ PAYNOW_INTEGRATION_ID=your-id
 PAYNOW_INTEGRATION_KEY=your-key
 PAYNOW_TEST_EMAIL=your-paynow-merchant-email
 PAYNOW_CALLBACK_URL=https://your-public-host
+PAYNOW_RETURN_URL=https://your-public-host
 PAYNOW_LIVE_CURRENCY_CONFIRMED=false
 PAYNOW_PLAN_CHANGE_POLICY=end_of_cycle
 BILLING_BUSINESS_NAME="ATS CV Detector"
 BILLING_BUSINESS_ADDRESS="Your business address"
 ```
 
-`PAYNOW_CALLBACK_URL` is an optional HTTPS base, without query, fragment or credentials. Leave it empty when `APP_URL` already points to the correct public HTTPS origin. Add a different callback hostname to `TRUSTED_HOSTS`; configure `TRUSTED_PROXIES` for the actual proxy. Public callback routing, trusted-host validation and the login session must work on that host. A temporary tunnel requires an updated callback base whenever its hostname changes.
+`PAYNOW_CALLBACK_URL` is the optional HTTPS base for Paynow's server notifications, without query, fragment or credentials. Leave it empty when `APP_URL` already points to the correct public HTTPS origin. `PAYNOW_RETURN_URL` optionally sets the customer browser return base. In local development, when it is empty, the app sends the browser to `APP_URL` instead of the temporary tunnel; that local page verifies payment directly with Paynow. Keep the local app running and use the same computer/browser for checkout. This lets a completed test payment recover after a Quick Tunnel hostname expires, even though Paynow's notification cannot reach the expired tunnel. For checkout from another device or production, set both bases to a stable public HTTPS host. Add a different callback hostname to `TRUSTED_HOSTS`; configure `TRUSTED_PROXIES` for the actual proxy. Public callback routing, trusted-host validation and the login session must work on that host. A Quick Tunnel is still temporary and must remain running for server notifications.
 
 The application sends per-transaction URLs in every initialization request:
 

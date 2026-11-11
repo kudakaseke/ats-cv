@@ -11,9 +11,9 @@ class CvTextParser
             'summary' => ['summary', 'professional summary', 'personal profile', 'profile', 'career objective', 'objective', 'about me'],
             'experience' => ['experience', 'work experience', 'professional experience', 'employment history', 'employment', 'career history', 'work history', 'professional background', 'professional experiences', 'working experience', 'employment record'],
             'education' => ['education', 'qualifications', 'academic qualifications', 'education and qualifications', 'educational background'],
-            'skills' => ['skills', 'technical skills', 'professional skills'],
-            'competencies' => ['key competency', 'key competencies', 'core competencies', 'competencies', 'areas of expertise'],
-            'core_strengths' => ['core strength', 'core strengths', 'key strength', 'key strengths', 'personal strengths', 'strengths', 'strengths and competencies', 'strengths/competencies'],
+            'skills' => ['skills', 'technical skills', 'professional skills', 'specialized skills', 'specialised skills', 'technical and professional skills'],
+            'competencies' => ['key competency', 'key competencies', 'core competencies', 'competencies', 'areas of expertise', 'key competence', 'key competences', 'core competences', 'competences'],
+            'core_strengths' => ['core strength', 'core strengths', 'key strength', 'key strengths', 'personal strengths', 'strengths', 'strengths and competencies', 'strengths/competencies', 'core strengths/key competences', 'core strengths/key competencies', 'core strengths and key competences', 'strengths and competences', 'strengths/competences'],
             'references' => ['references', 'referees', 'professional references'],
             'achievements' => ['achievements', 'key achievements', 'awards'],
             'courses' => ['courses', 'training', 'certifications', 'training and certifications', 'certification', 'certificates'],
@@ -35,8 +35,10 @@ class CvTextParser
 
                 continue;
             }
+            $line = preg_replace('/^\s*\d+[.)]\s*/u', '', $line);
             $parts = preg_split('/:\s*/u', $line, 2);
             $heading = mb_strtolower(trim(preg_replace('/^[\s\x{2022}-]+|[\s:]+$/u', '', $parts[0])));
+            $heading = preg_replace('/\s*\/\s*/u', '/', $heading);
             $matched = null;
             foreach ($aliases as $key => $names) {
                 if (in_array($heading, $names, true)) {

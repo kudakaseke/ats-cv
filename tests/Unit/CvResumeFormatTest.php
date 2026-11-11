@@ -38,4 +38,16 @@ class CvResumeFormatTest extends TestCase
         $this->assertStringContainsString('Name: Jane Referee', $data['references']);
         $this->assertSame('Teamwork', $data['core_strengths']);
     }
+    public function test_behavioural_items_inside_labelled_technical_rows_move_to_competencies(): void
+    {
+        $data = CvResumeFormat::builder([
+            'role' => 'Software Developer',
+            'skills' => "Tools: Git, Good communication skill, MySQL\nProgramming: Python\nTools: Microsoft 365, Team player\nDatabases: MongoDB",
+            'core_strengths' => 'Effective communication',
+        ]);
+        $this->assertSame("Programming: Python\nDatabases: MySQL, MongoDB\nTools: Git, Microsoft 365", $data['skills']);
+        $this->assertSame('Effective communication, Team player', $data['core_strengths']);
+        $this->assertSame($data, CvResumeFormat::builder($data));
+    }
+
 }

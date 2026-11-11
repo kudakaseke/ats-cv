@@ -9,6 +9,7 @@ class CvDocumentExporter
 {
     public function create(array $data, string $format): string
     {
+        $data = CvResumeFormat::builder($data);
         $directory = storage_path('app/private/cv-exports');
         if (! is_dir($directory)) {
             mkdir($directory, 0700, true);

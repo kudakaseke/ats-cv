@@ -108,7 +108,8 @@ class CvAiRewriteTest extends TestCase
         $draft = ['structured_resume' => $this->structured(['skills' => ['Python']]), 'changes' => [], 'unsupported_keywords' => []];
         Http::fake(['generativelanguage.googleapis.com/*' => Http::response(['candidates' => [['finishReason' => 'STOP', 'content' => ['parts' => [['text' => json_encode($draft)]]]]]])]);
         $this->postJson('/checker/rewrite', ['job_description' => "Skills\nOral communication, Written communication", 'resume_text' => "Alex Example\nExperience\nTrained 12 organisations in budgeting.\nAuthored training manuals for community groups.", 'confirmed_keywords' => []])->assertOk()
-            ->assertJsonPath('structured_resume.skills', ['Python', 'Oral communication', 'Written communication'])
+            ->assertJsonPath('structured_resume.skills', ['Python'])
+            ->assertJsonPath('structured_resume.core_strengths', ['Oral communication', 'Written communication'])
             ->assertJsonPath('after.keyword_score', 100);
     }
 
@@ -148,6 +149,8 @@ class CvAiRewriteTest extends TestCase
         Http::fake(['*' => Http::response(['candidates' => [['finishReason' => 'STOP', 'content' => ['parts' => [['text' => json_encode($draft)]]]]]])]);
         $response = $this->postJson('/checker/rewrite', $this->payload())->assertOk()->assertJsonPath('structured_resume.experience.0.title', 'Web Developer');
         $this->post('/checker/edit', ['resume_text' => 'Intentionally ambiguous text which must not be parsed', 'structured_resume' => json_encode($response->json('structured_resume')), 'generated' => 1, 'job_description' => 'PHP HTML CSS', 'original_resume_text' => $this->payload()['resume_text']])->assertRedirect(route('builder.start'))
+            ->assertSessionHas('cv_builder.data.template', 'tailored-reference')
+            ->assertSessionHas('cv_builder.data.section_titles.experience', 'Experience')
             ->assertSessionHas('cv_builder.data.name', 'Alex Morgan')
             ->assertSessionHas('cv_builder.data.summary', 'Web developer.')
             ->assertSessionHas('cv_builder.data.skills', 'PHP, HTML')
@@ -159,6 +162,20 @@ class CvAiRewriteTest extends TestCase
         $this->post('/checker/edit', ['resume_text' => $response->json('rewritten_resume'), 'generated' => 1, 'job_description' => 'PHP HTML CSS', 'original_resume_text' => $this->payload()['resume_text']])
             ->assertRedirect(route('builder.start'))->assertSessionHas('cv_builder.data.experience.0.title', 'Web Developer')
             ->assertSessionHas('cv_builder.data.skills', 'PHP, HTML');
+    }
+
+    public function test_long_grouped_skills_round_trip_without_repeated_tools_labels(): void
+    {
+        $this->setupProvider();
+        $tools = 'Tools: '.implode(', ', array_map(fn ($index) => 'Supported software package '.$index, range(1, 12)));
+        $draft = ['structured_resume' => $this->structured(['skills' => [$tools]]), 'changes' => [], 'unsupported_keywords' => []];
+        Http::fake(['*' => Http::response(['candidates' => [['finishReason' => 'STOP', 'content' => ['parts' => [['text' => json_encode($draft)]]]]]])]);
+        $response = $this->postJson('/checker/rewrite', [...$this->payload(), 'confirmed_keywords' => []])->assertOk()
+            ->assertJsonPath('structured_resume.skills', [$tools]);
+        $this->post('/checker/edit', [
+            'resume_text' => $response->json('rewritten_resume'), 'structured_resume' => json_encode($response->json('structured_resume')),
+            'generated' => 1, 'job_description' => $this->payload()['job_description'], 'original_resume_text' => $this->payload()['resume_text'],
+        ])->assertRedirect(route('builder.start'))->assertSessionHas('cv_builder.data.skills', $tools);
     }
 
     public function test_flattened_output_is_rejected_instead_of_opening_an_empty_cv(): void
@@ -197,8 +214,8 @@ class CvAiRewriteTest extends TestCase
             $level = $schema['properties']['structured_resume']['properties']['languages']['items']['properties']['level'];
 
             return $request->hasHeader('Authorization', 'Bearer fake-openai-key')
-                && str_contains($request['instructions'], 'template_CV.docx')
-                && str_contains($request['instructions'], 'five skills or competencies across each row')
+                && str_contains($request['instructions'], 'single-column professional CV')
+                && str_contains($request['instructions'], 'Additional Experience, Technical Skills, Education, Certifications and Skills')
                 && str_contains($request['instructions'], 'References last')
                 && $request['store'] === false && $request['model'] === 'gpt-4.1'
                 && $request['text']['format']['strict'] === true

@@ -108,23 +108,28 @@
                         @php($wordingGain = $comparison['keyword_after'] - $comparison['keyword_before'])
                         <p>Wording Match increased by {{ $wordingGain }} points, contributing {{ round($wordingGain * 0.2, 2) }} points to the ATS Compatibility change. Qualifications and experience are assessed separately.</p>
                     @endif
-                    @if(isset($comparison['assessment']))<details open><summary>Job requirements and recommendations</summary><x-ai-assessment :assessment="$comparison['assessment']" :revised="true" /></details>@endif
                     <p>These scores measure different things. Review your new CV below, then download as PDF or Word.</p>
                     <p class="checker-comparison-note">Scores and comparisons describe the AI-generated version before manual edits.</p>
-                    @if(!empty($comparison['green_flags']))<div class="checker-green-flags"><h3>Qualification strengths</h3><ul>@foreach($comparison['green_flags'] as $flag)<li>{{ $flag }}</li>@endforeach</ul>@if($comparison['certificate_bonus'] ?? 0)<p>Includes {{ $comparison['certificate_bonus'] }} additional certificate bonus points.</p>@endif</div>@endif
-                    @if(!empty($comparison['added_keywords']))<p><strong>Requirements added:</strong> {{ implode(', ', $comparison['added_keywords']) }}</p>@endif
-                    @if(!empty($comparison['changes']))<details open><summary>What AI changed</summary><ul>@foreach($comparison['changes'] as $change)<li>{{ $change }}</li>@endforeach</ul></details>@endif
-                    @if(!empty($comparison['remaining_keywords']) || !empty($comparison['warnings']))
-                        <details open class="missing-requirements"><summary>Requirements still missing ({{ count($comparison['remaining_keywords'] ?? []) }})</summary>
-                            @if(!empty($comparison['warnings']))<section class="checker-review-warnings" role="note"><h3>Warnings</h3><ul>@foreach($comparison['warnings'] as $warning)<li>{{ $warning }}</li>@endforeach</ul></section>@endif
-                            @if(!empty($comparison['remaining_groups']))
-                                <div class="missing-requirement-groups">@foreach($comparison['remaining_groups'] as $category => $requirements)@if($requirements)<section><h3>{{ ['qualifications' => 'Qualifications', 'skills' => 'Skills', 'competencies' => 'Competencies'][$category] ?? ucfirst($category) }}</h3><ul>@foreach($requirements as $requirement)<li>{{ $requirement }}</li>@endforeach</ul></section>@endif @endforeach</div>
-                            @else<ul>@foreach($comparison['remaining_keywords'] ?? [] as $requirement)<li>{{ $requirement }}</li>@endforeach</ul>@endif
-                            <p>Add these only where you have supporting skills or experience.</p>
-                        </details>
-                    @endif
                     @if(($comparison['keyword_after'] ?? $comparison['after']) <= ($comparison['keyword_before'] ?? $comparison['before']))<p>Wording Match has not increased. This does not mean ATS Compatibility is unchanged; compare its original and revamped scores above. Only add skills and experience you can support.</p>@endif
-                    @if(isset($comparison['original_text'], $comparison['revised_text']))<details><summary>Compare original and tailored text</summary><div class="checker-text-comparison"><div><h3>Original CV</h3><pre>{{ $comparison['original_text'] }}</pre></div><div><h3>Tailored CV</h3><pre>{{ $comparison['revised_text'] }}</pre></div></div></details>@endif
+                    <details open class="assessment-changes"><summary>What AI changed</summary>
+                        @if(!empty($comparison['changes']))<ul>@foreach($comparison['changes'] as $change)<li>{{ $change }}</li>@endforeach</ul>@else<p>No specific CV edits were recorded.</p>@endif
+                        @if(!empty($comparison['added_keywords']))<p><strong>Job terms highlighted:</strong> {{ implode(', ', $comparison['added_keywords']) }}</p>@endif
+                        @if(!empty($comparison['green_flags']))<h3>Verified strengths</h3><ul>@foreach($comparison['green_flags'] as $flag)<li>{{ $flag }}</li>@endforeach</ul>@endif
+                    </details>
+                    @if(isset($comparison['assessment']))
+                        <x-ai-assessment :assessment="$comparison['assessment']" :revised="true" :comparison="$comparison" :comparison-warnings="$comparison['warnings'] ?? []" :defer-warnings="true">
+                            @if(isset($comparison['original_text'], $comparison['revised_text']))
+                                <details class="assessment-text-comparison"><summary>Compare original and tailored text</summary><div class="checker-text-comparison"><div><h3>Original CV</h3><pre>{{ $comparison['original_text'] }}</pre></div><div><h3>Tailored CV</h3><pre>{{ $comparison['revised_text'] }}</pre></div></div></details>
+                            @endif
+                            <x-ai-assessment-warnings :assessment="$comparison['assessment']" :revised="true" />
+                        </x-ai-assessment>
+                    @else
+                        <details open class="assessment-recommendations"><summary>Recommendation</summary><ol>@forelse($comparison['suggestions'] ?? [] as $suggestion)<li>{{ is_array($suggestion) ? ($suggestion['suggestion'] ?? $suggestion['keyword'] ?? '') : $suggestion }}</li>@empty<li>Review the missing requirements and add details only when supported by your experience.</li>@endforelse</ol></details>
+                        <details open class="assessment-requirements"><summary>Job requirements</summary><p>A detailed AI evidence table is unavailable for this saved result. Review the missing terms and experience check below.</p></details>
+                        <details open class="assessment-missing"><summary>Missing requirements ({{ count($comparison['remaining_keywords'] ?? []) }})</summary><ul>@forelse($comparison['remaining_keywords'] ?? [] as $requirement)<li>{{ $requirement }}</li>@empty<li>No missing keywords were identified.</li>@endforelse</ul><p>Add a missing item only if you can verify it from your experience or records.</p></details>
+                        @if(isset($comparison['original_text'], $comparison['revised_text']))<details class="assessment-text-comparison"><summary>Compare original and tailored text</summary><div class="checker-text-comparison"><div><h3>Original CV</h3><pre>{{ $comparison['original_text'] }}</pre></div><div><h3>Tailored CV</h3><pre>{{ $comparison['revised_text'] }}</pre></div></div></details>@endif
+                        <details open class="assessment-warning-details"><summary>Warnings</summary><section class="checker-review-warnings assessment-warnings"><ol><li><strong>Job match:</strong> Detailed professional alignment was unavailable for this saved result.</li>@if(!empty($comparison['experience_check']['message']))<li><strong>Experience:</strong> {{ $comparison['experience_check']['message'] }}</li>@endif @foreach($comparison['warnings'] ?? [] as $warning)<li>{{ $warning }}</li>@endforeach</ol></section></details>
+                    @endif
                 </section>
             @endif
             <div class="editor-intro"><h1 x-text="reviewing ? 'Review your CV.' : 'Make your CV yours.'"></h1><p x-text="reviewing ? 'This preview shows the page layout used for your PDF download. Check your details before downloading. Word may flow differently in your document app.' : 'Click any text on your CV to edit it. Add entries directly in each section, then select Review CV.'"></p></div>

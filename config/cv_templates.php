@@ -23,6 +23,7 @@ $templates = [
     ['id' => 'essential', 'name' => 'Essential', 'layout' => 'single', 'accent' => '#1e293b', 'font' => 'sans', 'columns' => 1, 'category' => 'Simple'],
     ['id' => 'ats-serif', 'name' => 'ATS Classic', 'layout' => 'ats-serif', 'accent' => '#111111', 'font' => 'serif', 'columns' => 1, 'category' => 'ATS Pass'],
     ['id' => 'ats-compact', 'name' => 'ATS Compact', 'layout' => 'ats-compact', 'accent' => '#111111', 'font' => 'sans', 'columns' => 1, 'category' => 'ATS Pass'],
+    ['id' => 'tailored-reference', 'name' => 'Tailored Professional', 'layout' => 'ats-professional', 'accent' => '#111111', 'font' => 'sans', 'columns' => 1, 'category' => 'ATS Pass'],
     ['id' => 'ats-professional', 'name' => 'ATS Professional', 'layout' => 'ats-professional', 'accent' => '#111111', 'font' => 'sans', 'columns' => 1, 'category' => 'ATS Pass'],
     // Position-only layouts recreated from the visual structures of Jobscan examples.
     ['id' => 'position-classic', 'name' => 'Position Classic', 'layout' => 'position-classic', 'accent' => '#333333', 'font' => 'serif', 'columns' => 1, 'category' => 'By Position'],

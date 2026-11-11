@@ -127,6 +127,8 @@ class CvAiRewriter
         }
         $data['structured_resume']['role'] = app(CvProfessionalTitle::class)->preserve($resume, $data['structured_resume']['role'] ?? '');
         $mapped = $mapper->data($data['structured_resume']);
+        $mapped['skills'] = (new CvTechnicalSkills)->format($mapped['skills'], $mapped['role'], $resume);
+        $data['structured_resume']['skills'] = array_values(array_filter(array_map('trim', preg_split(str_contains($mapped['skills'], ':') ? '/\R/u' : '/[,;\r\n|]+/u', $mapped['skills']))));
         $data['structured_resume']['core_strengths'] = CvResumeFormat::strengths($mapped['core_strengths']);
         $data['structured_resume']['competencies'] = [];
         $data['structured_resume']['references'] = $mapped['references'];

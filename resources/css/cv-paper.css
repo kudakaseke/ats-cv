@@ -354,3 +354,53 @@
 /* Narrow gallery sidebars need readable skill labels, not five squeezed tracks. */
 .template-preview .cv-paper .cv-side .cv-skills { grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; gap: 5px 10px; }
 .template-preview .cv-paper .cv-side .cv-skills > span { overflow-wrap: normal; word-break: normal; }
+.cv-paper.cv-tailored-reference { width:794px; min-height:1123px; padding:56px 45px; font:10pt/1.15 Arial,sans-serif; }
+.cv-paper.cv-tailored-reference .cv-header h2 { font-size:18pt; text-transform:none; margin-bottom:6px; }
+.cv-paper.cv-tailored-reference .cv-contact { border:0; font-size:8pt; }
+.cv-paper.cv-tailored-reference .cv-header > .cv-role { margin:12px 0 0; font-size:8pt; text-transform:uppercase; }
+.cv-paper.cv-tailored-reference .cv-section { margin-bottom:22px; }
+.cv-paper.cv-tailored-reference .cv-section h3 { text-transform:none; font-size:10pt; border-bottom:1pt solid #111; padding-bottom:3px; margin-bottom:10px; }
+.cv-paper.cv-tailored-reference [data-section="courses"] h3 { border-bottom:1pt solid #111; }
+.cv-paper.cv-tailored-reference .cv-entry { margin-bottom:20px; }
+.cv-paper.cv-tailored-reference .cv-skills span { font-size:inherit; }
+.cv-tailored-pages { width:794px; }
+.cv-tailored-pages > .cv-paper.cv-document-page { width:794px; height:1123px; min-height:1123px; }
+@media print {
+    .editor-paper-wrap:has(.cv-tailored-pages) { width:210mm!important; }
+    .cv-tailored-pages { width:210mm; }
+    .cv-tailored-pages > .cv-paper.cv-document-page { page:auto; width:210mm; height:297mm; min-height:297mm; }
+}
+/* Keep phrases readable in the full-width tailored sections. */
+.cv-paper.cv-tailored-reference [data-section="skills"] .cv-skills { display:flex; flex-wrap:wrap; gap:6px 18px; }
+.cv-paper.cv-tailored-reference .cv-skills > span { min-width:0; max-width:100%; overflow-wrap:normal; word-break:normal; }
+.cv-paper .cv-skills-grouped { display:block; width:100%; }
+.cv-paper .cv-skills-grouped > p { margin:0; font:inherit; line-height:1.2; white-space:normal; }
+.cv-paper .cv-skills-grouped > p > strong { font-weight:700; }
+/* The editor adds cv-skills to the grouped container. Override the skill-grid
+   and tailored flex rules so every labelled category keeps its own full row. */
+.cv-paper [data-section="skills"] .cv-skills-grouped,
+.cv-paper [data-section="skills"] .cv-skills.cv-skills-grouped {
+    display:block; width:100%; grid-template-columns:none; gap:0;
+}
+.cv-paper [data-section="skills"] .cv-skills-grouped > p {
+    display:block; width:100%; margin:0; padding:0;
+    font:inherit; line-height:1.2; white-space:normal;
+    overflow-wrap:normal; word-break:normal;
+}
+.cv-paper [data-section="skills"] .cv-skills-grouped > p > strong {
+    display:inline; font-weight:700;
+}
+/* Try a readable one-page layout before continuing a longer tailored CV. */
+.cv-paper.cv-tailored-reference.cv-tailored-compact {
+    padding:32px 40px; font-size:9pt; line-height:1.1;
+}
+.cv-paper.cv-tailored-compact .cv-header { margin-bottom:9px; }
+.cv-paper.cv-tailored-compact .cv-header h2 { font-size:16pt; margin-bottom:3px; }
+.cv-paper.cv-tailored-compact .cv-header > .cv-role { margin-top:6px; }
+.cv-paper.cv-tailored-compact .cv-section { margin-bottom:8px; }
+.cv-paper.cv-tailored-compact .cv-section h3 { margin-bottom:4px; padding-bottom:2px; }
+.cv-paper.cv-tailored-compact .cv-entry { margin-bottom:8px; }
+.cv-paper.cv-tailored-compact p { margin-top:0; margin-bottom:2px; }
+.cv-paper.cv-tailored-compact li { margin-bottom:0; }
+.cv-paper.cv-tailored-compact [data-section="skills"] .cv-skills-grouped > p { line-height:1.1; }
+.cv-paper.cv-tailored-compact [data-section="references"] p { font-size:inherit; }

@@ -49,6 +49,25 @@ class PaynowLifecycleTest extends TestCase
             'credits' => config('ai_credits.plans.'.$slug), 'poll_url' => 'https://www.paynow.co.zw/interface/checkpayment?guid=test']);
     }
 
+    public function test_local_checkout_returns_to_stable_app_url_when_quick_tunnel_is_used(): void
+    {
+        config(['app.env' => 'local', 'app.url' => 'http://localhost:8000',
+            'billing.paynow.callback_url' => 'https://temporary-tunnel.example', 'billing.paynow.return_url' => null]);
+        Http::fake(['*' => Http::response($this->signed(['status' => 'Ok',
+            'browserurl' => 'https://www.paynow.co.zw/Payment/Confirm',
+            'pollurl' => 'https://www.paynow.co.zw/interface/checkpayment?guid=test']))]);
+        $this->actingAs(User::factory()->create())
+            ->post('/billing/paynow/monthly', ['billing_consent' => 1])->assertRedirect('https://www.paynow.co.zw/Payment/Confirm');
+
+        Http::assertSent(function ($request) {
+            parse_str($request->body(), $data);
+            $reference = BillingPayment::sole()->reference;
+
+            return $data['returnurl'] === 'http://localhost:8000/billing/paynow/return/'.$reference
+                && $data['resulturl'] === 'https://temporary-tunnel.example/billing/paynow/notify/'.$reference;
+        });
+    }
+
     // Independent implementation: never use the production signer to create test responses.
     public function test_verification_does_not_hold_a_database_transaction_during_network_io(): void
     {

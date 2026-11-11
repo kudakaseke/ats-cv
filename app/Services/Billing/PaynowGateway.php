@@ -65,16 +65,30 @@ class PaynowGateway
             || parse_url($callbackBase, PHP_URL_FRAGMENT))) {
             throw new \DomainException('Paynow callback base must be a public HTTPS URL.');
         }
-        $callback = fn (string $route) => $callbackBase === '' ? route($route, $payment->reference)
-            : $callbackBase.route($route, $payment->reference, false);
+        $isLocal = config('app.env') === 'local';
+        $returnBase = rtrim((string) config('billing.paynow.return_url'), '/');
+        if ($returnBase === '' && $isLocal) {
+            // A quick Cloudflare tunnel can disappear during checkout. Return the
+            // customer's browser to this machine so it can verify via Paynow poll.
+            $returnBase = rtrim((string) config('app.url'), '/');
+        }
+        if ($returnBase !== '' && (parse_url($returnBase, PHP_URL_SCHEME) !== 'https'
+            && !($isLocal && parse_url($returnBase, PHP_URL_SCHEME) === 'http')
+            || ! parse_url($returnBase, PHP_URL_HOST) || parse_url($returnBase, PHP_URL_USER)
+            || parse_url($returnBase, PHP_URL_PASS) || parse_url($returnBase, PHP_URL_QUERY)
+            || parse_url($returnBase, PHP_URL_FRAGMENT))) {
+            throw new \DomainException('Paynow return base is invalid for this environment.');
+        }
+        $callback = fn (string $route, string $base) => $base === '' ? route($route, $payment->reference)
+            : $base.route($route, $payment->reference, false);
         $data = [
             'id' => config('billing.paynow.integration_id'),
             'reference' => $payment->reference,
             'amount' => number_format($payment->amount_cents / 100, 2, '.', ''),
             'additionalinfo' => $payment->kind === 'topup' ? 'atscvdetector '.$payment->credits.' AI credits - one-time purchase'
                 : 'atscvdetector '.SubscriptionPlan::findOrFail($payment->subscription_plan_id)->name.' - '.$payment->credits.' AI credits - '.($payment->billing_interval === 'annually' ? 'one year' : 'one month').' access - one-time payment',
-            'returnurl' => $callback('billing.paynow.return'),
-            'resulturl' => $callback('billing.paynow.notify'),
+            'returnurl' => $callback('billing.paynow.return', $returnBase !== '' ? $returnBase : $callbackBase),
+            'resulturl' => $callback('billing.paynow.notify', $callbackBase),
             'status' => 'Message',
         ];
         if (app()->isProduction() && (parse_url($data['returnurl'], PHP_URL_SCHEME) !== 'https' || parse_url($data['resulturl'], PHP_URL_SCHEME) !== 'https')) {

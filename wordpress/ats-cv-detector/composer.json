@@ -1,0 +1,7 @@
+{
+  "name": "atscv/wordpress-plugin",
+  "description": "ATS CV Detector document dependencies",
+  "license": "GPL-2.0-or-later",
+  "require": { "php": ">=8.2", "dompdf/dompdf": "^3.1", "smalot/pdfparser": "^2.13" },
+  "config": { "sort-packages": true, "allow-plugins": {} }
+}

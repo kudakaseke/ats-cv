@@ -43,7 +43,7 @@ class CvStructuredResume
         $properties['education']['description'] = 'One object per qualification. Degree is the qualification; school is the institution. Dates belong in period. Grade is the supplied degree class, GPA or grade; keep it separate and never invent it. Empty if not supplied.';
         $properties['custom_sections']['description'] = 'For projects or other titled entries, content must put each entry title on its own line, then its description on following lines. Separate entries with a blank line. Do not combine a title and description into one sentence or use Markdown formatting.';
         $properties['achievements']['description'] = 'Keep the short achievement title separate from its description. The renderer displays a bold title with description underneath.';
-        $properties['skills']['description'] = 'Short skill names only, not employment duties, education or full paragraphs.';
+        $properties['skills']['description'] = 'Concise profession-specific grouped rows, each Category: skill, skill. Software order: Programming, Frameworks, Databases, Tools, Methods. Accounting order: Technical, Compliance, Leadership. Other professions use appropriate domain categories. Omit empty groups. Use only supported skills, retain supplied proficiency notes, use one row per category (up to 2000 characters), never repeat a category. Behavioural strengths belong in core_strengths, never duplicate them here.';
         $properties['core_strengths']['description'] = 'One combined strengths and competencies list: concise, distinct qualities relevant to the job and supported by the original CV. The application displays five items across each row. Prefer ten relevant supported competencies for two rows; never invent items to fill the grid.';
         $properties['competencies']['description'] = 'Legacy compatibility field. Return an empty array; put all strengths and competencies together in core_strengths.';
         $properties['references']['description'] = 'Preserve provided referees only, one referee per line: Name and surname | Position | Phone number | Email. Leave unavailable values blank in their columns; never substitute an organisation for a missing position, never invent contacts, and never put referees in applicant contact fields. Empty if none supplied.';
@@ -60,7 +60,7 @@ class CvStructuredResume
         }
         foreach (self::LISTS as $key) {
             $rules[$key] = ['present', 'array', 'max:100'];
-            $rules[$key.'.*'] = ['required', 'string', 'max:200', 'not_regex:/[\r\n]/'];
+            $rules[$key.'.*'] = ['required', 'string', 'max:'.($key === 'skills' ? 2000 : 200), 'not_regex:/[\r\n]/'];
         }
         foreach (self::ROWS as $key => $fields) {
             $rules[$key] = ['present', 'array', 'max:20'];
@@ -130,7 +130,7 @@ class CvStructuredResume
                 $section($heading, [$data[$key]]);
             }
         }
-        foreach (['experience' => ['Professional Experience', ['title' => 'Position', 'company' => 'Company', 'period' => 'Period', 'location' => 'Location']], 'education' => ['Education', ['degree' => 'Degree', 'school' => 'School', 'period' => 'Period', 'location' => 'Location', 'grade' => 'Degree class/grade']]] as $key => [$heading, $fields]) {
+        foreach (['experience' => ['Experience', ['title' => 'Position', 'company' => 'Company', 'period' => 'Period', 'location' => 'Location']], 'education' => ['Education', ['degree' => 'Degree', 'school' => 'School', 'period' => 'Period', 'location' => 'Location', 'grade' => 'Degree class/grade']]] as $key => [$heading, $fields]) {
             $body = [];
             foreach ($data[$key] as $row) {
                 if ($body) {

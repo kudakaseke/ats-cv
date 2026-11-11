@@ -40,4 +40,4 @@ try { php artisan config:clear; if ($LASTEXITCODE -ne 0) { throw 'Unable to clea
 Write-Output ('Paynow test URL: '+$address)
 Write-Output ('Cloudflare process ID: '+$process.Id)
 Write-Output ('Stop this tunnel: Stop-Process -Id '+$process.Id)
-Write-Output 'Keep Laravel running. Use this HTTPS URL in your browser throughout checkout; local and tunnel sessions are separate.'
+Write-Output 'Keep Laravel running and use the HTTPS URL to start checkout. In local mode, Paynow returns to APP_URL so a temporary tunnel expiry will not strand the browser after payment.'

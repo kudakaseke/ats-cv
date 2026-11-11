@@ -1,0 +1,27 @@
+{
+    "model": "gpt-4.1",
+    "scan_usage": {
+        "reused_saved_synthetic_baseline": true
+    },
+    "rewrite_usage": {
+        "provider": "openai",
+        "model": "gpt-4.1",
+        "input_tokens": 8652,
+        "output_tokens": 2776
+    },
+    "checks": {
+        "summary_rewritten": true,
+        "experience_rewritten": true,
+        "employer_preserved": true,
+        "job_title_preserved": true,
+        "qualification_preserved": true,
+        "unconfirmed_docker_not_added": true,
+        "changes_explained": true,
+        "technical_skills_grouped": true,
+        "no_inferred_skill_durations": true,
+        "responsibility_scope_not_upgraded": true,
+        "no_duplicate_skill_variants": true,
+        "communication_separate": true
+    },
+    "passed": true
+}

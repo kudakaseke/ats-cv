@@ -186,11 +186,12 @@ class CvCheckerController extends Controller
         }
         $content ??= $parser->parse($data['resume_text']);
         $content = CvResumeFormat::builder($content);
-        $content['template'] = in_array('ats-professional', app(PlanService::class)->templateIds($request->user()), true) ? 'ats-professional' : 'essential';
+        $content['template'] = $request->boolean('generated') ? 'tailored-reference' : (in_array('ats-professional', app(PlanService::class)->templateIds($request->user()), true) ? 'ats-professional' : 'essential');
         $content['imported_text'] = $data['resume_text'];
         $draft = ['step' => 4, 'data' => $content];
         if ($request->boolean('generated')) {
-            $draft['data']['section_titles'] = ['skills' => 'Skills', 'core_strengths' => 'Competencies'];
+            $draft['tailored_layout_version'] = 1;
+            $draft['data']['section_titles'] = ['summary' => 'Professional Summary', 'experience' => 'Experience', 'achievements' => 'Key Achievements', 'skills' => 'Technical Skills', 'courses' => 'Certifications and Skills', 'core_strengths' => 'Competencies'];
             $source = $request->validate([
                 'original_resume_text' => ['required', 'string', 'max:20000'], 'job_description' => ['required', 'string', 'max:20000'],
                 'ai_changes' => ['sometimes', 'array', 'max:30'], 'ai_changes.*' => ['required', 'string', 'max:1000'],
