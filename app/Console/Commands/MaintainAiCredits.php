@@ -16,6 +16,8 @@ class MaintainAiCredits extends Command
 
     public function handle(AiCreditService $credits): int
     {
+        // Session backends retain their own expiry policy; prune only the index.
+        DB::table('account_sessions')->where('last_activity', '<', now()->subMinutes(max(1, (int) config('session.lifetime')))->timestamp)->delete();
         // Provider requests time out after 60 seconds. Ten minutes allows ample
         // time for a live worker before treating a reservation as abandoned.
         DB::table('ai_operations')->where('status', 'reserved')->where('created_at', '<', now()->subMinutes(10))

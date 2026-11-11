@@ -126,7 +126,7 @@ class AuditRegressionTest extends TestCase
         $user = User::factory()->create();
         $user->resumes()->create(['name' => 'Existing CV']);
         $draft = ['step' => 4, 'data' => ['name' => 'New draft', 'template' => 'essential']];
-        $this->actingAs($user)->withSession(['cv_builder' => $draft])->get('/get-started/finish')
+        $this->actingAs($user)->withSession(['cv_builder' => $draft])->post('/get-started/finish')
             ->assertSessionHasErrors('resume_limit')->assertSessionHas('cv_builder.data.name', 'New draft');
         $this->assertSame('Existing CV', $user->resumes()->sole()->name);
     }

@@ -21,7 +21,7 @@ const env = { ...process.env, APP_ENV: 'local', APP_DEBUG: 'false', APP_URL: bas
     PAYNOW_INTEGRATION_ID: '', PAYNOW_INTEGRATION_KEY: '', PAYNOW_TEST_INTEGRATION_ID: '', PAYNOW_TEST_INTEGRATION_KEY: '',
     OPENAI_API_KEY: '', GEMINI_API_KEY: '', GOOGLE_CLIENT_ID: '', GOOGLE_CLIENT_SECRET: '', SENTRY_LARAVEL_DSN: '' };
 function run(command, args) {
-    const result = spawnSync(command, args, { env, stdio: 'inherit', timeout: 300000 });
+    const result = spawnSync(command, args, { env, stdio: 'inherit', timeout: 600000 });
     if (result.error) throw result.error;
     if (result.status !== 0) throw new Error(`${command} ${args.join(' ')} failed (${result.status}).`);
 }
@@ -32,11 +32,15 @@ try {
     server = spawn('php', ['-S', `127.0.0.1:${port}`, path.resolve('vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php')], { env, cwd: path.resolve('public'), stdio: 'ignore' });
     let ready = false;
     for (let attempt = 0; attempt < 100; attempt++) {
-        try { if ((await fetch(`${base}/up`, { signal: AbortSignal.timeout(1000) })).ok) { ready = true; break; } } catch { /* Server starting. */ }
+        try {
+            const response = await fetch(`${base}/up`, { headers: { Connection: 'close' }, signal: AbortSignal.timeout(5000) });
+            await response.text();
+            if (response.ok) { ready = true; break; }
+        } catch { /* Server starting. */ }
         await new Promise(resolve => setTimeout(resolve, 100));
     }
     if (!ready) throw new Error('Isolated QA server failed to start.');
-    const supported = ['public-auth-smoke', 'qa-fixes-smoke', 'builder-navigation-smoke', 'builder-edge-smoke', 'builder-save-race-smoke', 'builder-smoke', 'checker-smoke', 'detect-smoke', 'pricing-switch-smoke'];
+    const supported = ['public-auth-smoke', 'qa-fixes-smoke', 'builder-navigation-smoke', 'builder-edge-smoke', 'builder-save-race-smoke', 'builder-smoke', 'checker-smoke', 'detect-smoke', 'pricing-switch-smoke', 'audit-fixes-smoke'];
     const selected = process.argv.slice(2);
     if (selected.some(script => !supported.includes(script))) throw new Error('Unknown QA script.');
     for (const script of selected.length ? selected : supported) {

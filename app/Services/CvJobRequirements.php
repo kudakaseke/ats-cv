@@ -4,7 +4,7 @@ namespace App\Services;
 
 class CvJobRequirements
 {
-    public const VERSION = 'weighted-requirements-v5';
+    public const VERSION = 'weighted-requirements-v6';
     public const WEIGHTS = ['mandatory' => 3, 'required' => 2, 'preferred' => 1];
 
     public function extract(string $job, CvKeywordMatcher $matcher): array
@@ -135,7 +135,7 @@ class CvJobRequirements
             $prefix = $item['category'] === 'qualifications' ? array_intersect_key($matcher->tokens($alternatives[0]), array_flip(['bachelor', 'degree', 'diploma', 'certificate', 'master', 'doctorate'])) : [];
             $source = $item['category'] === 'qualifications' && $education !== '' ? $education : $resume;
             $found = false;
-            foreach (preg_split('/\R/u', $source) as $line) {
+            foreach ($this->evidenceClauses($source) as $line) {
                 if (preg_match('/\b(?:no|not|without|lack|lacking|missing|do not have|don.t have)\b/i', $line)) {
                     continue;
                 }
@@ -190,6 +190,15 @@ class CvJobRequirements
             'total' => count($items), 'keyword_score' => $score, 'base_requirement_score' => $baseScore,
             'certificate_bonus' => 0, 'matched_weight' => $matchedWeight, 'total_weight' => $totalWeight, 'green_flags' => array_values(array_unique($greenFlags)),
             'scoring_basis' => self::VERSION];
+    }
+
+    private function evidenceClauses(string $source): array
+    {
+        // Boundaries separate independent claims; do not split a negative list
+        // such as "No SQL or Python" into apparently positive skill evidence.
+        $source = preg_replace('/\bnot only\b|\bwithout (?:direct |close )?supervision\b/iu', '', $source);
+
+        return preg_split('/\R|;|(?<=[.!?])\s+|\s+(?:but|however|yet)\s+|,\s*(?=(?:no|not|without|lack|lacking|missing)\b)|\s+and\s+(?=(?:no|not|without|lack|lacking|missing)\b)/iu', $source);
     }
 
     private function academicLevel(string $value): int

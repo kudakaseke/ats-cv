@@ -7,6 +7,17 @@ use PHPUnit\Framework\TestCase;
 
 class CvJobRequirementsTest extends TestCase
 {
+    public function test_negation_is_scoped_to_its_claim_and_negative_lists_stay_negative(): void
+    {
+        $matcher = new CvKeywordMatcher;
+        foreach (['SQL; no Python experience', 'SQL, no Python experience', 'No Python experience but SQL', 'SQL and no Python experience', 'Not only SQL', 'SQL without supervision'] as $evidence) {
+            $this->assertSame(100, $matcher->compare("Required skills:\nSQL", "Skills\n".$evidence)['keyword_score'], $evidence);
+        }
+        foreach (['No SQL or Python', 'Without SQL', 'Lacking SQL', 'SQL is not a skill I have'] as $evidence) {
+            $this->assertSame(0, $matcher->compare("Required skills:\nSQL", "Skills\n".$evidence)['keyword_score'], $evidence);
+        }
+    }
+
     public function test_long_skill_lists_are_individual_requirements_and_deadlines_are_excluded(): void
     {
         $job = "Skills\nCloud Platform, Database Development, Data Engineering, Data Integration, Python (Programming Language), Software Development, Structured Query Language (SQL)\nClosing Date\n29 October 2026, 23:59";

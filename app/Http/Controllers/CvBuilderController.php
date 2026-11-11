@@ -22,9 +22,9 @@ class CvBuilderController extends Controller
     public function show(Request $request)
     {
         if ($request->boolean('new')) {
-            $request->session()->forget('cv_builder');
-
-            return redirect()->route('builder.start');
+            return $request->session()->has('cv_builder')
+                ? view('builder-confirm', ['action' => 'new'])
+                : redirect()->route('builder.start');
         }
 
         $draft = $request->session()->get('cv_builder', []);
@@ -64,11 +64,22 @@ class CvBuilderController extends Controller
         return view('builder', ['draft' => $draft, 'templates' => config('cv_templates')]);
     }
 
+    public function startNew(Request $request)
+    {
+        $request->session()->forget('cv_builder');
+
+        return redirect()->route('builder.start');
+    }
+
+    public function confirmFinish()
+    {
+        return view('builder-confirm', ['action' => 'finish']);
+    }
+
     public function edit(Request $request, Resume $resume)
     {
         abort_unless($resume->user_id === $request->user()->id, 404);
         $draft = ['step' => 4, 'data' => $this->restoreCoreStrengths($resume->content ?? []), 'resume_id' => $resume->id];
-        $request->session()->put('cv_builder', $draft);
 
         return view('builder', ['draft' => $draft, 'templates' => config('cv_templates')]);
     }
@@ -280,8 +291,26 @@ class CvBuilderController extends Controller
                     libxml_clear_errors();
                     libxml_use_internal_errors($previousErrors);
                 }
-                $xml = preg_replace('/<w:tab\b[^>]*\/>|<\/w:tc>/', ' ', $xml);
-                $text = html_entity_decode(strip_tags(preg_replace('/<\/w:p>|<\/w:tr>|<w:br\b[^>]*\/>/', "\n", $xml)), ENT_QUOTES | ENT_XML1, 'UTF-8');
+                $namespace = $document->documentElement->namespaceURI;
+                if (! in_array($namespace, ['http://schemas.openxmlformats.org/wordprocessingml/2006/main', 'http://purl.oclc.org/ooxml/wordprocessingml/main'], true)) {
+                    throw new \RuntimeException('Unsupported Word namespace');
+                }
+                $read = function (\DOMNode $node) use (&$read, $namespace): string {
+                    if ($node instanceof \DOMElement && $node->namespaceURI === $namespace) {
+                        if ($node->localName === 't') return $node->textContent;
+                        if (in_array($node->localName, ['tab', 'ptab'], true)) return ' ';
+                        if (in_array($node->localName, ['br', 'cr'], true)) return "\n";
+                    }
+                    $text = '';
+                    foreach ($node->childNodes as $child) {
+                        if ($child instanceof \DOMElement) $text .= $read($child);
+                    }
+                    if ($node instanceof \DOMElement && $node->namespaceURI === $namespace) {
+                        $text .= match ($node->localName) { 'p', 'tr' => "\n", 'tc' => ' ', default => '' };
+                    }
+                    return $text;
+                };
+                $text = $read($document->documentElement);
             }
         } catch (HttpExceptionInterface $exception) {
             throw $exception;

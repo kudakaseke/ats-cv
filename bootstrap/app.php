@@ -22,7 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
             headers: Request::HEADER_X_FORWARDED_FOR | Request::HEADER_X_FORWARDED_PROTO | Request::HEADER_X_FORWARDED_PORT);
         $middleware->prepend(SecurityRequestGuard::class);
         $middleware->append(\App\Http\Middleware\ThrottleIngress::class);
-        $middleware->web(append: [WorkspaceResponseHeaders::class, 'throttle:site', RecordAccountActivity::class]);
+        $middleware->web(append: [WorkspaceResponseHeaders::class, \App\Http\Middleware\AuthenticateAccountSession::class, 'throttle:site', RecordAccountActivity::class]);
         $middleware->validateCsrfTokens(except: ['billing/paynow/notify/*']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

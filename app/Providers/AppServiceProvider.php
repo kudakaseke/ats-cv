@@ -84,6 +84,9 @@ class AppServiceProvider extends ServiceProvider
         foreach ([BillingPayment::class, Subscription::class, User::class, Resume::class, CvAnalysis::class] as $model) {
             $model::observe(ActivityObserver::class);
         }
+        Event::listen(Login::class, function ($event) {
+            app(\App\Services\AccountSessions::class)->stamp($event->user);
+        });
         foreach ([Login::class, Logout::class, Failed::class, PasswordReset::class, Verified::class] as $event) {
             Event::listen($event, function ($activity) {
                 app(AuditTrail::class)->record($activity->user?->id,

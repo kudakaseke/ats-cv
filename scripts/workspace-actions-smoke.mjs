@@ -14,6 +14,7 @@ try {
     });
     expect(response.ok()).toBeTruthy();
     await page.goto(`${base}/get-started/finish`);
+    await page.getByRole('button', { name: 'Save my CV', exact: true }).click();
     await page.goto(`${base}/workspace/resumes`);
     await expect(page.getByText('Deletion Audit CV', { exact: true })).toBeVisible();
     page.once('dialog', dialog => dialog.dismiss());

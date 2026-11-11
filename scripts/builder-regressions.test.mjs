@@ -9,7 +9,9 @@ function builder(fetch = async () => ({ ok: true, status: 200, json: async () =>
         Alpine: { data: (_name, value) => { factory = value; } },
         clearTimeout, setTimeout, Promise, fetch, FormData, window,
     });
-    return factory({ draft: {}, templates: [], saveUrl: '/draft', finishUrl: '/finish', csrf: 'test' });
+    const cv = factory({ draft: {}, templates: [], saveUrl: '/draft', finishUrl: '/finish', csrf: 'test' });
+    cv.$refs = { finishForm: { requestSubmit: () => window.location?.assign('/finish') } };
+    return cv;
 }
 
 test('empty optional sections and placeholder text are omitted in every normal layout', () => {

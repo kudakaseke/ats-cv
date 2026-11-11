@@ -81,9 +81,9 @@ class CvBuilderTest extends TestCase
     public function test_docx_import_rejects_invalid_xml_encoding_and_excess_text_without_truncation(): void
     {
         $documents = [
-            '<w:document xmlns:w="urn:word"><w:body>Unclosed',
-            '<w:document xmlns:w="urn:word"><w:body>'."\xFF".'</w:body></w:document>',
-            '<w:document xmlns:w="urn:word"><w:body>'.str_repeat('A', 20001).'</w:body></w:document>',
+            '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>Unclosed',
+            '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'."\xFF".'</w:body></w:document>',
+            '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'.str_repeat('A', 20001).'</w:body></w:document>',
         ];
         foreach ($documents as $xml) {
             $this->importDocxXml($xml)->assertUnprocessable()->assertJsonValidationErrors('file');
@@ -92,7 +92,7 @@ class CvBuilderTest extends TestCase
 
     public function test_docx_import_keeps_words_separated_at_tabs_and_table_cells(): void
     {
-        $this->importDocxXml('<w:document xmlns:w="urn:word"><w:body><w:p><w:r><w:t>Alex</w:t><w:tab/><w:t>Morgan</w:t></w:r></w:p><w:tr><w:tc><w:p><w:r><w:t>PHP</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>SQL</w:t></w:r></w:p></w:tc></w:tr></w:body></w:document>')
+        $this->importDocxXml('<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Alex</w:t><w:tab/><w:t>Morgan</w:t></w:r></w:p><w:tr><w:tc><w:p><w:r><w:t>PHP</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>SQL</w:t></w:r></w:p></w:tc></w:tr></w:body></w:document>')
             ->assertOk()->assertJsonPath('data.name', 'Alex Morgan');
     }
 
@@ -123,7 +123,7 @@ class CvBuilderTest extends TestCase
     public function test_guest_can_import_and_continue_after_sign_in_without_losing_template(): void
     {
         Auth::logout();
-        $this->importDocxXml('<w:document xmlns:w="urn:word"><w:body><w:p><w:r><w:t>Alex Morgan</w:t></w:r></w:p><w:p><w:r><w:t>alex@example.com</w:t></w:r></w:p></w:body></w:document>')
+        $this->importDocxXml('<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Alex Morgan</w:t></w:r></w:p><w:p><w:r><w:t>alex@example.com</w:t></w:r></w:p></w:body></w:document>')
             ->assertOk()->assertJsonPath('data.email', 'alex@example.com');
         $draft = $this->payload();
         $this->postJson('/get-started/draft', $draft)->assertOk();
@@ -148,10 +148,12 @@ class CvBuilderTest extends TestCase
         $this->get('/get-started/finish')->assertRedirect('/login');
         $user = User::factory()->create();
         $this->post('/login', ['email' => $user->email, 'password' => 'password'])->assertRedirect(route('builder.finish'));
-        $this->get('/get-started/finish')->assertRedirect();
+        $this->get('/get-started/finish')->assertOk();
+        $this->assertDatabaseCount('resumes', 0);
+        $this->post('/get-started/finish')->assertRedirect();
         $resume = $user->resumes()->firstOrFail();
         $this->assertSame('double-column', $resume->content['template']);
-        $this->get('/get-started/finish')->assertRedirect(route('builder.edit', $resume));
+        $this->post('/get-started/finish')->assertRedirect(route('builder.edit', $resume));
         $this->assertDatabaseCount('resumes', 1);
         $this->get(route('builder.edit', $resume))->assertOk();
         $payload = $this->payload();
@@ -175,7 +177,8 @@ class CvBuilderTest extends TestCase
             return true;
         });
         $this->post('/verify-email', ['code' => $code])->assertRedirect(route('builder.finish'));
-        $this->get('/get-started/finish')->assertRedirect();
+        $this->get('/get-started/finish')->assertOk();
+        $this->post('/get-started/finish')->assertRedirect();
         $this->assertDatabaseHas('resumes', ['user_id' => $user->id, 'name' => 'Alex Morgan CV']);
     }
 
@@ -298,10 +301,11 @@ class CvBuilderTest extends TestCase
             ->assertViewHas('draft', fn ($draft) => $draft['data']['core_strengths'] === 'Adaptability' && $draft['data']['competencies'] === '');
     }
 
-    public function test_new_cv_redirect_removes_the_reset_flag_before_editing(): void
+    public function test_new_cv_requires_confirmation_before_discarding_the_draft(): void
     {
         $this->actingAs(User::factory()->create())->withSession(['cv_builder' => $this->payload()])->get('/get-started?new=1')
-            ->assertRedirect(route('builder.start'))->assertSessionMissing('cv_builder');
+            ->assertOk()->assertSessionHas('cv_builder.data.name', 'Alex Morgan');
+        $this->post('/get-started/new')->assertRedirect(route('builder.start'))->assertSessionMissing('cv_builder');
         $this->postJson('/get-started/draft', $this->payload())->assertOk();
         $this->get('/get-started')->assertOk()->assertSessionHas('cv_builder.data.name', 'Alex Morgan');
     }

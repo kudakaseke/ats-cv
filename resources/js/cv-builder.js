@@ -388,7 +388,7 @@ Alpine.data('cvBuilder', (boot) => ({
                 this.busy = false; this.tab = 'personal'; this.error = 'Please enter your name before continuing.';
                 return;
             }
-            window.location.assign(boot.finishUrl);
+            this.$refs.finishForm.requestSubmit();
         } else this.busy = false;
     },
     async leave(url) {
