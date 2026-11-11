@@ -55,7 +55,7 @@ class IndustryRelevanceTest extends TestCase
         $this->assertLessThan(25, $result['original_score']['total']);
         $this->assertSame('review_required', $result['mandatory_requirements_status']);
         $scan = app(CvCompatibilityScore::class)->scan(['assessment' => $result, 'keyword_score' => 100]);
-        $this->assertSame($result['original_score']['total'], $scan['compatibility_score']);
+        $this->assertSame(app(CvCompatibilityScore::class)->calculate($result['original_score']['total'], 100), $scan['compatibility_score']);
         $this->assertIsFloat($scan['compatibility_score']);
         $this->view('components.ai-assessment', ['assessment' => $result])->assertSee('Limited alignment')->assertSee('Tendering');
     }
