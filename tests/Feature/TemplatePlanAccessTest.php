@@ -13,12 +13,12 @@ class TemplatePlanAccessTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_guests_and_free_users_have_seven_templates_and_cannot_save_a_paid_design(): void
+    public function test_guests_and_free_users_have_eight_templates_and_cannot_save_a_paid_design(): void
     {
         $this->seed(SubscriptionPlanSeeder::class);
-        $this->assertCount(7, app(PlanService::class)->templateIds(null));
+        $this->assertCount(8, app(PlanService::class)->templateIds(null));
         $user = User::factory()->create();
-        $this->assertCount(7, app(PlanService::class)->templateIds($user));
+        $this->assertCount(8, app(PlanService::class)->templateIds($user));
         $data = ['template' => 'nordic', 'name' => 'Alex Example', 'experience' => [], 'education' => [], 'achievements' => [], 'courses' => [], 'languages' => []];
         $this->postJson('/get-started/draft', ['step' => 4, 'data' => $data])->assertUnprocessable()->assertJsonValidationErrors('data.template');
         $this->actingAs($user)->postJson('/get-started/draft', ['step' => 4, 'data' => $data])->assertUnprocessable();

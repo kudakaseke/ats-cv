@@ -28,7 +28,7 @@
         ...($assessment['information_requiring_confirmation'] ?? []),
         ...($assessment['recommendations'] ?? []),
     ])));
-    $missingLabels = array_values(array_unique([...$missingLabels, ...($comparison['remaining_keywords'] ?? [])]));
+    $missingLabels = array_values(array_unique([...$missingLabels, ...($comparison['remaining_keywords'] ?? []), ...($assessment['missing_core_requirements'] ?? [])]));
     $experience = $assessment['experience'] ?? [];
     $yearsRequired = $experience['required_years'] ?? null;
     $yearsRelevant = $experience['documented_relevant_years'] ?? ($assessment['relevant_experience']['direct_years'] ?? null);

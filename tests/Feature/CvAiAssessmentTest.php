@@ -99,7 +99,7 @@ class CvAiAssessmentTest extends TestCase
             ->assertSessionHas('cv_builder.checker_result.assessment.original_score.total', 56.67);
         $this->assertSame('Technical Skills', session('cv_builder.data.section_titles.skills'));
         $this->assertSame('Competencies', session('cv_builder.data.section_titles.core_strengths'));
-        $this->get('/get-started')->assertOk()->assertDontSee('Candidate Evidence Score')->assertSee('Warnings and eligibility gaps');
+        $this->get('/get-started')->assertOk()->assertDontSee('Candidate Evidence Score')->assertSee('Warnings');
         Http::assertSent(function ($request) {
             $input = json_decode($request['input'][0]['content'], true);
             return isset($input['current_date'], $input['baseline_assessment']) && $request['text']['format']['strict'] === true;
