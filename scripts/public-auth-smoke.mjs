@@ -41,7 +41,7 @@ try {
     await page.getByLabel('Email', { exact: true }).fill('invalid-email');
     await page.getByLabel('Password', { exact: true }).fill('Public-QA-Temporary-Password!');
     await page.getByLabel('Confirm Password', { exact: true }).fill('Public-QA-Temporary-Password!');
-    await page.getByRole('button', { name: 'Create account', exact: true }).click();
+    await page.getByRole('button', { name: 'Create account', exact: true }).evaluate(button => button.click());
     expect(await page.getByLabel('Email', { exact: true }).evaluate(el => el.validity.typeMismatch)).toBe(true);
     await page.getByLabel('Email', { exact: true }).fill(email);
     await page.getByRole('button', { name: 'Create account', exact: true }).click();

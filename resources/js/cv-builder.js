@@ -569,7 +569,7 @@ Alpine.data('cvBuilder', (boot) => ({
             summary: section('summary', '', paragraph(d.summary)), experience, education,
             skills: section('skills', 'Core Skills', this.skillMarkup(d.skills, template.category === 'By Department')),
             courses: section('courses', 'Certificates', rows(d.courses, row => `<div class="cv-entry"><div class="position-entry-heading"><h4>${text(row.title)}</h4>${row.period ? `<span>${text(row.period)}</span>` : ''}</div><p class="position-entry-subheading">${text(row.institution)}</p></div>`)),
-            achievements: section('achievements', reference ? 'Key Achievements' : 'Achievements', rows(d.achievements, row => `<div class="cv-entry"><h4>${text(row.title)}</h4>${paragraph(row.description)}</div>`)),
+            achievements: section('achievements', 'Achievements', rows(d.achievements, row => `<div class="cv-entry"><h4>${text(row.title)}</h4>${paragraph(row.description)}</div>`)),
             languages: section('languages', 'Languages', rows(d.languages, row => `<p>${text(row.name)}${row.level ? ` &middot; ${text(row.level)}` : ''}</p>`)),
             core_strengths: section('core_strengths', 'Competencies', this.skillMarkup(d.core_strengths)),
             competencies: section('competencies', 'Key Competencies', paragraph(d.competencies)),
