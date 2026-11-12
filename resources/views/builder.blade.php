@@ -14,7 +14,7 @@
         <x-back-button :href="route('dashboard')" @click.prevent="builderBack()" />
         <button class="builder-template-button" x-show="step === 4" @click="go(3)" :disabled="!!downloading"><x-icon name="layout-template" />Change template</button>
 
-        <a class="builder-exit" href="{{ route('dashboard') }}" @click.prevent="leave($el.href)"><x-icon name="layout-dashboard" />Dashboard</a>
+        <a class="builder-exit" href="{{ route('dashboard') }}" @click.prevent="leave($el.href)"><x-icon name="house" />Dashboard</a>
     </header>
     <nav class="builder-progress-row" aria-label="CV creation steps">
         <ol class="builder-progress" aria-label="CV builder progress">
