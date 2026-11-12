@@ -12,7 +12,7 @@
     <form x-ref="finishForm" method="POST" action="{{ route('builder.finish.store') }}">@csrf</form>
     <header class="builder-header">
         <x-back-button :href="route('dashboard')" @click.prevent="builderBack()" />
-        <button class="builder-template-button" x-show="step === 4" @click="go(3)" :disabled="!!downloading"><x-icon name="layout-template" />Change template</button>
+        <button class="builder-template-button" x-show="step === 4" @click="if (window.confirm('This CV uses our recommended ATS-friendly template. Other templates may affect how applicant tracking systems read your CV. Change template anyway?')) go(3)" :disabled="!!downloading"><x-icon name="layout-template" />Change template</button>
 
         <a class="builder-exit" href="{{ route('dashboard') }}" @click.prevent="leave($el.href)"><x-icon name="house" />Dashboard</a>
     </header>
