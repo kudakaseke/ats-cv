@@ -18,5 +18,6 @@ class DatabaseSeeder extends Seeder
         // User::factory(10)->create();
 
         $this->call(SubscriptionPlanSeeder::class);
+        $this->call(AiModelPricingSeeder::class);
     }
 }

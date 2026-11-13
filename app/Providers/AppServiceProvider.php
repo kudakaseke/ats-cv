@@ -85,7 +85,9 @@ class AppServiceProvider extends ServiceProvider
             $model::observe(ActivityObserver::class);
         }
         Event::listen(Login::class, function ($event) {
-            app(\App\Services\AccountSessions::class)->stamp($event->user);
+            if ($event->guard === 'web') {
+                app(\App\Services\AccountSessions::class)->stamp($event->user);
+            }
         });
         foreach ([Login::class, Logout::class, Failed::class, PasswordReset::class, Verified::class] as $event) {
             Event::listen($event, function ($activity) {
@@ -119,6 +121,15 @@ class AppServiceProvider extends ServiceProvider
                 Limit::perMinutes(15, 10)->by('email:'.$email),
             ];
         });
+        RateLimiter::for('admin-login', function (Request $request) {
+            $email = hash('sha256', strtolower(trim(is_string($request->input('email')) ? $request->input('email') : '')));
+
+            return [Limit::perMinute(5)->by('admin-login:'.$email.':'.$request->ip())];
+        });
+        RateLimiter::for('admin', fn (Request $request) => [
+            Limit::perMinute(60)->by('admin-user:'.$request->user('admin')?->id),
+            Limit::perMinute(120)->by('admin-ip:'.$request->ip()),
+        ]);
 
         RateLimiter::for('auth-register', fn (Request $request) => [
             Limit::perMinute(3)->by('ip-minute:'.$request->ip()),

@@ -77,8 +77,13 @@ class CvAiRewriter
             if (! $response->successful()) {
                 throw new \RuntimeException('AI request failed.');
             }
-            $this->lastUsage = ['provider' => 'gemini', 'model' => $model,
-                'input_tokens' => $response->json('usageMetadata.promptTokenCount', 0), 'output_tokens' => $response->json('usageMetadata.candidatesTokenCount', 0)];
+            $usage = $response->json('usageMetadata');
+            $this->lastUsage = ['provider' => 'gemini', 'model' => $model];
+            if (isset($usage['promptTokenCount'], $usage['candidatesTokenCount'])) {
+                $this->lastUsage += ['input_tokens' => $usage['promptTokenCount'],
+                    'cached_input_tokens' => $usage['cachedContentTokenCount'] ?? 0,
+                    'output_tokens' => $usage['candidatesTokenCount']];
+            }
             $candidate = $response->json('candidates.0');
             if (($candidate['finishReason'] ?? '') !== 'STOP') {
                 throw new \RuntimeException('AI response was incomplete.');
@@ -177,8 +182,13 @@ class CvAiRewriter
             'max_output_tokens' => $outputTokens,
             'text' => ['format' => ['type' => 'json_schema', 'name' => 'tailored_cv', 'strict' => true, 'schema' => $this->openAiSchema($schema)]],
         ]);
-        $this->lastUsage = ['provider' => 'openai', 'model' => $model,
-            'input_tokens' => $response->json('usage.input_tokens', 0), 'output_tokens' => $response->json('usage.output_tokens', 0)];
+        $usage = $response->json('usage');
+        $this->lastUsage = ['provider' => 'openai', 'model' => $model];
+        if (isset($usage['input_tokens'], $usage['output_tokens'])) {
+            $this->lastUsage += ['input_tokens' => $usage['input_tokens'],
+                'cached_input_tokens' => $usage['input_tokens_details']['cached_tokens'] ?? 0,
+                'output_tokens' => $usage['output_tokens']];
+        }
         if (! $response->successful()) {
             // Capture HTTP status without exposing provider messages, CV text or keys.
             throw new \App\Exceptions\AiResponseException($response->status(), 'http_error');

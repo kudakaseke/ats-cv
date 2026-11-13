@@ -6,6 +6,7 @@ use App\Models\BillingPayment;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Services\AuditTrail;
+use App\Services\Admin\AdminAuditTrail;
 use App\Services\Billing\BillingRecords;
 use App\Services\Billing\PaymentService;
 use Illuminate\Http\Request;
@@ -85,6 +86,7 @@ class BillingManagementController extends Controller
     {
         abort_unless($request->user()->is_admin, 403);
         $payment = BillingPayment::where('provider', 'paynow')->where('reference', $reference)->firstOrFail();
+        $oldStatus = $payment->status;
         if (! $payment->poll_url && ! $payment->merchant_trace) {
             return back()->withErrors(['billing' => 'No provider poll URL has been recovered. Review this reference with Paynow before any new payment or adjustment.']);
         }
@@ -93,6 +95,8 @@ class BillingManagementController extends Controller
         } catch (\Throwable) {
             return back()->withErrors(['billing' => 'Provider verification unavailable. The payment remains unresolved.']);
         }
+        app(AdminAuditTrail::class)->record('billing.reconciled', 'BillingPayment', $payment->id,
+            'Payment status reconciled with the gateway.', ['status' => $oldStatus], ['status' => $payment->fresh()->status]);
 
         return back()->with('billing_status', 'Paynow status reconciled.');
     }
@@ -106,6 +110,8 @@ class BillingManagementController extends Controller
             DB::table('billing_reviews')->insert(['billing_payment_id' => $payment->id, 'admin_id' => $request->user()->id,
                 ...$data, 'created_at' => now(), 'updated_at' => now()]);
             $audit->record($payment->user_id, 'payment.'.$data['type'], 'BillingPayment', $payment->id);
+            app(AdminAuditTrail::class)->record('billing.'.$data['type'], 'BillingPayment', $payment->id,
+                'Billing review recorded.');
         });
 
         return back()->with('billing_status', 'Review recorded. Process any money movement through Paynow, then reconcile to confirm the provider status.');

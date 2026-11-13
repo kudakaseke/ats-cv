@@ -399,8 +399,10 @@ class PaynowLifecycleTest extends TestCase
         $this->post('/subscriptions/'.$payment->fresh()->subscription_id.'/cancel-renewal')->assertNotFound();
         $this->actingAs(User::findOrFail($payment->user_id))->get('/payments/'.$payment->reference.'/receipt')
             ->assertOk()->assertSee('ATS-'.$payment->id)->assertSee($payment->reference)->assertSee('not a tax invoice');
-        $other->forceFill(['is_admin' => true])->save();
-        $this->actingAs($other)->get('/admin/billing')->assertOk()->assertSee($payment->reference);
+        $other->forceFill(['is_admin' => true, 'role' => 'super_admin', 'account_status' => 'active',
+            'two_factor_secret' => 'JBSWY3DPEHPK3PXP', 'two_factor_confirmed_at' => now()])->save();
+        $this->actingAs($other, 'admin')->withSession(['admin_2fa_verified_at' => now()->timestamp])
+            ->get('/admin/billing')->assertOk()->assertSee($payment->reference);
         $this->get('/admin/billing?export=csv')->assertDownload('paynow-payments.csv');
     }
 
@@ -494,8 +496,10 @@ class PaynowLifecycleTest extends TestCase
     {
         $payment = $this->payment();
         $admin = User::factory()->create();
-        $admin->forceFill(['is_admin' => true])->save();
-        $this->actingAs($admin)->post('/admin/billing/'.$payment->reference.'/review',
+        $admin->forceFill(['is_admin' => true, 'role' => 'super_admin', 'account_status' => 'active',
+            'two_factor_secret' => 'JBSWY3DPEHPK3PXP', 'two_factor_confirmed_at' => now()])->save();
+        $this->actingAs($admin, 'admin')->withSession(['admin_2fa_verified_at' => now()->timestamp])
+            ->post('/admin/billing/'.$payment->reference.'/review',
             ['type' => 'refund_recorded', 'notes' => 'Refund requested through merchant portal.'])->assertRedirect();
         $this->assertSame('pending', $payment->fresh()->status);
         $this->assertDatabaseCount('billing_reviews', 1);

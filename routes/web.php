@@ -61,9 +61,6 @@ Route::middleware(['auth', 'verified', 'throttle:workspace-read'])->group(functi
     Route::get('/subscription', [WorkspaceController::class, 'subscription'])->name('subscription');
     Route::get('/payments/{reference}/receipt', [BillingManagementController::class, 'receipt'])->name('billing.receipt');
     Route::post('/subscriptions/{subscription}/cancel-renewal', [BillingManagementController::class, 'cancel'])->middleware('throttle:6,1')->name('billing.cancel-renewal');
-    Route::get('/admin/billing', [BillingManagementController::class, 'admin'])->name('admin.billing');
-    Route::post('/admin/billing/{reference}/reconcile', [BillingManagementController::class, 'reconcile'])->middleware('throttle:6,1')->name('admin.billing.reconcile');
-    Route::post('/admin/billing/{reference}/review', [BillingManagementController::class, 'review'])->middleware('throttle:6,1')->name('admin.billing.review');
     Route::get('/subscription/{plan}/payment-method', [WorkspaceController::class, 'paymentMethods'])->name('subscription.payment-methods');
 });
 
@@ -74,3 +71,4 @@ Route::middleware(['auth', 'throttle:workspace-read'])->group(function () {
 });
 
 require __DIR__.'/auth.php';
+require __DIR__.'/admin.php';

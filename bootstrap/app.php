@@ -3,6 +3,11 @@
 use App\Http\Middleware\RecordAccountActivity;
 use App\Http\Middleware\SecurityRequestGuard;
 use App\Http\Middleware\WorkspaceResponseHeaders;
+use App\Http\Middleware\EnsureSuperAdmin;
+use App\Http\Middleware\EnsureAdminTwoFactorConfirmed;
+use App\Http\Middleware\EnsureAdminIpAllowed;
+use App\Http\Middleware\AuthenticateAdminGuard;
+use App\Http\Middleware\RecordAdminActivity;
 use App\Services\IncidentReporter;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -17,6 +22,14 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->redirectGuestsTo(fn (Request $request) => $request->is('admin/*') ? route('admin.login') : route('login'));
+        $middleware->alias([
+            'admin.role' => EnsureSuperAdmin::class,
+            '2fa.confirmed' => EnsureAdminTwoFactorConfirmed::class,
+            'admin.ip' => EnsureAdminIpAllowed::class,
+            'admin.auth' => AuthenticateAdminGuard::class,
+            'audit.admin' => RecordAdminActivity::class,
+        ]);
         // Configure only real reverse-proxy addresses; direct clients cannot spoof their IP.
         $middleware->trustProxies(at: array_values(array_filter(array_map('trim', explode(',', (string) env('TRUSTED_PROXIES', ''))))),
             headers: Request::HEADER_X_FORWARDED_FOR | Request::HEADER_X_FORWARDED_PROTO | Request::HEADER_X_FORWARDED_PORT);

@@ -1,4 +1,4 @@
-<x-app-layout>
+<x-admin-layout>
     <div class="dashboard-heading"><div><h1>Paynow billing management</h1><p>Test payments are listed separately from live payments. Revenue below is gross verified payments, before fees.</p></div></div>
     <x-input-error :messages="$errors->get('billing')" class="my-4" />
     @if(session('billing_status'))<p role="status">{{ session('billing_status') }}</p>@endif
@@ -27,4 +27,4 @@
     </section>
     <section class="panel credit-summary"><h2>Unprocessed notifications</h2>@forelse($notifications as $notification)<p>#{{ $notification->id }} · Payment {{ $notification->billing_payment_id ?? 'Unknown' }} · {{ $notification->hash_valid ? 'Authenticated' : 'Invalid hash' }} · {{ $notification->error ?? 'Awaiting processing' }}</p>@empty<p>No unprocessed notifications.</p>@endforelse</section>
     <section class="panel credit-summary"><h2>Refund and dispute reviews</h2>@forelse($reviews as $review)<p>Payment {{ $review->billing_payment_id }} · {{ $review->type }} · {{ $review->notes }}</p>@empty<p>No reviews.</p>@endforelse</section>
-</x-app-layout>
+</x-admin-layout>

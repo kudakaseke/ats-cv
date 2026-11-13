@@ -10,6 +10,12 @@ Read the [22 October 2026 security review](docs/security-review-2026-10-22.md) b
 
 Run `php artisan test --filter=SecurityThreatTest` for adversarial request/upload checks and `node scripts/security-browser-smoke.mjs` for malicious CV rendering checks. These complement the full application suite and dependency audits; they do not certify every attack path or an untested hosting environment.
 
+## Private admin portal — Phase 1
+
+The admin portal is isolated from the customer layout and uses the `admin` session guard at `/admin/login`. It requires an active `super_admin` role and TOTP two-factor verification before showing protected pages. In production, set `ADMIN_OWNER_EMAIL` to the single verified account allowed to enter the portal. Promote that existing verified account with `php artisan admin:promote name@example.com`; the command asks for confirmation. First sign-in opens authenticator enrollment and displays one-time recovery codes. Keep `APP_KEY` private because TOTP secrets and recovery hashes are encrypted at rest. Optionally restrict source addresses with comma-separated `ADMIN_IP_ALLOWLIST`.
+
+The Phase 1 overview reads live users, completed analyses, paid live USD transactions and per-request AI cost snapshots. AI pricing is stored by provider/model/effective date. The initial OpenAI GPT-4.1 rate snapshot uses the [published standard token rates](https://developers.openai.com/api/docs/models/gpt-4.1) of $2/M uncached input, $0.50/M cached input and $8/M output; legacy requests and models without a matching saved price remain explicitly unpriced. Keep the pricing table current when changing models or provider rates. An unset model price is never presented as zero cost. Customer billing administration is available under the same TOTP-protected portal.
+
 For Hostinger, queues, query/index changes, rate limits, private error reporting and the staged 1,000-user load test, read [Hostinger performance and operations](docs/hostinger-performance-and-operations.md). Run `php artisan app:deployment-check` before launch; it deliberately fails missing production settings, worker heartbeat or document tooling. Hostinger Web/Business needs the separately hosted document service for PDF imports and downloads; the service implementation is prepared but no host has been connected. No 1,000-user hosting-capacity claim has been made.
 
 ## Separate document processing

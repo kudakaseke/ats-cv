@@ -88,10 +88,15 @@ class CvAiAssessmentTest extends TestCase
             $rewrite = isset($request['text']['format']['schema']['properties']['structured_resume']);
             $data = $rewrite ? ['structured_resume' => $structured, 'changes' => ['Highlighted monthly reporting.'], 'unsupported_keywords' => ['SQL'], 'assessment' => $assessment]
                 : ['summary' => 'Report writing is evidenced; SQL requires confirmation.', 'recommendations' => [], 'assessment' => $assessment];
-            return Http::response(['status' => 'completed', 'usage' => ['input_tokens' => 100, 'output_tokens' => 200], 'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => json_encode($data)]]]]]);
+            return Http::response(['status' => 'completed', 'usage' => ['input_tokens' => 100,
+                'input_tokens_details' => ['cached_tokens' => 50], 'output_tokens' => 200],
+                'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => json_encode($data)]]]]]);
         });
         $input = ['job_description' => "Skills:\nmonthly reporting, SQL", 'resume_text' => "Alex Example\nPrepared monthly reports."];
         $this->actingAs(User::factory()->create())->postJson('/checker/scan', $input)->assertOk()->assertJsonPath('compatibility_score', 49.67)->assertJsonPath('structure_score', 0);
+        $this->assertDatabaseHas('ai_usage_logs', ['provider' => 'openai', 'model' => 'gpt-4.1',
+            'cached_input_tokens' => 50, 'input_cost_micros' => 125, 'output_cost_micros' => 1600,
+            'total_cost_micros' => 1725]);
         $draft = $this->postJson('/checker/rewrite', [...$input, 'confirmed_keywords' => []])->assertOk()->assertJsonPath('original_score.total', 56.67)->assertJsonPath('revamped_score.total', 77.78)->json();
         $this->post('/checker/edit', ['generated' => 1, 'resume_text' => str_replace("\n", "\r\n", $draft['rewritten_resume']),
             'structured_resume' => json_encode($draft['structured_resume']), 'original_resume_text' => str_replace("\n", "\r\n", $input['resume_text']),

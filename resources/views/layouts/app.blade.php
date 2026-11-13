@@ -35,12 +35,6 @@
                         @endforeach
                     </div>
                 @endforeach
-                @if(auth()->user()->is_admin)
-                    <div class="sidebar-nav-group" role="group" aria-label="Administration">
-                        <h2 class="sidebar-group-heading">Administration</h2>
-                        <a class="sidebar-link {{ request()->routeIs('admin.billing*') ? 'active' : '' }}" href="{{ route('admin.billing') }}" @click="closeSidebar()" @if(request()->routeIs('admin.billing*')) aria-current="page" @endif><x-icon name="credit-card" />Billing management</a>
-                    </div>
-                @endif
             </nav>
             <form method="POST" action="{{ route('logout') }}" class="sidebar-logout">
                 @csrf

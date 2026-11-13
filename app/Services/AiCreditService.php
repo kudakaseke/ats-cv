@@ -325,9 +325,25 @@ class AiCreditService
             }
             DB::table('ai_operations')->where('id', $operation->id)->update(['status' => $result === null ? 'failed' : 'completed',
                 'result' => $result === null ? null : Crypt::encryptString(json_encode($result, JSON_THROW_ON_ERROR)), 'updated_at' => now()]);
+            $provider = $usage['provider'] ?? config('services.cv_ai.provider');
+            $model = $usage['model'] ?? config('services.'.$provider.'.model');
+            $inputTokens = max(0, (int) ($usage['input_tokens'] ?? 0));
+            $cachedInputTokens = min($inputTokens, max(0, (int) ($usage['cached_input_tokens'] ?? 0)));
+            $outputTokens = max(0, (int) ($usage['output_tokens'] ?? 0));
+            $usageKnown = array_key_exists('input_tokens', $usage) && array_key_exists('output_tokens', $usage);
+            $pricing = $usageKnown ? DB::table('ai_model_pricing')->where('provider', $provider)->where('model', $model)
+                ->where('effective_from', '<=', now()->toDateString())
+                ->where(fn ($query) => $query->whereNull('effective_to')->orWhere('effective_to', '>=', now()->toDateString()))
+                ->orderByDesc('effective_from')->first() : null;
+            $uncachedInputTokens = $inputTokens - $cachedInputTokens;
+            $inputCost = $pricing ? intdiv($uncachedInputTokens * (int) $pricing->input_price_per_million_micros
+                + $cachedInputTokens * (int) $pricing->cached_input_price_per_million_micros + 500_000, 1_000_000) : null;
+            $outputCost = $pricing ? intdiv($outputTokens * (int) $pricing->output_price_per_million_micros + 500_000, 1_000_000) : null;
             DB::table('ai_usage_logs')->insert(['user_id' => $user->id, 'ai_operation_id' => $operation->id, 'feature' => $operation->feature,
-                'provider' => $usage['provider'] ?? config('services.cv_ai.provider'), 'model' => $usage['model'] ?? config('services.openai.model'),
-                'input_tokens' => max(0, (int) ($usage['input_tokens'] ?? 0)), 'output_tokens' => max(0, (int) ($usage['output_tokens'] ?? 0)),
+                'provider' => $provider, 'model' => $model,
+                'input_tokens' => $inputTokens, 'cached_input_tokens' => $cachedInputTokens, 'output_tokens' => $outputTokens,
+                'pricing_id' => $pricing?->id, 'input_cost_micros' => $inputCost, 'output_cost_micros' => $outputCost,
+                'total_cost_micros' => $pricing ? $inputCost + $outputCost : null,
                 'credits_charged' => $result === null ? 0 : $operation->subscription_spent + $operation->topup_spent,
                 'status' => $result === null ? 'failed' : 'completed', 'created_at' => now(), 'updated_at' => now()]);
             app(AuditTrail::class)->record($user->id, $result === null ? 'ai.failed' : 'ai.completed', 'AiOperation', $operation->id,

@@ -24,7 +24,10 @@ class WorkspaceNavigationTest extends TestCase
     {
         $this->seed(SubscriptionPlanSeeder::class);
         $admin = User::factory()->create();
-        $admin->forceFill(['is_admin' => true])->save();
-        $this->actingAs($admin)->get('/profile')->assertOk()->assertSee('Billing management')->assertSee(route('admin.billing'));
+        $admin->forceFill(['is_admin' => true, 'role' => 'super_admin', 'account_status' => 'active',
+            'two_factor_secret' => 'JBSWY3DPEHPK3PXP', 'two_factor_confirmed_at' => now()])->save();
+        $this->actingAs($admin)->get('/profile')->assertOk()->assertDontSee('Billing management');
+        $this->actingAs($admin, 'admin')->withSession(['admin_2fa_verified_at' => now()->timestamp])
+            ->get(route('admin.billing'))->assertOk()->assertSee('Paynow billing management')->assertDontSee('workspace-shell');
     }
 }
