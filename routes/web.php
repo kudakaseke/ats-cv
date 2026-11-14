@@ -7,6 +7,7 @@ use App\Http\Controllers\CreditBillingController;
 use App\Http\Controllers\CvBuilderController;
 use App\Http\Controllers\CvCheckerController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\WorkspaceController;
 use App\Http\Middleware\RecordAccountActivity;
@@ -44,6 +45,7 @@ Route::get('/dashboard', function () {
 })->middleware(['auth', 'verified', 'throttle:workspace-read'])->name('dashboard');
 
 Route::middleware(['auth', 'verified', 'throttle:workspace-read'])->group(function () {
+    Route::post('/feedback', [FeedbackController::class, 'submit'])->middleware('throttle:5,1')->name('feedback.submit');
     Route::get('/account/activity', ActivityController::class)->name('account.activity');
     Route::get('/ai/credits', [CvCheckerController::class, 'credits'])->name('ai.credits');
     Route::post('/credits/topup', [CreditBillingController::class, 'topup'])->middleware('throttle:payment-checkout')->name('credits.topup');

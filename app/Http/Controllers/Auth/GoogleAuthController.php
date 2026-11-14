@@ -93,6 +93,11 @@ class GoogleAuthController extends Controller
             $user->save();
         }
 
+        $user->refresh();
+        if ($user->account_status !== 'active') {
+            return to_route('login')->withErrors(['google' => 'This account is currently unavailable. Please contact support.']);
+        }
+
         Auth::login($user);
         $request->session()->regenerate();
 

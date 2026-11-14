@@ -43,7 +43,7 @@ class LoginRequest extends FormRequest
         $this->merge(['email' => Str::lower(trim((string) $this->input('email')))]);
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
+        if (! Auth::attempt([...$this->only('email', 'password'), 'account_status' => 'active'], $this->boolean('remember'))) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([

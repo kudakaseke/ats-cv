@@ -31,6 +31,7 @@ class OverviewController extends Controller
         $usageBase = DB::table('ai_usage_logs');
 
         $totalUsers = (clone $users)->count();
+        $activeSubscriptions = DB::table('subscriptions')->where('status', 'active')->count();
         $newUsers = (clone $users)->where('created_at', '>=', $rangeStart)->where('created_at', '<', $rangeEnd)->count();
         $previousUsers = (clone $users)->where('created_at', '>=', $previousStartUtc)->where('created_at', '<', $previousEndUtc)->count();
         $revenueCents = (clone $revenueBase)->where('paid_at', '>=', $rangeStart)->where('paid_at', '<', $rangeEnd)->sum('amount_cents');
@@ -64,11 +65,13 @@ class OverviewController extends Controller
             'period' => ['from' => $start->toDateString(), 'to' => $end->toDateString()],
             'stats' => [
                 'users' => $totalUsers, 'new_users' => $newUsers, 'previous_users' => $previousUsers,
+                'active_subscriptions' => $activeSubscriptions,
                 'revenue_cents' => (int) $revenueCents, 'previous_revenue_cents' => (int) $previousRevenueCents,
                 'scans' => $scanCount, 'previous_scans' => $previousScans,
                 'cost_micros' => $costMicros === null ? null : (int) $costMicros,
                 'previous_cost_micros' => $previousCostKnown ? (int) $previousCostMicros : null,
                 'priced_requests' => $pricedRequests, 'unpriced_requests' => $unpricedRequests,
+                'gross_difference_cents' => $costMicros === null ? null : (int) $revenueCents - (int) round($costMicros / 10_000),
             ],
             'chart' => $chart, 'chartMax' => max($chartMax, 1), 'lastUpdated' => now($timezone),
         ]);

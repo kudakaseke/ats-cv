@@ -7,6 +7,7 @@
     </section>
     <div class="admin-kpi-grid">
         <article class="admin-kpi-card"><span>Total users</span><strong>{{ number_format($stats['users']) }}</strong><small>{{ number_format($stats['new_users']) }} new in this period</small></article>
+        <article class="admin-kpi-card"><span>Active subscriptions</span><strong>{{ number_format($stats['active_subscriptions']) }}</strong><small>Currently active subscription records</small></article>
         <article class="admin-kpi-card"><span>Verified revenue</span><strong>US${{ number_format($stats['revenue_cents'] / 100, 2) }}</strong><small>Live paid transactions only</small></article>
         <article class="admin-kpi-card"><span>Completed CV scans</span><strong>{{ number_format($stats['scans']) }}</strong><small>Compared with {{ number_format($stats['previous_scans']) }} in prior period</small></article>
         <article class="admin-kpi-card"><span>Recorded AI API costs</span>
@@ -20,6 +21,7 @@
                 @endif
             </small>
         </article>
+        <article class="admin-kpi-card"><span>Revenue less known AI costs</span><strong>{{ $stats['gross_difference_cents'] === null ? 'Not available' : 'US$'.number_format($stats['gross_difference_cents'] / 100, 2) }}</strong><small>Before payment fees and other operating costs</small></article>
     </div>
     <section class="admin-panel admin-revenue-panel"><header class="admin-panel-heading"><div><h2>Revenue and AI costs</h2><p>USD · verified live receipts and request-time token cost snapshots</p></div><span class="admin-period-label">Last six months</span></header>
         @php($maxValue = max(1, $chartMax))
