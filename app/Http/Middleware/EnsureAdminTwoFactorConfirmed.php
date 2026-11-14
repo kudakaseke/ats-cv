@@ -12,7 +12,8 @@ class EnsureAdminTwoFactorConfirmed
     {
         if (config('app.env') === 'local'
             && config('admin.dashboard_preview_without_2fa')
-            && $request->routeIs('admin.dashboard')) {
+            && $request->isMethod('GET')
+            && $request->routeIs('admin.dashboard', 'admin.billing')) {
             return $next($request);
         }
 

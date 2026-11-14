@@ -1,4 +1,7 @@
 <x-admin-layout>
+    @if(config('app.env') === 'local' && config('admin.dashboard_preview_without_2fa'))
+        <p class="admin-form-error" role="status">Local preview mode: billing is view-only until authenticator setup. Reconcile and review actions require two-factor authentication.</p>
+    @endif
     <div class="dashboard-heading"><div><h1>Paynow billing management</h1><p>Test payments are listed separately from live payments. Revenue below is gross verified payments, before fees.</p></div></div>
     <x-input-error :messages="$errors->get('billing')" class="my-4" />
     @if(session('billing_status'))<p role="status">{{ session('billing_status') }}</p>@endif

@@ -44,7 +44,9 @@ class AdminPortalTest extends TestCase
         $this->post('/admin/login', ['email' => $admin->email, 'password' => 'password'])
             ->assertRedirect(route('admin.dashboard'));
         $this->get('/admin/dashboard')->assertOk()->assertSee('Local preview mode');
-        $this->actingAs($admin, 'admin')->get('/admin/billing')->assertRedirect(route('admin.2fa.setup'));
+        $this->actingAs($admin, 'admin')->get('/admin/billing')->assertOk()->assertSee('Local preview mode');
+        $this->actingAs($admin, 'admin')->post('/admin/billing/not-a-real-reference/reconcile')
+            ->assertRedirect(route('admin.2fa.setup'));
     }
 
     public function test_local_dashboard_preview_does_not_mark_enrolled_admin_two_factor_verified(): void
@@ -56,7 +58,9 @@ class AdminPortalTest extends TestCase
             ->assertRedirect(route('admin.dashboard'));
         $this->get('/admin/dashboard')->assertOk()->assertSee('Local preview mode');
         $this->actingAs($admin, 'admin')->withSession(['admin_2fa_verified_at' => null])
-            ->get('/admin/billing')->assertRedirect(route('admin.2fa.challenge'));
+            ->get('/admin/billing')->assertOk()->assertSee('Local preview mode');
+        $this->actingAs($admin, 'admin')->withSession(['admin_2fa_verified_at' => null])
+            ->post('/admin/billing/not-a-real-reference/review', [])->assertRedirect(route('admin.2fa.challenge'));
     }
 
     public function test_dashboard_preview_is_ignored_outside_local_environment(): void

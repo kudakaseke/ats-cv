@@ -1,6 +1,6 @@
 <x-admin-layout>
     @if(config('app.env') === 'local' && config('admin.dashboard_preview_without_2fa'))
-        <p class="admin-form-error" role="status">Local preview mode: authenticator setup is paused for this dashboard. Billing and production access still require two-factor authentication.</p>
+        <p class="admin-form-error" role="status">Local preview mode: you can view the overview and billing before authenticator setup. Billing actions and all non-local access still require two-factor authentication.</p>
     @endif
     <section class="admin-page-heading"><div><span class="admin-kicker">PLATFORM HEALTH</span><h1>Overview</h1><p>Live figures from verified payments, completed CV analyses and recorded AI usage.</p></div>
         <form method="GET" action="{{ route('admin.dashboard') }}" class="admin-date-filter"><label>From <input type="date" name="from" value="{{ $period['from'] }}" required></label><label>To <input type="date" name="to" value="{{ $period['to'] }}" required></label><button type="submit">Apply</button></form>
