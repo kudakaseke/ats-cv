@@ -10,6 +10,12 @@ class EnsureAdminTwoFactorConfirmed
 {
     public function handle(Request $request, Closure $next): Response
     {
+        if (config('app.env') === 'local'
+            && config('admin.dashboard_preview_without_2fa')
+            && $request->routeIs('admin.dashboard')) {
+            return $next($request);
+        }
+
         $user = $request->user('admin');
         if (! $user?->two_factor_confirmed_at) {
             return redirect()->route('admin.2fa.setup');

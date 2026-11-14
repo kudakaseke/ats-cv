@@ -19,6 +19,10 @@ class AdminAuthController extends Controller
     public function loginForm(): View|RedirectResponse
     {
         if ($user = Auth::guard('admin')->user()) {
+            if ($this->dashboardPreviewEnabled()) {
+                return to_route('admin.dashboard');
+            }
+
             return to_route($user->two_factor_confirmed_at ? 'admin.2fa.challenge' : 'admin.2fa.setup');
         }
 
@@ -29,6 +33,10 @@ class AdminAuthController extends Controller
     {
         if (Auth::guard('admin')->check()) {
             $user = Auth::guard('admin')->user();
+
+            if ($this->dashboardPreviewEnabled()) {
+                return to_route('admin.dashboard');
+            }
 
             return to_route($user->two_factor_confirmed_at ? 'admin.2fa.challenge' : 'admin.2fa.setup');
         }
@@ -59,6 +67,13 @@ class AdminAuthController extends Controller
         $request->session()->regenerate();
         $request->session()->forget(['admin_2fa_verified_at', 'admin_totp_setup_secret']);
         $audit->record('auth.login', 'User', Auth::guard('admin')->id());
+
+        if ($this->dashboardPreviewEnabled()) {
+            $request->session()->put('admin_2fa_verified_at', now()->timestamp);
+            $audit->record('auth.local_dashboard_preview', 'User', Auth::guard('admin')->id());
+
+            return to_route('admin.dashboard');
+        }
 
         return to_route(Auth::guard('admin')->user()->two_factor_confirmed_at ? 'admin.2fa.challenge' : 'admin.2fa.setup');
     }
@@ -149,5 +164,10 @@ class AdminAuthController extends Controller
         $audit->record('auth.logout', 'User', $userId);
 
         return to_route('admin.login');
+    }
+
+    private function dashboardPreviewEnabled(): bool
+    {
+        return config('app.env') === 'local' && config('admin.dashboard_preview_without_2fa');
     }
 }

@@ -33,6 +33,17 @@ class AdminPortalTest extends TestCase
         $this->get('/admin/dashboard')->assertOk()->assertSee('Overview')->assertSee('Super Admin Dashboard')->assertDontSee('workspace-shell');
     }
 
+    public function test_local_dashboard_preview_can_be_opened_before_totp_enrollment_but_billing_still_requires_totp(): void
+    {
+        config(['app.env' => 'local', 'admin.dashboard_preview_without_2fa' => true]);
+        $admin = $this->admin();
+
+        $this->post('/admin/login', ['email' => $admin->email, 'password' => 'password'])
+            ->assertRedirect(route('admin.dashboard'));
+        $this->get('/admin/dashboard')->assertOk()->assertSee('Local preview mode');
+        $this->actingAs($admin, 'admin')->get('/admin/billing')->assertRedirect(route('admin.2fa.setup'));
+    }
+
     public function test_admin_login_checks_role_and_then_requires_an_authenticator_code(): void
     {
         $customer = User::factory()->create();
