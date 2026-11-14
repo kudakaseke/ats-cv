@@ -9,6 +9,7 @@ use App\Services\Admin\TotpService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
@@ -48,7 +49,7 @@ class AdminAuthController extends Controller
             throw ValidationException::withMessages(['email' => 'Too many sign-in attempts. Try again in one minute.']);
         }
         $ownerEmail = config('admin.owner_email');
-        $ownerAllowed = config('app.env') !== 'production'
+        $ownerAllowed = in_array(config('app.env'), ['local', 'testing'], true)
             || (is_string($ownerEmail) && $ownerEmail !== '' && hash_equals(mb_strtolower($ownerEmail), $email));
         $authenticated = $ownerAllowed && Auth::guard('admin')->attempt(['email' => $email, 'password' => $data['password'],
             'role' => 'super_admin', 'account_status' => 'active'], false);
@@ -69,7 +70,6 @@ class AdminAuthController extends Controller
         $audit->record('auth.login', 'User', Auth::guard('admin')->id());
 
         if ($this->dashboardPreviewEnabled()) {
-            $request->session()->put('admin_2fa_verified_at', now()->timestamp);
             $audit->record('auth.local_dashboard_preview', 'User', Auth::guard('admin')->id());
 
             return to_route('admin.dashboard');
@@ -125,31 +125,37 @@ class AdminAuthController extends Controller
     public function verify(Request $request, TotpService $totp, AdminAuditTrail $audit): RedirectResponse
     {
         $data = $request->validate(['code' => ['required', 'string', 'max:32']]);
-        $user = User::query()->whereKey($request->user('admin')->id)->firstOrFail();
-        $lastCounter = $user->two_factor_last_counter;
-        $matchedCounter = $totp->matchingCounter((string) $user->two_factor_secret, preg_replace('/\s+/', '', $data['code']), $lastCounter);
-        if ($matchedCounter !== null) {
-            $user->forceFill(['two_factor_last_counter' => $matchedCounter])->save();
-        } else {
+        $userId = $request->user('admin')->id;
+        $verified = DB::transaction(function () use ($userId, $data, $totp): bool {
+            $user = User::query()->whereKey($userId)->lockForUpdate()->firstOrFail();
+            $matchedCounter = $totp->matchingCounter((string) $user->two_factor_secret,
+                preg_replace('/\s+/', '', $data['code']), $user->two_factor_last_counter);
+            if ($matchedCounter !== null) {
+                $user->forceFill(['two_factor_last_counter' => $matchedCounter])->save();
+
+                return true;
+            }
+
             $codes = $user->two_factor_recovery_codes ?? [];
             $normalized = strtoupper(str_replace([' ', '-'], '', $data['code']));
-            $index = null;
             foreach ($codes as $i => $hash) {
                 if (Hash::check($normalized, $hash)) {
-                    $index = $i;
-                    break;
+                    unset($codes[$i]);
+                    $user->forceFill(['two_factor_recovery_codes' => array_values($codes)])->save();
+
+                    return true;
                 }
             }
-            if ($index === null) {
-                $audit->record('auth.2fa_failed', 'User', $user->id);
-                throw ValidationException::withMessages(['code' => 'The authentication code is invalid or has already been used.']);
-            }
-            unset($codes[$index]);
-            $user->forceFill(['two_factor_recovery_codes' => array_values($codes)])->save();
+
+            return false;
+        }, 3);
+        if (! $verified) {
+            $audit->record('auth.2fa_failed', 'User', $userId);
+            throw ValidationException::withMessages(['code' => 'The authentication code is invalid or has already been used.']);
         }
         $request->session()->regenerate();
         $request->session()->put('admin_2fa_verified_at', now()->timestamp);
-        $audit->record('auth.2fa_verified', 'User', $user->id);
+        $audit->record('auth.2fa_verified', 'User', $userId);
 
         return to_route('admin.dashboard');
     }
@@ -157,11 +163,11 @@ class AdminAuthController extends Controller
     public function logout(Request $request, AdminAuditTrail $audit): RedirectResponse
     {
         $userId = $request->user('admin')->id;
+        $audit->record('auth.logout', 'User', $userId);
         Auth::guard('admin')->logout();
         $request->session()->forget(['admin_2fa_verified_at', 'admin_totp_setup_secret']);
         $request->session()->migrate(true);
         $request->session()->regenerateToken();
-        $audit->record('auth.logout', 'User', $userId);
 
         return to_route('admin.login');
     }

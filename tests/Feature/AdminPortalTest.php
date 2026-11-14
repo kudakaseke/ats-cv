@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\Admin\TotpService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class AdminPortalTest extends TestCase
@@ -25,7 +26,9 @@ class AdminPortalTest extends TestCase
     {
         $admin = $this->admin();
         $this->actingAs($admin, 'admin')->get('/admin/dashboard')->assertRedirect(route('admin.2fa.setup'));
-        $this->get('/admin/2fa/setup')->assertOk()->assertSee('Authenticator enrollment QR code')->assertDontSee('workspace-shell');
+        $setupResponse = $this->get('/admin/2fa/setup')->assertOk()
+            ->assertSee('Authenticator enrollment QR code')->assertDontSee('workspace-shell');
+        $this->assertStringContainsString('no-store', $setupResponse->headers->get('Cache-Control'));
         $secret = session('admin_totp_setup_secret');
         $code = app(TotpService::class)->code($secret, intdiv(time(), 30));
         $this->post('/admin/2fa/confirm', ['code' => $code])->assertRedirect(route('admin.dashboard'));
@@ -44,6 +47,27 @@ class AdminPortalTest extends TestCase
         $this->actingAs($admin, 'admin')->get('/admin/billing')->assertRedirect(route('admin.2fa.setup'));
     }
 
+    public function test_local_dashboard_preview_does_not_mark_enrolled_admin_two_factor_verified(): void
+    {
+        config(['app.env' => 'local', 'admin.dashboard_preview_without_2fa' => true]);
+        $admin = $this->admin(['two_factor_secret' => 'JBSWY3DPEHPK3PXP', 'two_factor_confirmed_at' => now()]);
+
+        $this->post('/admin/login', ['email' => $admin->email, 'password' => 'password'])
+            ->assertRedirect(route('admin.dashboard'));
+        $this->get('/admin/dashboard')->assertOk()->assertSee('Local preview mode');
+        $this->actingAs($admin, 'admin')->withSession(['admin_2fa_verified_at' => null])
+            ->get('/admin/billing')->assertRedirect(route('admin.2fa.challenge'));
+    }
+
+    public function test_dashboard_preview_is_ignored_outside_local_environment(): void
+    {
+        config(['app.env' => 'production', 'admin.owner_email' => 'owner@example.com',
+            'admin.dashboard_preview_without_2fa' => true]);
+        $admin = $this->admin(['email' => 'owner@example.com']);
+
+        $this->actingAs($admin, 'admin')->get('/admin/dashboard')->assertRedirect(route('admin.2fa.setup'));
+    }
+
     public function test_admin_login_checks_role_and_then_requires_an_authenticator_code(): void
     {
         $customer = User::factory()->create();
@@ -55,6 +79,14 @@ class AdminPortalTest extends TestCase
         $this->assertDatabaseHas('admin_audit_logs', ['action' => 'auth.login', 'actor_id' => $admin->id]);
     }
 
+    public function test_admin_logout_audit_keeps_the_administrator_actor(): void
+    {
+        $admin = $this->admin();
+
+        $this->actingAs($admin, 'admin')->post('/admin/logout')->assertRedirect(route('admin.login'));
+        $this->assertDatabaseHas('admin_audit_logs', ['action' => 'auth.logout', 'actor_id' => $admin->id]);
+    }
+
     public function test_production_owner_email_limits_the_admin_portal_to_one_account(): void
     {
         config(['app.env' => 'production', 'admin.owner_email' => 'owner@example.com']);
@@ -62,6 +94,17 @@ class AdminPortalTest extends TestCase
             'two_factor_secret' => 'JBSWY3DPEHPK3PXP']);
         $this->actingAs($admin, 'admin')->withSession(['admin_2fa_verified_at' => now()->timestamp])
             ->get('/admin/dashboard')->assertForbidden();
+    }
+
+    public function test_non_local_non_testing_deployments_enforce_the_owner_email(): void
+    {
+        config(['app.env' => 'staging', 'admin.owner_email' => 'owner@example.com']);
+        $admin = $this->admin(['email' => 'other@example.com']);
+
+        $this->actingAs($admin, 'admin')->get('/admin/dashboard')->assertForbidden();
+        auth('admin')->logout();
+        $this->post('/admin/login', ['email' => $admin->email, 'password' => 'password'])
+            ->assertSessionHasErrors('email');
     }
 
     public function test_overview_uses_real_records_and_excludes_pending_test_and_failed_payments(): void
@@ -96,6 +139,30 @@ class AdminPortalTest extends TestCase
         $code = $service->code($secret, $counter);
         $this->assertSame($counter, $service->matchingCounter($secret, $code, null, $counter * 30));
         $this->assertNull($service->matchingCounter($secret, $code, $counter, $counter * 30));
+    }
+
+    public function test_totp_and_recovery_codes_are_consumed_once(): void
+    {
+        $totp = app(TotpService::class);
+        $secret = $totp->secret();
+        $counter = intdiv(time(), 30);
+        $code = $totp->code($secret, $counter);
+        $admin = $this->admin(['two_factor_secret' => $secret, 'two_factor_confirmed_at' => now()]);
+
+        $this->actingAs($admin, 'admin')->post('/admin/2fa/verify', ['code' => $code])
+            ->assertRedirect(route('admin.dashboard'));
+        $this->assertSame($counter, $admin->fresh()->two_factor_last_counter);
+        $this->actingAs($admin->fresh(), 'admin')->post('/admin/2fa/verify', ['code' => $code])
+            ->assertSessionHasErrors('code');
+
+        $recoveryCode = strtoupper(bin2hex(random_bytes(5)));
+        $recoveryAdmin = $this->admin(['two_factor_secret' => $secret, 'two_factor_confirmed_at' => now(),
+            'two_factor_recovery_codes' => [Hash::make($recoveryCode)]]);
+        $this->actingAs($recoveryAdmin, 'admin')->post('/admin/2fa/verify', ['code' => $recoveryCode])
+            ->assertRedirect(route('admin.dashboard'));
+        $this->assertSame([], $recoveryAdmin->fresh()->two_factor_recovery_codes);
+        $this->actingAs($recoveryAdmin->fresh(), 'admin')->post('/admin/2fa/verify', ['code' => $recoveryCode])
+            ->assertSessionHasErrors('code');
     }
 
     private function admin(array $attributes = []): User
