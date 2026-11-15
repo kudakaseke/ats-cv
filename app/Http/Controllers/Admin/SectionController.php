@@ -67,8 +67,12 @@ class SectionController extends Controller
                 arsort($missingCounts);
                 $frequentMissing = collect(array_slice($missingCounts, 0, 5, true))->map(fn ($count, $label) => $label.' ('.$count.')')->implode(', ');
                 $stats = ['CV uploads' => DB::table('resumes')->whereNotNull('original_path')->count(), 'ATS scans' => DB::table('cv_analyses')->where('status','completed')->count(), 'CV revamps' => DB::table('ai_operations')->where('feature','revamp')->where('status','completed')->count(), 'CV creations' => DB::table('resumes')->where('source','created')->count(), 'Average ATS score' => round((float) DB::table('cv_analyses')->where('status','completed')->whereNotNull('score')->avg('score'), 1), 'Frequent missing requirements' => $frequentMissing ?: 'No data yet'];
-                $rows = DB::table('cv_analyses')->where('status','completed')->where('created_at','>=',$from->utc())->where('created_at','<',$to->addDay()->utc())->select('job_title','score','created_at')->latest()->limit(100)->get();
-                $columns = ['job_title' => 'Job title', 'score' => 'ATS score', 'created_at' => 'Scanned'];
+                $rows = DB::table('cv_analyses')->join('users', 'cv_analyses.user_id', '=', 'users.id')
+                    ->where('cv_analyses.status','completed')->where('cv_analyses.created_at','>=',$from->utc())
+                    ->where('cv_analyses.created_at','<',$to->addDay()->utc())
+                    ->select('users.name as customer_name','users.email as customer_email','cv_analyses.job_title','cv_analyses.score','cv_analyses.created_at')
+                    ->latest('cv_analyses.created_at')->limit(100)->get();
+                $columns = ['customer_name' => 'Customer', 'customer_email' => 'Email', 'job_title' => 'Job title', 'score' => 'ATS score', 'created_at' => 'Scanned'];
                 break;
             case 'ai':
                 $knownCost = (int) DB::table('ai_usage_logs')->whereNotNull('total_cost_micros')->sum('total_cost_micros');
