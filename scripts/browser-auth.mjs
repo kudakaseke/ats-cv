@@ -17,6 +17,21 @@ export async function signInTestUser(page, base = process.env.APP_TEST_URL || 'h
     }
 }
 
+export async function changeTemplate(page) {
+    let resolveDialog;
+    const dialogMessage = new Promise(resolve => { resolveDialog = resolve; });
+    page.once('dialog', async dialog => {
+        const message = dialog.message();
+        await dialog.accept();
+        resolveDialog(message);
+    });
+    await page.getByRole('button', { name: 'Change template', exact: true }).click();
+    const message = await dialogMessage;
+    if (!message.includes('recommended ATS-friendly template')) {
+        throw new Error(`Unexpected template-change confirmation: ${message}`);
+    }
+}
+
 export function removeTestUser(fixture) {
     if (fixture) execFileSync('php', ['scripts/browser-fixture.php', 'delete', fixture.email], { stdio: 'pipe' });
 }

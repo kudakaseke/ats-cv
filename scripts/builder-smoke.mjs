@@ -1,6 +1,6 @@
 import { chromium, expect } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
-import { signInTestUser, removeTestUser } from './browser-auth.mjs';
+import { signInTestUser, removeTestUser, changeTemplate } from './browser-auth.mjs';
 
 const base = process.env.APP_TEST_URL || 'http://127.0.0.1:8000';
 const browser = await chromium.launch(process.env.BROWSER_CHANNEL ? { channel: process.env.BROWSER_CHANNEL } : {});
@@ -52,7 +52,7 @@ try {
     for (const template of catalogue.filter(t => t.category !== 'By Department')) {
         await page.getByRole('button', { name: `Choose ${template.name} template`, exact: true }).click();
         await expect(page.locator('.editor-paper-wrap .cv-paper').first()).toHaveAttribute('data-template', template.id);
-        await page.getByRole('button', { name: 'Change template', exact: true }).click();
+        await changeTemplate(page);
         await expect(page.locator('.editor-save-state')).not.toHaveText(/^Saving/, { timeout: 15000 });
         // Stay below the real save limiter while exercising every design.
         await page.waitForTimeout(1400);
@@ -65,7 +65,7 @@ try {
         await card.locator('select').selectOption({ index: 1 });
         await card.getByRole('button', { name: /^Use .* template$/ }).click();
         await expect(page.locator('.builder-editor')).toBeVisible();
-        await page.getByRole('button', { name: 'Change template', exact: true }).click();
+        await changeTemplate(page);
         await expect(page.locator('.editor-save-state')).not.toHaveText(/^Saving/, { timeout: 15000 });
         // Stay below the real save limiter while exercising every design.
         await page.waitForTimeout(1400);
