@@ -12,6 +12,7 @@ import {
     FilePenLine, LayoutTemplate, FolderOpen, History, Info, Zap, Leaf,
     Plus, Menu, House, LayoutDashboard, FilePlus2, Gem, CreditCard, UserRound, LogOut,
     CircleHelp, ChevronDown, ChevronRight, ArrowDownRight, Target, Files, Maximize2, Eye, Pencil,
+    UsersRound, Cpu, Coins, UserCog, MessageSquare, Activity,
 } from 'lucide';
 
 const icons = { Asterisk, ArrowUpRight, ArrowRight, ArrowLeft, ShieldCheck,
@@ -19,7 +20,8 @@ const icons = { Asterisk, ArrowUpRight, ArrowRight, ArrowLeft, ShieldCheck,
     ChartNoAxesCombined, ScanText, GitCompareArrows, WandSparkles,
     FilePenLine, LayoutTemplate, FolderOpen, History, Info, Zap, Leaf,
     Plus, Menu, House, LayoutDashboard, FilePlus2, Gem, CreditCard, UserRound, LogOut,
-    CircleHelp, ChevronDown, ChevronRight, ArrowDownRight, Target, Files, Maximize2, Eye, Pencil };
+    CircleHelp, ChevronDown, ChevronRight, ArrowDownRight, Target, Files, Maximize2, Eye, Pencil,
+    UsersRound, Cpu, Coins, UserCog, MessageSquare, Activity };
 
 const renderIcons = () => createIcons({ icons });
 document.addEventListener('DOMContentLoaded', renderIcons);

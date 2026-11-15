@@ -21,6 +21,21 @@ class AdminSectionsTest extends TestCase
         $this->assertDatabaseHas('admin_audit_logs', ['actor_id' => $admin->id, 'action' => 'admin.request']);
     }
 
+    public function test_super_admin_sidebar_uses_registered_icons_for_every_navigation_section(): void
+    {
+        config(['app.env' => 'local', 'admin.dashboard_preview_without_2fa' => true]);
+        $this->actingAs($this->admin(), 'admin')->get('/admin/dashboard')->assertOk()
+            ->assertSee('data-lucide="chart-no-axes-combined"', false)
+            ->assertSee('data-lucide="users-round"', false)
+            ->assertSee('data-lucide="credit-card"', false)
+            ->assertSee('data-lucide="file-text"', false)
+            ->assertSee('data-lucide="cpu"', false)
+            ->assertSee('data-lucide="coins"', false)
+            ->assertSee('data-lucide="user-cog"', false)
+            ->assertSee('data-lucide="message-square"', false)
+            ->assertSee('data-lucide="activity"', false);
+    }
+
     public function test_section_date_range_shows_daily_activity_graph(): void
     {
         config(['app.env' => 'local', 'admin.dashboard_preview_without_2fa' => true]);
