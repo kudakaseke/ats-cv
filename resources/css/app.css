@@ -599,6 +599,17 @@ body[data-workspace] .workspace-brand .brand-logo-image { display: block; width:
 .admin-review-action textarea { min-height:60px; resize:vertical; }
 .admin-danger-button { border:0; border-radius:6px; padding:8px 11px; background:#a83838; color:#fff; font:inherit; cursor:pointer; }
 .admin-pagination { margin-top:15px; }
+.admin-daily-panel { margin-bottom:18px; }
+.admin-daily-graph { display:flex; align-items:stretch; gap:5px; overflow-x:auto; min-height:230px; margin-top:20px; padding:12px 4px 0; border-bottom:1px solid #dce5ef; background:repeating-linear-gradient(to bottom,transparent 0,transparent 53px,#edf1f6 54px); }
+.admin-daily-point { flex:1 0 22px; min-width:22px; height:210px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:5px; }
+.admin-daily-bar { display:block; width:min(70%,18px); min-height:2px; border-radius:4px 4px 0 0; background:linear-gradient(180deg,#4a92d4,#235da1); }
+.admin-daily-bar.revenue { background:#2876bd; }
+.admin-daily-bar.cost { background:#e8a83a; }
+.admin-daily-pair { width:100%; height:100%; display:flex; align-items:flex-end; justify-content:center; gap:2px; }
+.admin-daily-pair .admin-daily-bar { flex:0 1 8px; width:8px; }
+.admin-daily-point small { min-height:13px; color:#718197; font-size:8px; white-space:nowrap; }
+.admin-daily-accessible { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
+.admin-date-filter input:focus-visible,.admin-search input:focus-visible { outline:3px solid #bed8f5; border-color:#3f79b7; }
 .admin-main { min-width:0; padding:0 36px 22px; }
 .admin-topbar { min-height:75px; display:flex; align-items:center; justify-content:space-between; gap:16px; border-bottom:1px solid #e0e7f0; }
 .admin-topbar>div:first-child { display:grid; gap:4px; }

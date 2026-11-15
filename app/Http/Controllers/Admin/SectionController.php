@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -30,17 +31,26 @@ class SectionController extends Controller
         $search = trim((string) $request->query('search', ''));
         $filters = [];
         $incidents = [];
+        $range = $request->validate(['from' => 'nullable|date', 'to' => 'nullable|date|after_or_equal:from']);
+        $timezone = config('app.timezone', 'UTC');
+        $to = isset($range['to']) ? CarbonImmutable::parse($range['to'], $timezone)->startOfDay() : CarbonImmutable::now($timezone)->startOfDay();
+        $from = isset($range['from']) ? CarbonImmutable::parse($range['from'], $timezone)->startOfDay() : $to->subDays(29);
+        if ($from->diffInDays($to) > 365) {
+            abort(422, 'Choose a date range of one year or less.');
+        }
+        $period = ['from' => $from->toDateString(), 'to' => $to->toDateString()];
+        $dailyChart = $this->dailyChart($section, $from, $to);
 
         switch ($section) {
             case 'users':
                 $stats = ['Total users' => DB::table('users')->where('role', 'user')->count(), 'New this month' => DB::table('users')->where('role', 'user')->where('created_at', '>=', now()->startOfMonth())->count(), 'Active in 30 days' => DB::table('account_sessions')->where('last_activity', '>=', now()->subDays(30)->timestamp)->distinct('user_id')->count('user_id'), 'Returning users' => DB::table('audit_events')->join('users','audit_events.user_id','=','users.id')->where('users.created_at','<',now()->subDays(30))->where('audit_events.created_at','>=',now()->subDays(30))->distinct('audit_events.user_id')->count('audit_events.user_id')];
-                $rows = DB::table('users')->where('role', 'user')->select('id', 'name', 'email', 'created_at', 'account_status')->latest()->limit(30)->get();
+                $rows = DB::table('users')->where('role', 'user')->where('created_at','>=',$from->utc())->where('created_at','<',$to->addDay()->utc())->select('id', 'name', 'email', 'created_at', 'account_status')->latest()->limit(100)->get();
                 $columns = ['name' => 'Name', 'email' => 'Email', 'account_status' => 'Status', 'created_at' => 'Registered'];
                 break;
             case 'revenue':
                 $stats = ['Verified live revenue (month)' => '$'.number_format(DB::table('billing_payments')->where('status','paid')->where('mode','live')->whereNotNull('verified_at')->where('paid_at','>=',now()->startOfMonth())->sum('amount_cents') / 100, 2), 'Successful payments' => DB::table('billing_payments')->where('status','paid')->where('mode','live')->count(), 'Failed payments' => DB::table('billing_payments')->where('status','failed')->count(), 'Active subscriptions' => DB::table('subscriptions')->where('status','active')->count(), 'Renewal payments' => DB::table('billing_payments')->where('status','paid')->where('kind','renewal')->count(), 'Cancelled subscriptions' => DB::table('subscriptions')->whereNotNull('cancelled_at')->count()];
-                $rows = DB::table('subscription_plans')->leftJoin('subscriptions','subscription_plans.id','=','subscriptions.subscription_plan_id')->select('subscription_plans.name','subscription_plans.slug',DB::raw('count(case when subscriptions.status = \'active\' then 1 end) as active_subscribers'))->groupBy('subscription_plans.id','subscription_plans.name','subscription_plans.slug')->orderBy('subscription_plans.id')->get();
-                $columns = ['name' => 'Plan', 'slug' => 'Plan key', 'active_subscribers' => 'Active subscribers'];
+                $rows = DB::table('billing_payments')->join('users','billing_payments.user_id','=','users.id')->leftJoin('subscription_plans','billing_payments.subscription_plan_id','=','subscription_plans.id')->where('billing_payments.created_at','>=',$from->utc())->where('billing_payments.created_at','<',$to->addDay()->utc())->select('billing_payments.reference','users.email','subscription_plans.name as plan','billing_payments.kind','billing_payments.status','billing_payments.amount_cents','billing_payments.currency','billing_payments.created_at')->latest('billing_payments.created_at')->limit(100)->get();
+                $columns = ['reference' => 'Payment reference', 'email' => 'Customer', 'plan' => 'Plan', 'kind' => 'Type', 'status' => 'Status', 'amount_cents' => 'Amount (cents)', 'currency' => 'Currency', 'created_at' => 'Created'];
                 break;
             case 'cv':
                 $missingCounts = [];
@@ -54,7 +64,7 @@ class SectionController extends Controller
                 arsort($missingCounts);
                 $frequentMissing = collect(array_slice($missingCounts, 0, 5, true))->map(fn ($count, $label) => $label.' ('.$count.')')->implode(', ');
                 $stats = ['CV uploads' => DB::table('resumes')->whereNotNull('original_path')->count(), 'ATS scans' => DB::table('cv_analyses')->where('status','completed')->count(), 'CV revamps' => DB::table('ai_operations')->where('feature','revamp')->where('status','completed')->count(), 'CV creations' => DB::table('resumes')->where('source','created')->count(), 'Average ATS score' => round((float) DB::table('cv_analyses')->where('status','completed')->whereNotNull('score')->avg('score'), 1), 'Frequent missing requirements' => $frequentMissing ?: 'No data yet'];
-                $rows = DB::table('cv_analyses')->where('status','completed')->select('job_title','score','created_at')->latest()->limit(30)->get();
+                $rows = DB::table('cv_analyses')->where('status','completed')->where('created_at','>=',$from->utc())->where('created_at','<',$to->addDay()->utc())->select('job_title','score','created_at')->latest()->limit(100)->get();
                 $columns = ['job_title' => 'Job title', 'score' => 'ATS score', 'created_at' => 'Scanned'];
                 break;
             case 'ai':
@@ -63,7 +73,7 @@ class SectionController extends Controller
                 $verifiedRevenue = (int) DB::table('billing_payments')->where('status','paid')->where('mode','live')->whereNotNull('verified_at')->where('currency','USD')->sum('amount_cents');
                 $grossDifference = $verifiedRevenue / 100 - $knownCost / 1_000_000;
                 $stats = ['AI requests' => DB::table('ai_usage_logs')->count(), 'Input tokens' => number_format(DB::table('ai_usage_logs')->sum('input_tokens')), 'Output tokens' => number_format(DB::table('ai_usage_logs')->sum('output_tokens')), 'Known AI cost' => '$'.number_format($knownCost / 1_000_000, 4), 'Average cost per priced request' => $knownCount ? '$'.number_format($knownCost / $knownCount / 1_000_000, 5) : 'Not available', 'Revenue less known AI costs' => '$'.number_format($grossDifference, 2)];
-                $rows = DB::table('ai_usage_logs')->select('feature','provider','model',DB::raw('count(*) as requests'),DB::raw('sum(input_tokens) as input_tokens'),DB::raw('sum(output_tokens) as output_tokens'),DB::raw('sum(total_cost_micros) as cost_micros'))->groupBy('feature','provider','model')->orderByDesc('requests')->limit(30)->get();
+                $rows = DB::table('ai_usage_logs')->where('created_at','>=',$from->utc())->where('created_at','<',$to->addDay()->utc())->select('feature','provider','model',DB::raw('count(*) as requests'),DB::raw('sum(input_tokens) as input_tokens'),DB::raw('sum(output_tokens) as output_tokens'),DB::raw('sum(total_cost_micros) as cost_micros'))->groupBy('feature','provider','model')->orderByDesc('requests')->limit(30)->get();
                 $columns = ['feature' => 'Feature', 'provider' => 'Provider', 'model' => 'Model', 'requests' => 'Requests', 'input_tokens' => 'Input tokens', 'output_tokens' => 'Output tokens', 'cost_micros' => 'Cost (micros USD)'];
                 break;
             case 'credits':
@@ -80,25 +90,55 @@ class SectionController extends Controller
                 break;
             case 'reviews':
                 $filters = $request->validate(['rating' => 'nullable|integer|min:1|max:5', 'category' => 'nullable|in:cv_analysis,account,billing,complaint,suggestion,other', 'status' => 'nullable|in:pending,approved,rejected', 'from' => 'nullable|date', 'to' => 'nullable|date|after_or_equal:from']);
+                $filters['from'] = $filters['from'] ?? $period['from'];
+                $filters['to'] = $filters['to'] ?? $period['to'];
                 $reviewQuery = DB::table('customer_feedback')->join('users','customer_feedback.user_id','=','users.id')->select('customer_feedback.*','users.name','users.email');
                 foreach (['rating','category','status'] as $filter) if (! empty($filters[$filter])) $reviewQuery->where('customer_feedback.'.$filter,$filters[$filter]);
                 if (! empty($filters['from'])) $reviewQuery->whereDate('customer_feedback.created_at','>=',$filters['from']);
                 if (! empty($filters['to'])) $reviewQuery->whereDate('customer_feedback.created_at','<=',$filters['to']);
                 $rows = $reviewQuery->latest('customer_feedback.created_at')->paginate(25)->withQueryString();
                 $columns = ['name' => 'Customer', 'category' => 'Category', 'rating' => 'Rating', 'body' => 'Feedback', 'status' => 'Status', 'created_at' => 'Received'];
-                $stats = ['Reviews' => DB::table('customer_feedback')->count(), 'Average rating' => round((float) DB::table('customer_feedback')->whereNotNull('rating')->avg('rating'), 1).'/5', 'Pending' => DB::table('customer_feedback')->where('status','pending')->count(), 'Complaints' => DB::table('customer_feedback')->where('category','complaint')->count()];
+                $feedbackInPeriod = DB::table('customer_feedback')->whereDate('created_at','>=',$filters['from'])->whereDate('created_at','<=',$filters['to']);
+                $stats = ['Reviews' => (clone $feedbackInPeriod)->count(), 'Average rating' => round((float) (clone $feedbackInPeriod)->whereNotNull('rating')->avg('rating'), 1).'/5', 'Pending' => (clone $feedbackInPeriod)->where('status','pending')->count(), 'Complaints' => (clone $feedbackInPeriod)->where('category','complaint')->count()];
                 break;
             case 'system':
-                $incidents = $this->recentIncidents();
+                $incidents = $this->recentIncidents($from, $to);
                 $stats = ['Application errors (14 days)' => count($incidents), 'Payment notifications' => DB::table('payment_notifications')->count(), 'Unprocessed webhooks' => DB::table('payment_notifications')->whereNull('processed_at')->count(), 'AI/API failures' => DB::table('ai_usage_logs')->where('status','failed')->count(), 'Admin audit events' => DB::table('admin_audit_logs')->count()];
-                $rows = DB::table('admin_audit_logs')->latest('created_at')->limit(30)->get(['actor_id','actor_email_hash','action','subject_type','subject_id','description','created_at']);
+                $rows = DB::table('admin_audit_logs')->where('created_at','>=',$from->utc())->where('created_at','<',$to->addDay()->utc())->latest('created_at')->limit(100)->get(['actor_id','actor_email_hash','action','subject_type','subject_id','description','created_at']);
                 $columns = ['actor_id' => 'Admin user ID', 'action' => 'Action', 'subject_type' => 'Record type', 'subject_id' => 'Record ID', 'description' => 'Details', 'created_at' => 'Time'];
                 break;
         }
-        return view('admin.section', compact('section','title','description','stats','rows','columns','search','filters','incidents'));
+        return view('admin.section', compact('section','title','description','stats','rows','columns','search','filters','incidents','period','dailyChart'));
     }
 
-    private function recentIncidents(): array
+    private function dailyChart(string $section, CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        [$table, $dateColumn, $valueColumn, $condition, $label, $unit] = match ($section) {
+            'users' => ['users', 'created_at', null, fn ($q) => $q->where('role', 'user'), 'New registrations per day', 'users'],
+            'revenue' => ['billing_payments', 'paid_at', 'amount_cents', fn ($q) => $q->where('status', 'paid')->where('mode', 'live')->whereNotNull('verified_at')->where('currency', 'USD'), 'Verified revenue per day', 'USD'],
+            'cv' => ['cv_analyses', 'created_at', null, fn ($q) => $q->where('status', 'completed'), 'Completed ATS scans per day', 'scans'],
+            'ai' => ['ai_usage_logs', 'created_at', 'total_cost_micros', fn ($q) => $q->whereNotNull('total_cost_micros'), 'Known AI cost per day', 'USD'],
+            'credits' => ['ai_credit_transactions', 'created_at', null, fn ($q) => $q, 'Credit transactions per day', 'transactions'],
+            'accounts' => ['audit_events', 'created_at', null, fn ($q) => $q->whereNotNull('user_id'), 'Customer activity events per day', 'events'],
+            'reviews' => ['customer_feedback', 'created_at', null, fn ($q) => $q, 'Feedback received per day', 'reviews'],
+            'system' => ['admin_audit_logs', 'created_at', null, fn ($q) => $q, 'Admin and system audit events per day', 'events'],
+        };
+
+        $dateExpression = 'DATE('.$dateColumn.')';
+        $query = DB::table($table)->where($dateColumn, '>=', $from->utc())->where($dateColumn, '<', $to->addDay()->utc());
+        $condition($query);
+        $aggregate = $valueColumn ? 'COALESCE(SUM('.$valueColumn.'), 0)' : 'COUNT(*)';
+        $values = $query->selectRaw($dateExpression.' as day, '.$aggregate.' as value')->groupByRaw($dateExpression)->pluck('value', 'day');
+        $points = [];
+        for ($day = $from; $day <= $to; $day = $day->addDay()) {
+            $date = $day->toDateString();
+            $raw = (float) ($values[$date] ?? 0);
+            $points[] = ['date' => $date, 'label' => $day->format('d M'), 'value' => $unit === 'USD' ? $raw / ($section === 'revenue' ? 100 : 1_000_000) : $raw];
+        }
+        return ['title' => $label, 'unit' => $unit, 'points' => $points];
+    }
+
+    private function recentIncidents(CarbonImmutable $from, CarbonImmutable $to): array
     {
         $files = glob(storage_path('logs/incidents-*.log')) ?: [];
         rsort($files, SORT_STRING);
@@ -115,7 +155,11 @@ class SectionController extends Controller
                     $entry = json_decode($line, true);
                     if (! is_array($entry)) continue;
                     $context = $entry['context'] ?? [];
-                    $entries[] = ['time' => $entry['datetime'] ?? '', 'reference' => $context['reference'] ?? '',
+                    $time = $entry['datetime'] ?? '';
+                    try { $eventTime = CarbonImmutable::parse($time, config('app.timezone')); }
+                    catch (\Throwable) { continue; }
+                    if ($eventTime < $from || $eventTime >= $to->addDay()) continue;
+                    $entries[] = ['time' => $time, 'reference' => $context['reference'] ?? '',
                         'type' => $context['type'] ?? '', 'location' => ($context['file'] ?? '').':'.($context['line'] ?? ''),
                         'route' => $context['route'] ?? 'background/console'];
                 }

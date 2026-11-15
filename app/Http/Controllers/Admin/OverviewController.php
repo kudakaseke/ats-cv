@@ -61,6 +61,20 @@ class OverviewController extends Controller
             $month = $month->addMonth();
         }
 
+        $dailyRevenue = DB::table('billing_payments')->selectRaw('DATE(paid_at) as day, SUM(amount_cents) as value')
+            ->where('status', 'paid')->where('mode', 'live')->whereNotNull('verified_at')->where('currency', 'USD')
+            ->where('paid_at', '>=', $rangeStart)->where('paid_at', '<', $rangeEnd)->groupByRaw('DATE(paid_at)')->pluck('value', 'day');
+        $dailyCosts = DB::table('ai_usage_logs')->selectRaw('DATE(created_at) as day, SUM(total_cost_micros) as value')
+            ->whereNotNull('total_cost_micros')->where('created_at', '>=', $rangeStart)->where('created_at', '<', $rangeEnd)
+            ->groupByRaw('DATE(created_at)')->pluck('value', 'day');
+        $dailyChart = [];
+        for ($day = $start; $day <= $end; $day = $day->addDay()) {
+            $date = $day->toDateString();
+            $dailyChart[] = ['date' => $date, 'label' => $day->format('d M'),
+                'revenue' => (int) ($dailyRevenue[$date] ?? 0) / 100,
+                'cost' => (int) ($dailyCosts[$date] ?? 0) / 1_000_000];
+        }
+
         return view('admin.overview', [
             'period' => ['from' => $start->toDateString(), 'to' => $end->toDateString()],
             'stats' => [
@@ -73,7 +87,8 @@ class OverviewController extends Controller
                 'priced_requests' => $pricedRequests, 'unpriced_requests' => $unpricedRequests,
                 'gross_difference_cents' => $costMicros === null ? null : (int) $revenueCents - (int) round($costMicros / 10_000),
             ],
-            'chart' => $chart, 'chartMax' => max($chartMax, 1), 'lastUpdated' => now($timezone),
+            'chart' => $chart, 'chartMax' => max($chartMax, 1), 'dailyChart' => $dailyChart,
+            'lastUpdated' => now($timezone),
         ]);
     }
 }

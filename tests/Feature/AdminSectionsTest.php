@@ -21,6 +21,16 @@ class AdminSectionsTest extends TestCase
         $this->assertDatabaseHas('admin_audit_logs', ['actor_id' => $admin->id, 'action' => 'admin.request']);
     }
 
+    public function test_section_date_range_shows_daily_activity_graph(): void
+    {
+        config(['app.env' => 'local', 'admin.dashboard_preview_without_2fa' => true]);
+        $this->travelTo(now()->setDate(2026, 11, 15)->setTime(12, 0));
+        $admin = $this->admin();
+        User::factory()->create(['created_at' => now()->subDay(), 'updated_at' => now()->subDay()]);
+        $this->actingAs($admin, 'admin')->get(route('admin.section', ['section' => 'users', 'from' => '2026-11-14', 'to' => '2026-11-15']))
+            ->assertOk()->assertSee('New registrations per day')->assertSee('2026-11-14: 1')->assertSee('name="from" value="2026-11-14"', false);
+    }
+
     public function test_customer_feedback_submission_and_moderation_are_linked_to_the_admin(): void
     {
         config(['app.env' => 'local', 'admin.dashboard_preview_without_2fa' => true]);
