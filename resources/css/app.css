@@ -674,3 +674,116 @@ body[data-workspace] .workspace-brand .brand-logo-image { display: block; width:
 .admin-recovery-codes li { padding:8px; border:1px solid #f0e4c3; border-radius:5px; background:#fff; text-align:center; }
 @media(max-width:900px) { .admin-shell { grid-template-columns:205px minmax(0,1fr); }.admin-sidebar { padding-left:12px; padding-right:12px; }.admin-main { padding:0 20px 20px; }.admin-kpi-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(max-width:600px) { .admin-shell { display:block; }.admin-sidebar { position:static; height:auto; padding:12px 14px; }.admin-brand { flex-direction:row; align-items:center; padding:0 0 10px; }.admin-brand img { width:130px; }.admin-sidebar-label,.admin-sidebar-bottom { display:none; }.admin-sidebar nav { grid-template-columns:repeat(2,minmax(0,1fr)); }.admin-nav-link { padding:9px; font-size:11px; }.admin-nav-link small { display:none; }.admin-topbar { min-height:62px; }.admin-main { padding:0 13px 18px; }.admin-user-area { gap:8px; font-size:10px; }.admin-private-pill { display:none; }.admin-page-heading h1 { font-size:24px; }.admin-date-filter { width:100%; }.admin-date-filter label { flex:1; min-width:0; }.admin-date-filter input { width:100%; box-sizing:border-box; }.admin-kpi-grid { gap:9px; }.admin-kpi-card { padding:13px; gap:9px; }.admin-kpi-card strong { font-size:20px; }.admin-kpi-card small { font-size:9px; }.admin-revenue-panel { padding:17px 12px; }.admin-panel-heading h2 { font-size:14px; }.admin-chart-row { grid-template-columns:32px minmax(0,1fr); gap:7px; }.admin-chart-bar span { font-size:8px; padding-left:5px; }.admin-auth-card { padding:25px 20px; }.admin-search { align-items:stretch; flex-direction:column; }.admin-search input { min-height:36px; } }
+
+/* Super admin readability and responsive spacing */
+.admin-shell { grid-template-columns:280px minmax(0,1fr); }
+.admin-sidebar { padding:24px 16px 18px; }
+.admin-brand { padding-bottom:26px; }
+.admin-nav-list { gap:7px; }
+.admin-nav-list .admin-nav-link { gap:11px; padding:11px 12px; line-height:1.35; }
+.admin-nav-link .icon { flex:0 0 18px; margin-top:1px; }
+.admin-nav-link span { gap:5px; }
+.admin-nav-link b { font-size:12px; line-height:1.35; }
+.admin-nav-link small { font-size:10px; line-height:1.45; }
+.admin-main { padding:0 clamp(22px,3vw,48px) 30px; }
+.admin-topbar { min-height:84px; gap:20px; }
+.admin-top-title { font-size:14px; }
+.admin-user-area { gap:18px; font-size:13px; }
+.admin-page-heading { align-items:flex-end; gap:24px; margin:36px 0 28px; }
+.admin-page-heading > div { flex:1 1 320px; min-width:0; }
+.admin-page-heading h1 { font-size:32px; line-height:1.2; margin:8px 0 8px; }
+.admin-page-heading p,.admin-panel-heading p { max-width:68ch; font-size:13px; line-height:1.65; }
+.admin-date-filter { flex:0 1 auto; flex-wrap:wrap; gap:12px; }
+.admin-date-filter label { gap:7px; font-size:11px; }
+.admin-date-filter input { min-height:40px; padding:9px 11px; font-size:12px; }
+.admin-date-filter button,.admin-primary-button { min-height:40px; padding:10px 16px; font-size:12px; }
+.admin-kpi-grid { grid-template-columns:repeat(auto-fit,minmax(min(100%,215px),1fr)); gap:16px; }
+.admin-kpi-card { gap:12px; padding:21px; }
+.admin-kpi-card>span { font-size:12px; line-height:1.5; }
+.admin-kpi-card strong { font-size:clamp(22px,2vw,29px); line-height:1.2; }
+.admin-kpi-card small { min-height:0; font-size:11px; line-height:1.6; }
+.admin-panel-heading { gap:20px; align-items:center; }
+.admin-panel-heading h2 { margin-bottom:7px; font-size:18px; line-height:1.35; }
+.admin-data-panel,.admin-revenue-panel { padding:25px; }
+.admin-daily-graph { min-height:255px; gap:7px; padding-top:14px; }
+.admin-daily-point { height:232px; flex-basis:26px; min-width:26px; gap:7px; }
+.admin-daily-point small { font-size:9px; }
+.admin-table-wrap { margin-top:20px; }
+.admin-table { min-width:680px; font-size:12px; line-height:1.55; }
+.admin-table th { font-size:11px; line-height:1.4; }
+.admin-table th,.admin-table td { padding:14px 13px; }
+.admin-table td { max-width:420px; }
+.admin-row-action,.admin-review-action { min-width:190px; gap:9px; }
+.admin-row-action input,.admin-review-action select,.admin-review-action textarea { padding:10px 11px; font-size:12px; }
+.admin-review-action textarea { min-height:86px; }
+.admin-danger-button { min-height:38px; padding:9px 13px; font-size:12px; }
+.admin-search { flex-wrap:wrap; gap:12px; margin:16px 0 22px; }
+.admin-search label { font-size:12px; line-height:1.5; }
+.admin-search input { min-height:40px; padding:10px 12px; font-size:12px; }
+.admin-main .dashboard-heading { align-items:flex-start; margin:34px 0 25px; }
+.admin-main .dashboard-heading h1 { margin:0 0 8px; font-size:30px; line-height:1.25; }
+.admin-main .dashboard-heading p { max-width:68ch; font-size:13px; line-height:1.65; }
+.admin-main .credit-summary,.admin-main .audit-panel { margin:18px 0; padding:24px; border:1px solid #e0e7f0; border-radius:12px; background:#fff; box-shadow:0 4px 16px #1c345009; }
+.admin-main .credit-summary h2,.admin-main .audit-panel h2 { margin:20px 0 10px; font-size:17px; line-height:1.4; }
+.admin-main .credit-summary h2:first-child,.admin-main .audit-panel h2:first-child { margin-top:0; }
+.admin-main .credit-summary p { margin:9px 0; font-size:12px; line-height:1.65; }
+.admin-main .audit-panel form { display:flex; flex-wrap:wrap; align-items:flex-end; gap:12px; margin:12px 0 18px; }
+.admin-main .audit-panel label { display:grid; gap:6px; font-size:12px; line-height:1.4; }
+.admin-main .audit-panel input,.admin-main .audit-panel select,.admin-main .audit-panel textarea { max-width:100%; min-height:40px; padding:9px 11px; border:1px solid #d7e0eb; border-radius:7px; font:inherit; }
+.admin-main .audit-panel textarea { min-height:80px; }
+.admin-main .audit-table-scroll { overflow-x:auto; }
+.admin-main .audit-table { width:100%; min-width:760px; border-collapse:collapse; font-size:12px; line-height:1.6; }
+.admin-main .audit-table th,.admin-main .audit-table td { padding:14px 13px; border-bottom:1px solid #e4eaf1; text-align:left; vertical-align:top; }
+.admin-main .audit-table th { background:#edf5ff; font-size:11px; }
+.admin-main .audit-table td form { display:grid; align-items:stretch; gap:10px; margin:0 0 12px; }
+.admin-flash { margin:18px 0; padding:14px 16px; font-size:13px; line-height:1.6; }
+.admin-footer { margin-top:36px; padding-top:16px; font-size:11px; }
+@media(max-width:1100px) {
+    .admin-shell { grid-template-columns:245px minmax(0,1fr); }
+    .admin-main { padding-inline:22px; }
+    .admin-page-heading { align-items:flex-start; }
+    .admin-date-filter { flex-basis:100%; }
+    .admin-date-filter label { flex:0 1 180px; }
+}
+@media(max-width:760px) {
+    .admin-shell { display:block; }
+    .admin-sidebar { position:relative; height:auto; max-height:390px; padding:14px 16px; }
+    .admin-brand { flex-direction:row; align-items:center; gap:14px; padding:0 0 14px; }
+    .admin-brand img { width:135px; }
+    .admin-sidebar-label { padding:4px 8px 10px; }
+    .admin-nav-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; }
+    .admin-nav-list .admin-nav-link { min-width:0; padding:10px; }
+    .admin-nav-link b { font-size:11px; }
+    .admin-nav-link small { display:none; }
+    .admin-sidebar-bottom { display:flex; justify-content:space-between; margin-top:12px; padding:12px 8px 0; }
+    .admin-main { padding:0 18px 24px; }
+    .admin-topbar { min-height:70px; flex-wrap:wrap; padding:12px 0; }
+    .admin-user-area { gap:12px; font-size:12px; }
+    .admin-page-heading { margin:26px 0 20px; }
+    .admin-page-heading h1 { font-size:27px; }
+    .admin-date-filter { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); width:100%; gap:10px; }
+    .admin-date-filter button { grid-column:1/-1; }
+    .admin-kpi-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:11px; }
+    .admin-kpi-card { padding:15px; gap:9px; }
+    .admin-kpi-card strong { font-size:21px; }
+    .admin-kpi-card small { font-size:10px; }
+    .admin-data-panel,.admin-revenue-panel { padding:18px; }
+    .admin-panel-heading { align-items:flex-start; flex-wrap:wrap; }
+    .admin-main .credit-summary,.admin-main .audit-panel { padding:18px; }
+    .admin-search { align-items:stretch; flex-direction:column; }
+    .admin-search input { width:100%; box-sizing:border-box; }
+    .admin-review-filters { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .admin-review-filters label { min-width:0; }
+}
+@media(max-width:440px) {
+    .admin-main { padding-inline:13px; }
+    .admin-topbar { align-items:flex-start; }
+    .admin-top-title { font-size:12px; }
+    .admin-user-area { flex-wrap:wrap; justify-content:flex-end; font-size:11px; }
+    .admin-kpi-grid { grid-template-columns:1fr; }
+    .admin-page-heading h1 { font-size:25px; }
+    .admin-data-panel,.admin-revenue-panel { padding:15px; }
+    .admin-review-filters { grid-template-columns:1fr; }
+    .admin-daily-graph { min-height:230px; }
+    .admin-daily-point { height:207px; }
+}

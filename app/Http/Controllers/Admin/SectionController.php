@@ -49,8 +49,11 @@ class SectionController extends Controller
                 break;
             case 'revenue':
                 $stats = ['Verified live revenue (month)' => '$'.number_format(DB::table('billing_payments')->where('status','paid')->where('mode','live')->whereNotNull('verified_at')->where('paid_at','>=',now()->startOfMonth())->sum('amount_cents') / 100, 2), 'Successful payments' => DB::table('billing_payments')->where('status','paid')->where('mode','live')->count(), 'Failed payments' => DB::table('billing_payments')->where('status','failed')->count(), 'Active subscriptions' => DB::table('subscriptions')->where('status','active')->count(), 'Renewal payments' => DB::table('billing_payments')->where('status','paid')->where('kind','renewal')->count(), 'Cancelled subscriptions' => DB::table('subscriptions')->whereNotNull('cancelled_at')->count()];
-                $rows = DB::table('billing_payments')->join('users','billing_payments.user_id','=','users.id')->leftJoin('subscription_plans','billing_payments.subscription_plan_id','=','subscription_plans.id')->where('billing_payments.created_at','>=',$from->utc())->where('billing_payments.created_at','<',$to->addDay()->utc())->select('billing_payments.reference','users.email','subscription_plans.name as plan','billing_payments.kind','billing_payments.status','billing_payments.amount_cents','billing_payments.currency','billing_payments.created_at')->latest('billing_payments.created_at')->limit(100)->get();
-                $columns = ['reference' => 'Payment reference', 'email' => 'Customer', 'plan' => 'Plan', 'kind' => 'Type', 'status' => 'Status', 'amount_cents' => 'Amount (cents)', 'currency' => 'Currency', 'created_at' => 'Created'];
+                $rows = DB::table('billing_payments')->join('users','billing_payments.user_id','=','users.id')->leftJoin('subscription_plans','billing_payments.subscription_plan_id','=','subscription_plans.id')->where('billing_payments.created_at','>=',$from->utc())->where('billing_payments.created_at','<',$to->addDay()->utc())->select('billing_payments.reference','users.email','subscription_plans.name as plan','billing_payments.status','billing_payments.amount_cents','billing_payments.currency','billing_payments.created_at')->latest('billing_payments.created_at')->limit(100)->get()->map(function ($payment) {
+                    $payment->amount = $payment->currency.' '.number_format($payment->amount_cents / 100, 2);
+                    return $payment;
+                });
+                $columns = ['reference' => 'Payment reference', 'email' => 'Customer', 'plan' => 'Plan', 'status' => 'Status', 'amount' => 'Amount', 'created_at' => 'Created'];
                 break;
             case 'cv':
                 $missingCounts = [];
