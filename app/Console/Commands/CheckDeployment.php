@@ -35,7 +35,11 @@ class CheckDeployment extends Command
             'Production assets built' => is_file(public_path('build/manifest.json')) && ! is_file(public_path('hot')),
             'Configured host allowlist' => in_array(parse_url(config('app.url'), PHP_URL_HOST), config('security.hosts'), true),
             'No wildcard proxy trust' => ! in_array('*', array_map('trim', explode(',', (string) env('TRUSTED_PROXIES', ''))), true),
-            'Shared Redis rate-limit store' => config('cache.stores.'.config('cache.limiter').'.driver') === 'redis',
+            'Shared persistent rate-limit store' => in_array(
+                config('cache.stores.'.config('cache.limiter').'.driver'),
+                ['database', 'redis'],
+                true,
+            ),
         ];
         try {
             DB::select('SELECT 1');

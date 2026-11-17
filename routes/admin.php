@@ -7,14 +7,13 @@ use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\BillingManagementController;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('admin')->name('admin.')->middleware('admin.ip')->group(function () {
+Route::prefix('laravel/access-admin')->name('admin.')->middleware('admin.ip')->group(function () {
     Route::get('login', [AdminAuthController::class, 'loginForm'])->name('login');
     Route::post('login', [AdminAuthController::class, 'login'])->middleware('throttle:admin-login')->name('login.store');
 
     Route::middleware(['admin.auth', 'admin.role', 'throttle:admin', 'audit.admin'])->group(function () {
-        Route::get('2fa/setup', [AdminAuthController::class, 'setup'])->name('2fa.setup');
-        Route::post('2fa/confirm', [AdminAuthController::class, 'confirmSetup'])->middleware('throttle:auth-password')->name('2fa.confirm');
         Route::get('2fa/challenge', [AdminAuthController::class, 'challenge'])->name('2fa.challenge');
+        Route::post('2fa/resend', [AdminAuthController::class, 'resendCode'])->middleware('throttle:admin-login')->name('2fa.resend');
         Route::post('2fa/verify', [AdminAuthController::class, 'verify'])->middleware('throttle:auth-password')->name('2fa.verify');
         Route::post('logout', [AdminAuthController::class, 'logout'])->name('logout');
 

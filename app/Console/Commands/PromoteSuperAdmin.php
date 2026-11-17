@@ -22,7 +22,7 @@ class PromoteSuperAdmin extends Command
             return self::SUCCESS;
         }
         $user->forceFill(['role' => 'super_admin', 'is_admin' => true, 'account_status' => 'active'])->save();
-        $this->info('Super admin role granted. The user must enroll an authenticator at /admin/login.');
+        $this->info('Super admin role granted. The user can sign in and receive a six-digit code by email at /laravel/access-admin/login.');
 
         return self::SUCCESS;
     }

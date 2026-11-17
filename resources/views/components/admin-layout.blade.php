@@ -26,7 +26,7 @@
                 <a href="{{ route('admin.section','reviews') }}" @class(['admin-nav-link', 'active' => request()->route('section') === 'reviews'])><x-icon name="message-square" /><span><b>Reviews & Feedback</b><small>Ratings, reviews, complaints and moderation</small></span></a>
                 <a href="{{ route('admin.section','system') }}" @class(['admin-nav-link', 'active' => request()->route('section') === 'system'])><x-icon name="activity" /><span><b>System Monitoring</b><small>Errors, webhooks, API failures and audit logs</small></span></a>
             </nav>
-            <div class="admin-sidebar-bottom"><span>Private operations</span><span class="admin-secure-dot">● Two-factor protected</span></div>
+            <div class="admin-sidebar-bottom"><span>Private operations</span><span class="admin-secure-dot">● Email-code protected</span></div>
         </aside>
         <main class="admin-main">
             <header class="admin-topbar"><div><span class="admin-kicker">ATS CV DETECTOR</span><span class="admin-top-title">Super Admin Dashboard</span></div>

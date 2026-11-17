@@ -14,7 +14,8 @@ class AuthenticateAdminGuard
         if (! Auth::guard('admin')->check()) {
             abort_if(Auth::guard('web')->check(), 403);
 
-            return redirect()->guest(route('admin.login'));
+            return redirect()->guest(route('admin.login'))
+                ->with('status', 'Sign in to continue to the Super Admin Dashboard.');
         }
         Auth::shouldUse('admin');
 

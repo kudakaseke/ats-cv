@@ -93,7 +93,7 @@ The existing payment result view handles pending, cancelled, failed and reversed
 
 The subscription page shows current dates, manual renewal, future paid periods, history and receipt downloads. Downloadable, printable HTML receipts snapshot customer, business, plan, amount, references and period details and show the current payment status. They are **not tax invoices**. Receipt routes require the owning authenticated user.
 
-`/admin/billing` is restricted to explicitly provisioned admins. It provides status/mode totals, gross verified live revenue for the current month/year, paid plan distribution and purchased credit totals, subscription counts, reference search, status filters, CSV export, failed-notification review, refund/dispute notes and safe provider reconciliation. Test transactions are separated from live revenue. Gross revenue is not a settlement or accounting report and excludes currently reversed rows.
+`/laravel/access-admin/billing` is restricted to explicitly provisioned admins. It provides status/mode totals, gross verified live revenue for the current month/year, paid plan distribution and purchased credit totals, subscription counts, reference search, status filters, CSV export, failed-notification review, refund/dispute notes and safe provider reconciliation. Test transactions are separated from live revenue. Gross revenue is not a settlement or accounting report and excludes currently reversed rows.
 
 Refund APIs are not assumed. Admins record requests/manual merchant actions with notes, perform actual money movement in Paynow or an agreed external channel, then reconcile. Recording a review alone never marks a payment refunded or grants access. Provider-confirmed `Refunded`/`Disputed` status controls the automated entitlement reversal. Off-provider financial adjustments need a separately approved accounting policy; they must not be disguised as Paynow confirmations.
 
@@ -109,9 +109,9 @@ Billing messages cover verified payment, confirmed paid period, cancellation, fa
 | POST | `/payments/{reference}/check` | Owned status check, JSON or HTML |
 | GET | `/payments/{reference}/receipt` | Owned receipt download |
 | POST | `/subscriptions/{subscription}/cancel-renewal` | Owned manual-renewal reminder cancellation |
-| GET | `/admin/billing` | Admin analytics/filter/export |
-| POST | `/admin/billing/{reference}/reconcile` | Admin provider verification |
-| POST | `/admin/billing/{reference}/review` | Admin refund/dispute audit notes |
+| GET | `/laravel/access-admin/billing` | Admin analytics/filter/export |
+| POST | `/laravel/access-admin/billing/{reference}/reconcile` | Admin provider verification |
+| POST | `/laravel/access-admin/billing/{reference}/review` | Admin refund/dispute audit notes |
 
 Paynow is the only enabled payment integration. Retired provider schema is handled by the archival migrations described below.
 

@@ -17,7 +17,7 @@ return [
 
     'default' => env('CACHE_STORE', 'database'),
 
-    // Use a shared Redis store for rate limits in a multi-worker production deployment.
+    // Use a shared persistent store (database on Web/Cloud, Redis on VPS) for multi-worker rate limits.
     'limiter' => env('CACHE_LIMITER', env('CACHE_STORE', 'database')),
 
     /*

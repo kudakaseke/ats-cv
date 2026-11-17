@@ -19,10 +19,10 @@ class OverviewController extends Controller
         $days = (int) $start->diffInDays($end) + 1;
         $previousStart = $start->subDays($days);
         $previousEnd = $start;
-        $rangeStart = $start->utc();
-        $rangeEnd = $end->addDay()->utc();
-        $previousStartUtc = $previousStart->utc();
-        $previousEndUtc = $previousEnd->utc();
+        $rangeStart = $start;
+        $rangeEnd = $end->addDay();
+        $previousStartRange = $previousStart;
+        $previousEndRange = $previousEnd;
 
         $users = DB::table('users')->where('role', 'user');
         $revenueBase = DB::table('billing_payments')->where('status', 'paid')->where('mode', 'live')
@@ -33,40 +33,54 @@ class OverviewController extends Controller
         $totalUsers = (clone $users)->count();
         $activeSubscriptions = DB::table('subscriptions')->where('status', 'active')->count();
         $newUsers = (clone $users)->where('created_at', '>=', $rangeStart)->where('created_at', '<', $rangeEnd)->count();
-        $previousUsers = (clone $users)->where('created_at', '>=', $previousStartUtc)->where('created_at', '<', $previousEndUtc)->count();
+        $previousUsers = (clone $users)->where('created_at', '>=', $previousStartRange)->where('created_at', '<', $previousEndRange)->count();
         $revenueCents = (clone $revenueBase)->where('paid_at', '>=', $rangeStart)->where('paid_at', '<', $rangeEnd)->sum('amount_cents');
-        $previousRevenueCents = (clone $revenueBase)->where('paid_at', '>=', $previousStartUtc)->where('paid_at', '<', $previousEndUtc)->sum('amount_cents');
+        $previousRevenueCents = (clone $revenueBase)->where('paid_at', '>=', $previousStartRange)->where('paid_at', '<', $previousEndRange)->sum('amount_cents');
         $scanCount = (clone $scansBase)->where('created_at', '>=', $rangeStart)->where('created_at', '<', $rangeEnd)->count();
-        $previousScans = (clone $scansBase)->where('created_at', '>=', $previousStartUtc)->where('created_at', '<', $previousEndUtc)->count();
+        $previousScans = (clone $scansBase)->where('created_at', '>=', $previousStartRange)->where('created_at', '<', $previousEndRange)->count();
         $usage = (clone $usageBase)->where('created_at', '>=', $rangeStart)->where('created_at', '<', $rangeEnd);
         $pricedRequests = (clone $usage)->whereNotNull('total_cost_micros')->count();
         $unpricedRequests = (clone $usage)->whereNull('total_cost_micros')->count();
         $costMicros = $pricedRequests > 0 ? (clone $usage)->sum('total_cost_micros') : null;
-        $previousUsage = (clone $usageBase)->where('created_at', '>=', $previousStartUtc)->where('created_at', '<', $previousEndUtc);
+        $previousUsage = (clone $usageBase)->where('created_at', '>=', $previousStartRange)->where('created_at', '<', $previousEndRange);
         $previousCostMicros = (clone $previousUsage)->whereNotNull('total_cost_micros')->sum('total_cost_micros');
         $previousCostKnown = (clone $previousUsage)->whereNotNull('total_cost_micros')->exists();
 
         $chart = [];
-        $month = CarbonImmutable::now($timezone)->startOfMonth()->subMonths(5);
+        $month = $start->startOfMonth();
         $chartMax = 0;
-        for ($i = 0; $i < 6; $i++) {
-            $monthStart = $month->startOfMonth()->utc();
-            $monthEnd = $month->addMonth()->startOfMonth()->utc();
+        while ($month <= $end) {
+            $bucketStart = $month < $start ? $start : $month;
+            $nextMonth = $month->addMonth()->startOfMonth();
+            $periodEnd = $end->addDay();
+            $bucketEnd = $nextMonth < $periodEnd ? $nextMonth : $periodEnd;
+            $monthStart = $bucketStart;
+            $monthEnd = $bucketEnd;
             $rev = (int) (clone $revenueBase)->where('paid_at', '>=', $monthStart)->where('paid_at', '<', $monthEnd)->sum('amount_cents');
             $monthUsage = (clone $usageBase)->where('created_at', '>=', $monthStart)->where('created_at', '<', $monthEnd);
             $known = (clone $monthUsage)->whereNotNull('total_cost_micros')->exists();
             $cost = $known ? (int) (clone $monthUsage)->sum('total_cost_micros') : null;
-            $chart[] = ['label' => $month->format('M'), 'revenue_cents' => $rev, 'cost_micros' => $cost];
+            $chart[] = ['label' => $month->format('M Y'), 'revenue_cents' => $rev, 'cost_micros' => $cost];
             $chartMax = max($chartMax, $rev / 100, ($cost ?? 0) / 1_000_000);
-            $month = $month->addMonth();
+            $month = $nextMonth;
         }
 
-        $dailyRevenue = DB::table('billing_payments')->selectRaw('DATE(paid_at) as day, SUM(amount_cents) as value')
+        $dailyRevenueRows = DB::table('billing_payments')->select('paid_at','amount_cents')
             ->where('status', 'paid')->where('mode', 'live')->whereNotNull('verified_at')->where('currency', 'USD')
-            ->where('paid_at', '>=', $rangeStart)->where('paid_at', '<', $rangeEnd)->groupByRaw('DATE(paid_at)')->pluck('value', 'day');
-        $dailyCosts = DB::table('ai_usage_logs')->selectRaw('DATE(created_at) as day, SUM(total_cost_micros) as value')
+            ->where('paid_at', '>=', $rangeStart)->where('paid_at', '<', $rangeEnd)->cursor();
+        $dailyRevenue = [];
+        foreach ($dailyRevenueRows as $payment) {
+            $localDate = CarbonImmutable::parse($payment->paid_at, $timezone)->toDateString();
+            $dailyRevenue[$localDate] = ($dailyRevenue[$localDate] ?? 0) + (int) $payment->amount_cents;
+        }
+        $dailyCostRows = DB::table('ai_usage_logs')->select('created_at','total_cost_micros')
             ->whereNotNull('total_cost_micros')->where('created_at', '>=', $rangeStart)->where('created_at', '<', $rangeEnd)
-            ->groupByRaw('DATE(created_at)')->pluck('value', 'day');
+            ->cursor();
+        $dailyCosts = [];
+        foreach ($dailyCostRows as $usage) {
+            $localDate = CarbonImmutable::parse($usage->created_at, $timezone)->toDateString();
+            $dailyCosts[$localDate] = ($dailyCosts[$localDate] ?? 0) + (int) $usage->total_cost_micros;
+        }
         $dailyChart = [];
         for ($day = $start; $day <= $end; $day = $day->addDay()) {
             $date = $day->toDateString();

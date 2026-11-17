@@ -70,8 +70,6 @@ class User extends Authenticatable implements MustVerifyEmail
         'email_verification_code_email',
         'email_verification_code_expires_at',
         'email_verification_code_attempts',
-        'two_factor_secret',
-        'two_factor_recovery_codes',
     ];
 
     public function canSetInitialPassword(): bool
@@ -88,11 +86,7 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return [
             'is_admin' => 'boolean',
-            'two_factor_secret' => 'encrypted',
-            'two_factor_recovery_codes' => 'encrypted:array',
             'email_verified_at' => 'datetime',
-            'two_factor_confirmed_at' => 'datetime',
-            'two_factor_last_counter' => 'integer',
             'suspended_at' => 'datetime',
             'password_set_at' => 'datetime',
             'password_setup_required' => 'boolean',

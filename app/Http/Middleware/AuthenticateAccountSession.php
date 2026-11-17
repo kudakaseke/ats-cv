@@ -11,6 +11,9 @@ class AuthenticateAccountSession extends AuthenticateSession
 {
     public function handle($request, Closure $next)
     {
+        // Route middleware may have selected the admin guard on a prior request in long-running/test app instances.
+        // Keep the normal account-session fingerprint check explicitly bound to the customer guard.
+        Auth::shouldUse('web');
         $guard = Auth::guard('web');
         if ($request->hasSession()) {
             if (! $request->user() && $request->session()->has($guard->getName())) {

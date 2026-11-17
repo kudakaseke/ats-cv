@@ -18,8 +18,8 @@ class EnsureAdminTwoFactorConfirmed
         }
 
         $user = $request->user('admin');
-        if (! $user?->two_factor_confirmed_at) {
-            return redirect()->route('admin.2fa.setup');
+        if (! $user) {
+            return redirect()->route('admin.2fa.challenge');
         }
         $verifiedAt = (int) $request->session()->get('admin_2fa_verified_at', 0);
         if (! $verifiedAt || now()->timestamp - $verifiedAt > 1800) {

@@ -22,7 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->redirectGuestsTo(fn (Request $request) => $request->is('admin/*') ? route('admin.login') : route('login'));
+        $middleware->redirectGuestsTo(fn (Request $request) => $request->is('admin/*', 'laravel/access-admin/*') ? route('admin.login') : route('login'));
         $middleware->alias([
             'admin.role' => EnsureSuperAdmin::class,
             '2fa.confirmed' => EnsureAdminTwoFactorConfirmed::class,

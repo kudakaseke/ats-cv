@@ -393,17 +393,16 @@ class PaynowLifecycleTest extends TestCase
         app(PaymentService::class)->refresh($payment);
         $other = User::factory()->create();
         $this->actingAs($other)->get('/payments/'.$payment->reference.'/receipt')->assertNotFound();
-        $this->get('/admin/billing')->assertForbidden();
-        $this->post('/admin/billing/'.$payment->reference.'/reconcile')->assertForbidden();
-        $this->post('/admin/billing/'.$payment->reference.'/review')->assertForbidden();
+        $this->get('/laravel/access-admin/billing')->assertForbidden();
+        $this->post('/laravel/access-admin/billing/'.$payment->reference.'/reconcile')->assertForbidden();
+        $this->post('/laravel/access-admin/billing/'.$payment->reference.'/review')->assertForbidden();
         $this->post('/subscriptions/'.$payment->fresh()->subscription_id.'/cancel-renewal')->assertNotFound();
         $this->actingAs(User::findOrFail($payment->user_id))->get('/payments/'.$payment->reference.'/receipt')
             ->assertOk()->assertSee('ATS-'.$payment->id)->assertSee($payment->reference)->assertSee('not a tax invoice');
-        $other->forceFill(['is_admin' => true, 'role' => 'super_admin', 'account_status' => 'active',
-            'two_factor_secret' => 'JBSWY3DPEHPK3PXP', 'two_factor_confirmed_at' => now()])->save();
+        $other->forceFill(['is_admin' => true, 'role' => 'super_admin', 'account_status' => 'active'])->save();
         $this->actingAs($other, 'admin')->withSession(['admin_2fa_verified_at' => now()->timestamp])
-            ->get('/admin/billing')->assertOk()->assertSee($payment->reference);
-        $this->get('/admin/billing?export=csv')->assertDownload('paynow-payments.csv');
+            ->get('/laravel/access-admin/billing')->assertOk()->assertSee($payment->reference);
+        $this->get('/laravel/access-admin/billing?export=csv')->assertDownload('paynow-payments.csv');
     }
 
     public function test_expiration_reminders_cancellation_and_email_outbox_are_idempotent(): void
@@ -496,10 +495,9 @@ class PaynowLifecycleTest extends TestCase
     {
         $payment = $this->payment();
         $admin = User::factory()->create();
-        $admin->forceFill(['is_admin' => true, 'role' => 'super_admin', 'account_status' => 'active',
-            'two_factor_secret' => 'JBSWY3DPEHPK3PXP', 'two_factor_confirmed_at' => now()])->save();
+        $admin->forceFill(['is_admin' => true, 'role' => 'super_admin', 'account_status' => 'active'])->save();
         $this->actingAs($admin, 'admin')->withSession(['admin_2fa_verified_at' => now()->timestamp])
-            ->post('/admin/billing/'.$payment->reference.'/review',
+            ->post('/laravel/access-admin/billing/'.$payment->reference.'/review',
             ['type' => 'refund_recorded', 'notes' => 'Refund requested through merchant portal.'])->assertRedirect();
         $this->assertSame('pending', $payment->fresh()->status);
         $this->assertDatabaseCount('billing_reviews', 1);

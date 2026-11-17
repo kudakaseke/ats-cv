@@ -1,10 +1,49 @@
 <x-admin-layout>
     <section class="admin-page-heading"><div><span class="admin-kicker">PLATFORM OPERATIONS</span><h1>{{ $title }}</h1><p>{{ $description }}</p></div><form method="GET" action="{{ route('admin.section',$section) }}" class="admin-date-filter">@if($search !== '')<input type="hidden" name="search" value="{{ $search }}">@endif @foreach(['rating','category','status'] as $keep)@if(!empty($filters[$keep]))<input type="hidden" name="{{ $keep }}" value="{{ $filters[$keep] }}">@endif @endforeach<label>From <input type="date" name="from" value="{{ $period['from'] }}" required></label><label>To <input type="date" name="to" value="{{ $period['to'] }}" required></label><button type="submit">Apply</button></form></section>
-    @if($section === 'accounts')<form method="GET" class="admin-search"><label for="admin-search">Search user name or email</label><input id="admin-search" name="search" value="{{ $search }}" placeholder="Name or email"><button class="admin-primary-button">Search</button></form>@endif
+    @if($section === 'accounts')<form method="GET" class="admin-search"><input type="hidden" name="from" value="{{ $period['from'] }}"><input type="hidden" name="to" value="{{ $period['to'] }}"><label for="admin-search">Search user name or email</label><input id="admin-search" name="search" value="{{ $search }}" placeholder="Name or email"><button class="admin-primary-button">Search</button></form>@endif
     @if($section === 'reviews')<form method="GET" class="admin-search admin-review-filters"><input type="hidden" name="from" value="{{ $period['from'] }}"><input type="hidden" name="to" value="{{ $period['to'] }}"><label>Rating<select name="rating"><option value="">Any</option>@for($i=5;$i>=1;$i--)<option value="{{ $i }}" @selected(($filters['rating'] ?? '') == $i)>{{ $i }} / 5</option>@endfor</select></label><label>Category<select name="category"><option value="">Any</option>@foreach(['cv_analysis','account','billing','complaint','suggestion','other'] as $category)<option value="{{ $category }}" @selected(($filters['category'] ?? '') === $category)>{{ str_replace('_',' ',$category) }}</option>@endforeach</select></label><label>Status<select name="status"><option value="">Any</option>@foreach(['pending','approved','rejected'] as $status)<option value="{{ $status }}" @selected(($filters['status'] ?? '') === $status)>{{ ucfirst($status) }}</option>@endforeach</select></label><button class="admin-primary-button">Filter</button></form>@endif
     @if($stats)<div class="admin-kpi-grid admin-section-kpis">@foreach($stats as $label => $value)<article class="admin-kpi-card"><span>{{ $label }}</span><strong>{{ is_numeric($value) ? number_format((float)$value, is_float($value) ? 1 : 0) : $value }}</strong><small>From recorded application data</small></article>@endforeach</div>@endif
+    @if($section === 'users')
+        <section class="admin-panel admin-plan-panel" aria-labelledby="admin-plan-heading">
+            <header class="admin-panel-heading"><div><h2 id="admin-plan-heading">Current plan mix</h2><p>Current snapshot across all {{ number_format($totalUsers) }} customer accounts. The date filter applies to new registrations and user activity metrics.</p></div><span class="admin-period-label">Live account totals</span></header>
+            <div class="admin-plan-grid">
+                @foreach($planBreakdown as $plan)
+                    @php($share = $totalUsers > 0 ? round($plan['users'] / $totalUsers * 100, 1) : 0)
+                    <article class="admin-plan-card">
+                        <div class="admin-plan-card-heading"><span>{{ $plan['name'] }}</span><small>{{ $plan['price'] }}</small></div>
+                        <div class="admin-plan-card-total"><strong>{{ number_format($plan['users']) }}</strong><span>users</span></div>
+                        <div class="admin-plan-share"><span>{{ number_format($share, 1) }}% of users</span><span>{{ number_format($plan['users']) }} / {{ number_format($totalUsers) }}</span></div>
+                        <div class="admin-plan-track" role="progressbar" aria-label="{{ $plan['name'] }} share of users" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $share }}"><span style="width:{{ min(100, $share) }}%"></span></div>
+                    </article>
+                @endforeach
+            </div>
+        </section>
+    @endif
+    @if($section === 'credits')
+        <section class="admin-panel admin-data-panel">
+            <header class="admin-panel-heading"><div><h2>Current credit balances by plan</h2><p>Live customer balance snapshot by current subscription plan; transaction totals above follow the selected dates.</p></div><span class="admin-period-label">Current snapshot</span></header>
+            <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Plan</th><th>Customers</th><th>Subscription credits remaining</th><th>Top-up credits remaining</th></tr></thead><tbody>
+                @forelse($creditPlanBreakdown as $plan)<tr><td>{{ $plan->plan_name }}</td><td>{{ number_format($plan->customers) }}</td><td>{{ number_format($plan->subscription_credits) }}</td><td>{{ number_format($plan->topup_credits) }}</td></tr>@empty<tr><td colspan="4">No customer accounts recorded.</td></tr>@endforelse
+            </tbody></table></div>
+        </section>
+    @endif
     @php($dailyMax = max(1, (float) collect($dailyChart['points'])->max('value')))
-    <section class="admin-panel admin-data-panel admin-daily-panel"><header class="admin-panel-heading"><div><h2>{{ $dailyChart['title'] }}</h2><p>Daily values for {{ \Carbon\Carbon::parse($period['from'])->format('d M Y') }} – {{ \Carbon\Carbon::parse($period['to'])->format('d M Y') }}. Hover or focus a bar for its exact value.</p></div></header><div class="admin-daily-graph" role="img" aria-label="{{ $dailyChart['title'] }} from {{ $period['from'] }} to {{ $period['to'] }}">@foreach($dailyChart['points'] as $point)<div class="admin-daily-point" title="{{ $point['date'] }}: {{ $dailyChart['unit'] === 'USD' ? 'US$'.number_format($point['value'], 4) : number_format($point['value']) }}"><span class="admin-daily-bar" style="height:{{ max(2, $point['value'] / $dailyMax * 100) }}%"></span>@if(count($dailyChart['points']) <= 31 || $loop->first || $loop->last || $loop->iteration % 7 === 0)<small>{{ $point['label'] }}</small>@endif</div>@endforeach</div><div class="admin-daily-accessible"><table><caption>Daily {{ $dailyChart['title'] }} values</caption><thead><tr><th>Date</th><th>{{ $dailyChart['unit'] }}</th></tr></thead><tbody>@foreach($dailyChart['points'] as $point)<tr><td>{{ $point['date'] }}</td><td>{{ $dailyChart['unit'] === 'USD' ? 'US$'.number_format($point['value'], 4) : number_format($point['value']) }}</td></tr>@endforeach</tbody></table></div></section>
+    <section class="admin-panel admin-data-panel admin-daily-panel">
+        <header class="admin-panel-heading"><div><h2>{{ $dailyChart['title'] }}</h2><p>Daily values for {{ \Carbon\Carbon::parse($period['from'])->format('d M Y') }} – {{ \Carbon\Carbon::parse($period['to'])->format('d M Y') }}, shown oldest to newest.</p></div></header>
+        <div class="admin-daily-scroll"><div class="admin-daily-content" style="min-width:{{ max(1, count($dailyChart['points'])) * 32 }}px">
+            <div class="admin-daily-graph" role="img" aria-label="{{ $dailyChart['title'] }} from {{ $period['from'] }} to {{ $period['to'] }}">
+                @foreach($dailyChart['points'] as $point)
+                    <div class="admin-daily-point" title="{{ $point['date'] }}: {{ $dailyChart['unit'] === 'USD' ? 'US$'.number_format($point['value'], 4) : number_format($point['value']) }}"><div class="admin-daily-column"><span class="admin-daily-bar" style="height:{{ $point['value'] > 0 ? max(4, $point['value'] / $dailyMax * 100) : 0 }}%"></span></div></div>
+                @endforeach
+            </div>
+            <div class="admin-daily-axis" aria-hidden="true">
+                @foreach($dailyChart['points'] as $point)
+                    <div class="admin-daily-axis-point">@if(count($dailyChart['points']) <= 14 || $loop->first || $loop->last || $loop->iteration % 7 === 0)<small>{{ $point['label'] }}</small>@endif</div>
+                @endforeach
+            </div>
+        </div></div>
+        <div class="admin-daily-accessible"><table><caption>Daily {{ $dailyChart['title'] }} values</caption><thead><tr><th>Date</th><th>{{ $dailyChart['unit'] }}</th></tr></thead><tbody>@foreach($dailyChart['points'] as $point)<tr><td>{{ $point['date'] }}</td><td>{{ $dailyChart['unit'] === 'USD' ? 'US$'.number_format($point['value'], 4) : number_format($point['value']) }}</td></tr>@endforeach</tbody></table></div>
+    </section>
     <section class="admin-panel admin-data-panel"><header class="admin-panel-heading"><div><h2>{{ $section === 'reviews' ? 'Customer feedback' : ($section === 'system' ? 'Recent super-admin audit events' : 'Recorded data') }}</h2><p>Records shown here come from the application database.</p></div>@if($section === 'revenue')<a class="admin-primary-button" href="{{ route('admin.billing') }}">Payment reconciliation</a>@endif</header>
         <div class="admin-table-wrap"><table class="admin-table"><thead><tr>@foreach($columns as $key => $label)<th>{{ $label }}</th>@endforeach @if(in_array($section,['accounts','reviews']))<th>Actions</th>@endif</tr></thead><tbody>
             @forelse($rows as $row)<tr>@foreach($columns as $key => $label)<td>@if($key === 'last_activity' && !empty($row->{$key})){{ \Carbon\CarbonImmutable::createFromTimestamp((int)$row->{$key}, config('app.timezone'))->format('d M Y H:i T') }}@else{{ $row->{$key} ?? '—' }}@endif</td>@endforeach
@@ -16,5 +55,5 @@
     </section>
     @if($section === 'ai')<p class="admin-updated">Profit estimate requires verified revenue minus recorded AI costs. Payment processing fees and other operating expenses are not currently collected, so net profit is unavailable.</p>@endif
     @if($section === 'system')<p class="admin-updated">Server performance history is not currently collected. The displayed audit trail links each action to its super-admin user ID.</p>@endif
-    @if($section === 'system')<section class="admin-panel admin-data-panel"><header class="admin-panel-heading"><div><h2>Recent application errors</h2><p>Sanitized incident records retained by the application.</p></div></header><div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Time</th><th>Reference</th><th>Error type</th><th>Code location</th><th>Route</th></tr></thead><tbody>@forelse($incidents as $incident)<tr><td>{{ $incident['time'] }}</td><td>{{ $incident['reference'] }}</td><td>{{ $incident['type'] }}</td><td>{{ $incident['location'] }}</td><td>{{ $incident['route'] }}</td></tr>@empty<tr><td colspan="5">No recorded incidents.</td></tr>@endforelse</tbody></table></div></section>@endif
+    @if($section === 'system')<section class="admin-panel admin-data-panel"><header class="admin-panel-heading"><div><h2>Recent application errors</h2><p>Sanitized incidents in the selected date range. Showing up to 30 most recent.</p></div></header><div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Time</th><th>Reference</th><th>Error type</th><th>Code location</th><th>Route</th></tr></thead><tbody>@forelse($incidents['entries'] as $incident)<tr><td>{{ $incident['time'] }}</td><td>{{ $incident['reference'] }}</td><td>{{ $incident['type'] }}</td><td>{{ $incident['location'] }}</td><td>{{ $incident['route'] }}</td></tr>@empty<tr><td colspan="5">No recorded incidents in this period.</td></tr>@endforelse</tbody></table></div></section>@endif
 </x-admin-layout>

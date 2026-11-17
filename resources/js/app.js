@@ -2,7 +2,6 @@ import './workspace-navigation';
 import './bootstrap';
 
 import Alpine from 'alpinejs';
-import QRCode from 'qrcode';
 import './cv-builder';
 import './cv-checker';
 import {
@@ -25,10 +24,6 @@ const icons = { Asterisk, ArrowUpRight, ArrowRight, ArrowLeft, ShieldCheck,
 
 const renderIcons = () => createIcons({ icons });
 document.addEventListener('DOMContentLoaded', renderIcons);
-document.addEventListener('DOMContentLoaded', () => {
-    const canvas = document.querySelector('#admin-totp-qr');
-    if (canvas?.dataset.qrValue) QRCode.toCanvas(canvas, canvas.dataset.qrValue, { width: 220, margin: 2, errorCorrectionLevel: 'M' });
-});
 document.addEventListener('livewire:navigated', renderIcons);
 document.addEventListener('livewire:initialized', () => {
     window.Livewire.hook('morph.updated', () => queueMicrotask(renderIcons));
