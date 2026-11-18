@@ -59,7 +59,7 @@ html:has(.public-site) { scroll-padding-top: clamp(96px, 8.8vw, 169px); }
     background: #fff;
     color: var(--reference-ink);
 }
-.public-site .reference-header.blue-header { background: var(--reference-blue); color: #fff; }
+.public-site .reference-header.blue-header { background: #fff; color: var(--reference-ink); }
 .public-site .reference-nav {
     min-height: clamp(110px, 8.8vw, 169px);
     padding: 30px 4.33%;
@@ -325,7 +325,7 @@ html:has(.public-site) { scroll-padding-top: clamp(96px, 8.8vw, 169px); }
 .public-site .reference-footer-bottom { border-top: 1px solid var(--reference-border); padding: 25px 0; display: flex; justify-content: space-between; gap: 25px; font-size: 15px; line-height: 1.7; }
 .public-site .reference-footer-bottom > div { display: flex; gap: 28px; }
 .public-site .blue-header a:focus-visible,
-.public-site .blue-header button:focus-visible,
+.public-site .blue-header button:focus-visible { outline-color: var(--reference-blue); }
 .public-site .reference-hero a:focus-visible { outline-color: #fff; }
 .public-site .reference-expanded-nav a:focus-visible { outline-color: var(--reference-blue); }
 .public-site .legal-content { max-width: 1000px; }
@@ -477,7 +477,7 @@ body .dashboard-bottom, body .sidebar-tip { background: #fff; }
 .public-site .reference-header .reference-account-nav { display: flex; gap: 12px; margin-left: 8px; font-size: 14px; font-weight: 500; white-space: nowrap; }
 .public-site .reference-header .reference-account-nav > a { padding: 10px 16px; border: 1px solid currentColor; border-radius: 8px; }
 .public-site .reference-header .reference-account-nav .reference-signup { background: var(--reference-blue); border-color: var(--reference-blue); color: #fff; }
-.public-site .reference-header.blue-header .reference-account-nav .reference-signup { background: #fff; border-color: #fff; color: var(--reference-blue); }
+.public-site .reference-header.blue-header .reference-account-nav .reference-signup { background: var(--reference-blue); border-color: var(--reference-blue); color: #fff; }
 .public-site .reference-header .reference-menu-button { display: none; }
 .public-site .reference-header .reference-expanded-nav a { font-size: 15px; padding-block: 12px; }
 html:has(.public-site) { scroll-padding-top: 88px; }

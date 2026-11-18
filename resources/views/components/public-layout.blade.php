@@ -17,7 +17,7 @@
     <a class="skip-link" href="#main">Skip to content</a>
     <header class="reference-header {{ request()->routeIs('home') ? 'blue-header' : '' }}" x-data="{ open: false }" @keydown.escape.window="open = false">
         <div class="reference-nav">
-            <a class="reference-wordmark" href="{{ route('home') }}" aria-label="ATS CV Detector home"><x-logo-image :on-blue="request()->routeIs('home')" /></a>
+            <a class="reference-wordmark" href="{{ route('home') }}" aria-label="ATS CV Detector home"><x-logo-image /></a>
             <nav class="reference-desktop-nav" aria-label="Main navigation">
                 <a href="{{ route('home') }}">Home</a>
                 <a href="{{ route('about') }}">About</a>

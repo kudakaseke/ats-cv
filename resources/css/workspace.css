@@ -25,14 +25,14 @@ body[data-workspace] .workspace-sidebar { width: 232px; height: 100dvh; padding:
 body[data-workspace] .workspace-brand { display: block; padding: 0 12px 32px; font-size: 22px; font-weight: 650; letter-spacing: -.7px; color: #242a33; }
 body[data-workspace] .workspace-brand span { display: block; font-size: 12px; letter-spacing: 0; font-weight: 400; color: var(--muted); margin-top: 6px; }
 body[data-workspace] .workspace-sidebar .workspace-brand { flex-shrink: 0; padding: 0 12px 18px; }
-body[data-workspace] .workspace-sidebar .workspace-brand .brand-logo-image { width: 96px; height: 46px; margin: 0; }
+body[data-workspace] .workspace-sidebar .workspace-brand .brand-logo-image { width: 126px; height: 42px; margin: 0; }
 body[data-workspace] .workspace-brand .sidebar-current-plan { margin-top: 2px; font-size: 12px; font-weight: 500; color: #346de1; }
 body[data-workspace] .workspace-sidebar > nav { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; padding: 0 2px 12px; display: flex; flex-direction: column; gap: 18px; }
 body[data-workspace] .sidebar-nav-group { display: flex; flex-direction: column; gap: 3px; flex-shrink: 0; }
-body[data-workspace] .sidebar-group-heading { margin: 0 12px 4px; color: #707070; font-size: 11px; line-height: 1.5; font-weight: 600; letter-spacing: 1.1px; text-transform: uppercase; }
+body[data-workspace] .sidebar-group-heading { margin: 0 12px 4px; color: #707070; font-family: inherit; font-size: 11px; line-height: 1.5; font-weight: 600; letter-spacing: 1.1px; text-transform: uppercase; }
 body[data-workspace] .workspace-sidebar > .sidebar-logout { flex-shrink: 0; margin-top: 12px; }
-body[data-workspace] .sidebar-link { min-height: 44px; padding: 11px 12px; margin: 0; font-size: 14px; line-height: 1.5; font-weight: 450; border-radius: 6px; color: #171717; gap: 12px; }
-body[data-workspace] .sidebar-link.active { background: #f2f2f2; color: #171717; font-weight: 600; }
+body[data-workspace] .sidebar-link { min-height: 44px; padding: 11px 12px; margin: 0; font-family: inherit; font-size: 14px; line-height: 1.5; font-weight: 400; border-radius: 6px; color: #171717; gap: 12px; }
+body[data-workspace] .sidebar-link.active { background: #f2f2f2; color: #171717; font-weight: 500; }
 body[data-workspace] .sidebar-link:hover { background: #f5f5f5; color: #171717; }
 body[data-workspace] .sidebar-link .icon { width: 18px; height: 18px; flex-shrink: 0; color: #808080; stroke-width: 1.7; }
 body[data-workspace] .sidebar-logout { padding-top: 14px; }

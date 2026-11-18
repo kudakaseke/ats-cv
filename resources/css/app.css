@@ -204,9 +204,9 @@ html{scroll-behavior:smooth;scroll-padding-top:100px}body{font-family:var(--font
 .checker-job-section { border:0; background:transparent; padding:0; }
 
 /* Simple account pages with a centred form and quiet wave background. */
-.auth-clean { background: #f3f8fb; color: #142538; }
+.auth-clean { background: #fff; color: #142538; }
 .auth-clean .auth-shell { position: relative; isolation: isolate; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 40px 24px 28px; }
-.auth-clean-brand { display: flex; justify-content: center; margin-bottom: 40px; }
+.auth-clean-brand { display: flex; justify-content: center; margin-bottom: 40px; padding: 0; background: transparent; }
 .auth-clean-brand .brand { font-size: 28px; }
 .auth-clean .auth-content { width: 100%; padding: 0; gap: 0; min-height: 0; flex: 1; justify-content: flex-start; align-items: center; }
 .auth-clean .auth-card { width: 100%; max-width: 540px; margin: 0; background: #fff; border-radius: 12px; box-shadow: 0 14px 40px #1425380b; overflow: hidden; }
@@ -510,13 +510,14 @@ html:has(.builder-body) { overflow-y: auto; }
 .builder-progress-row .builder-progress { width: 600px; max-width: 100%; margin: 0; }
 @media print { .builder-progress-row { display: none !important; } }
 
-.brand-logo-image { display: inline-block; position: relative; flex: none; width: 126px; height: 64.5px; overflow: hidden; background: transparent; vertical-align: middle; }
-.brand-logo-image > svg { position: absolute; left: 50%; top: 50%; width: 140%; height: auto; max-width: none; transform: translate(-50%, -50%); }
-body[data-workspace] .workspace-brand .brand-logo-image { display: block; width: 126px; height: 64.5px; margin: 0; }
+.brand-logo-image { display: block; flex: none; width: 150px; height: 50px; background: #fff; object-fit: contain; object-position: center; vertical-align: middle; }
+body[data-workspace] .workspace-brand .brand-logo-image { width: 126px; height: 42px; margin: 0; }
 .public-site .reference-wordmark { display: inline-flex; align-items: center; }
-@media (max-width: 600px) { .public-site .brand-logo-image { width: 96px; height: 49.5px; } }
-
-.brand-logo-image.brand-logo-on-blue { background: transparent; }
+@media (max-width: 600px) { .public-site .brand-logo-image { width: 126px; height: 42px; } }
+.admin-brand .brand-logo-image { object-position: left center; border-radius: 4px; }
+.admin-auth-brand .brand-logo-image,.auth-clean-brand .brand-logo-image { margin-inline: auto; border-radius: 4px; }
+.builder-brand .brand-logo-image { width: 142px; height: 48px; }
+@media(max-width:560px) { .builder-brand .brand-logo-image { width: 112px; height: 38px; } }
 
 /* Resume processing: score preview and progress checklist. */
 .checker-processing { display:grid; grid-template-columns:minmax(210px,.8fr) minmax(0,2fr); gap:24px; text-align:left; padding:12px 0; }
