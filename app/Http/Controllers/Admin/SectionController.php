@@ -314,9 +314,11 @@ class SectionController extends Controller
                     $q->where(fn ($x) => $x->where('users.name','like','%'.$search.'%')->orWhere('users.email','like','%'.$search.'%'));
                 }
                 $accountFilters = $request->validate(['account_status' => 'nullable|in:active,suspended', 'export' => 'nullable|in:csv']);
+                $filters['account_status'] = $accountFilters['account_status'] ?? null;
                 if (! empty($accountFilters['account_status'])) $q->where('users.account_status', $accountFilters['account_status']);
                 if (($accountFilters['export'] ?? null) === 'csv') {
-                    app(\App\Services\Admin\AdminAuditTrail::class)->record('users.exported', 'UserList', null, 'Customer list exported (maximum 1000 records).');
+                    $exportCount = (clone $q)->count();
+                    app(\App\Services\Admin\AdminAuditTrail::class)->record('users.exported', 'UserList', null, 'Customer list exported (maximum 1000 records).', null, ['search' => $search, 'account_status' => $accountFilters['account_status'] ?? null, 'matching_count' => $exportCount, 'exported_count' => min(1000, $exportCount)]);
                     return response()->streamDownload(function () use ($q) {
                         $file = fopen('php://output', 'w');
                         fputcsv($file, ['User ID', 'Name', 'Email', 'Status', 'Registered']);
@@ -435,6 +437,10 @@ class SectionController extends Controller
         $customer = DB::table('users')->where('role', 'user')->where('id', $user)->first(['id', 'name', 'email']);
         abort_unless($customer, 404);
 
+        if (request()->routeIs('admin.users.payments')) {
+            app(\App\Services\Admin\AdminAuditTrail::class)->record('user.payments_viewed', 'User', $customer->id, 'User payment history viewed.');
+        }
+
         $payments = DB::table('billing_payments')
             ->leftJoin('subscription_plans', 'subscription_plans.id', '=', 'billing_payments.subscription_plan_id')
             ->leftJoin('billing_receipts', 'billing_receipts.billing_payment_id', '=', 'billing_payments.id')
@@ -445,7 +451,7 @@ class SectionController extends Controller
             ->orderByDesc('billing_payments.created_at')->orderByDesc('billing_payments.id')
             ->paginate(25)->withQueryString();
 
-        $wallet = DB::table('ai_wallets')->where('user_id', $customer->id)->first();
+        $wallet = (object) app(\App\Services\AiCreditService::class)->wallet(\App\Models\User::findOrFail($customer->id));
         $creditTransactions = DB::table('ai_credit_transactions')->where('user_id', $customer->id)
             ->orderByDesc('id')->paginate(25, ['*'], 'credits_page')->withQueryString();
 
@@ -491,13 +497,14 @@ class SectionController extends Controller
         abort_if($data['action'] === 'suspend' && trim((string) ($data['reason'] ?? '')) === '', 422, 'A reason is required to suspend an account.');
         $old = ['account_status' => $target->account_status, 'suspension_reason' => $target->suspension_reason];
         $values = $data['action'] === 'suspend' ? ['account_status' => 'suspended','suspended_at' => now(),'suspension_reason' => $data['reason']] : ['account_status' => 'active','suspended_at' => null,'suspension_reason' => null];
-        DB::table('users')->where('id',$user)->update([...$values,'updated_at' => now()]);
+        DB::transaction(function () use ($user, $values, $data, $old, $request) {
+            DB::table('users')->where('id', $user)->update([...$values, 'updated_at' => now(), ...($data['action'] === 'suspend' ? ['remember_token' => \Illuminate\Support\Str::random(60), 'session_version' => DB::raw('session_version + 1')] : [])]);
+            app(\App\Services\Admin\AdminAuditTrail::class)->record('user.'.$data['action'], 'User', $user, 'Account status changed by super admin.', $old, $values);
+            app(\App\Services\AuditTrail::class)->record($user, 'account.'.$data['action'], 'User', $user, ['actor_admin_id' => $request->user('admin')->id]);
+        });
         if ($data['action'] === 'suspend') {
             app(\App\Services\AccountSessions::class)->erase(\App\Models\User::findOrFail($user));
-            DB::table('users')->where('id',$user)->update(['remember_token' => \Illuminate\Support\Str::random(60)]);
         }
-        app(\App\Services\Admin\AdminAuditTrail::class)->record('user.'.$data['action'], 'User', $user, 'Account status changed by super admin.', $old, $values);
-        app(\App\Services\AuditTrail::class)->record($user, 'account.'.$data['action'], 'User', $user, ['actor_admin_id' => $request->user('admin')->id]);
         return back()->with('status', 'User account '.($data['action'] === 'suspend' ? 'suspended' : 'restored').'. Change recorded against your super-admin account.');
     }
 }

@@ -21,6 +21,7 @@ class UserProfileController extends Controller
         $customer = User::where('role', 'user')->findOrFail($user);
         $tab = $request->query('tab', 'profile');
         abort_unless(in_array($tab, self::TABS, true), 404);
+        app(AdminAuditTrail::class)->record('user.profile_viewed', 'User', $customer->id, 'User profile viewed.', null, ['tab' => $tab]);
         $data = ['customer' => $customer, 'tab' => $tab];
         if (in_array($tab, ['payments', 'credits'], true)) {
             $data = array_merge(app(SectionController::class)->paymentHistory($user)->getData(), $data);
@@ -39,7 +40,7 @@ class UserProfileController extends Controller
                 ->whereNotNull('verified_at')->whereNotNull('paid_at')->selectRaw('currency, sum(amount_cents) as cents')->groupBy('currency')->get();
             $data['reviews'] = DB::table('billing_reviews')->join('billing_payments', 'billing_payments.id', '=', 'billing_reviews.billing_payment_id')
                 ->where('billing_payments.user_id', $user)->select('billing_reviews.type', 'billing_reviews.notes', 'billing_reviews.created_at', 'billing_payments.reference')
-                ->latest('billing_reviews.created_at')->limit(30)->get();
+                ->orderByDesc('billing_reviews.created_at')->orderByDesc('billing_reviews.id')->paginate(25, ['*'], 'reviews_page')->withQueryString();
         }
         if ($tab === 'usage') {
             $data['usage'] = DB::table('ai_usage_logs')->where('user_id', $user)->selectRaw('feature, status, count(*) as total')->groupBy('feature', 'status')->orderBy('feature')->get();
@@ -48,6 +49,9 @@ class UserProfileController extends Controller
         }
         if (in_array($tab, ['usage', 'security'], true)) {
             $data['sessions'] = DB::table('account_sessions')->where('user_id', $user)->orderByDesc('last_activity')->get(['last_activity']);
+        }
+        if ($tab === 'security') {
+            $data['loginEvents'] = DB::table('audit_events')->where('user_id', $user)->whereIn('event', ['account.login', 'account.failed', 'account.logout'])->orderByDesc('id')->paginate(25, ['*'], 'login_page')->withQueryString();
         }
         if ($tab === 'credits') {
             $data['creditTotals'] = DB::table('ai_credit_transactions')->where('user_id', $user)
@@ -75,9 +79,12 @@ class UserProfileController extends Controller
         if (config('session.driver') === 'cookie' || DB::table('account_sessions')->where('user_id', $customer->id)->where('driver', 'cookie')->exists()) {
             throw \Illuminate\Validation\ValidationException::withMessages(['sessions' => 'Cookie-based sessions cannot be revoked remotely. Suspend the account to block access, or use a server-side session driver.']);
         }
+        DB::transaction(function () use ($customer, $data) {
+            $locked = User::whereKey($customer->id)->lockForUpdate()->firstOrFail();
+            $locked->forceFill(['remember_token' => Str::random(60), 'session_version' => $locked->session_version + 1])->save();
+            app(AdminAuditTrail::class)->record('user.sessions_revoked', 'User', $customer->id, 'Customer sessions revoked.', null, ['reason' => $data['reason']]);
+        });
         app(AccountSessions::class)->revoke($customer);
-        $customer->forceFill(['remember_token' => Str::random(60)])->save();
-        app(AdminAuditTrail::class)->record('user.sessions_revoked', 'User', $customer->id, 'Customer sessions revoked.', null, ['reason' => $data['reason']]);
         return redirect()->route('admin.users.show', ['user' => $user, 'tab' => 'security'])->with('status', 'User sessions revoked.');
     }
 }

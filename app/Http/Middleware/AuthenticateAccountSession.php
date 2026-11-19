@@ -23,6 +23,12 @@ class AuthenticateAccountSession extends AuthenticateSession
                 $request->session()->regenerateToken();
                 return redirect()->route('login')->withErrors(['email' => 'This account is currently unavailable. Please contact support.']);
             }
+            if ($customer && ($customer->role ?? 'user') === 'user' && (int) $request->session()->get('account_session_version', 0) !== (int) $customer->session_version) {
+                $guard->logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+                return redirect()->route('login')->withErrors(['email' => 'Your session has ended. Please sign in again.']);
+            }
             if (! $request->user() && $request->session()->has($guard->getName())) {
                 // A deleted account must not become a guest with its old CV draft.
                 $request->session()->invalidate();

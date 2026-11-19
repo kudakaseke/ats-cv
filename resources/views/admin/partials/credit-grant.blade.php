@@ -1,7 +1,7 @@
     <section class="admin-panel admin-data-panel">
         <header class="admin-panel-heading"><div><h2>Credits</h2>
-            <p>Stored balance: {{ number_format(max(0, ($wallet->subscription_credits ?? 0) + ($wallet->topup_credits ?? 0) - ($wallet->credit_debt ?? 0))) }} &middot; Debt: {{ number_format($wallet->credit_debt ?? 0) }}</p>
-            <p>Review the ledger and payment status first. Pending payments can be checked in <a href="{{ route('admin.billing') }}">payment reconciliation</a>. Credits may already have been used. Reconciliation or a later payment confirmation may also add credits.</p>
+            <p>Available balance: {{ number_format(max(0, ($wallet->subscription_credits ?? 0) + ($wallet->topup_credits ?? 0) - ($wallet->credit_debt ?? 0))) }} &middot; Debt: {{ number_format($wallet->credit_debt ?? 0) }}</p>
+            <p>Payment corrections require a verified live top-up and its full credit amount; already allocated payments cannot be corrected twice. Leave the reference blank for a discretionary grant. Review the ledger and payment status first. Pending payments can be checked in <a href="{{ route('admin.billing') }}">payment reconciliation</a>. Credits may already have been used. Reconciliation or a later payment confirmation may also add credits.</p>
         </div></header>
         <form method="POST" action="{{ route('admin.users.credits', $customer->id) }}" class="admin-credit-grant" onsubmit="return confirm('Add these credits to this user?')">
             @csrf

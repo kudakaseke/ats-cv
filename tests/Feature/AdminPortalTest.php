@@ -223,6 +223,7 @@ class AdminPortalTest extends TestCase
         $planId = DB::table('subscription_plans')->where('slug', 'monthly')->value('id');
         $this->payment($customer, $planId, 'paid', 'live', 1200);
         $this->payment($other, $planId, 'paid', 'live', 3400);
+        DB::table('billing_payments')->where('user_id', $customer->id)->update(['kind' => 'topup', 'credits' => 30]);
         $payment = DB::table('billing_payments')->where('user_id', $customer->id)->value('reference');
         $otherPayment = DB::table('billing_payments')->where('user_id', $other->id)->value('reference');
         $data = ['credits' => 30, 'reason' => 'Manual payment correction', 'payment_reference' => $payment,
@@ -238,7 +239,7 @@ class AdminPortalTest extends TestCase
         $this->post($url, $data)->assertRedirect(route('admin.users.payments', $customer->id));
         $this->post($url, $data)->assertRedirect()->assertSessionHas('status', 'This credit grant was already recorded.');
         $this->assertDatabaseHas('ai_wallets', ['user_id' => $customer->id, 'topup_credits' => 30]);
-        $this->assertDatabaseHas('ai_credit_transactions', ['user_id' => $customer->id, 'type' => 'admin_grant', 'topup_delta' => 30, 'reference' => 'admin-grant:'.$data['request_id']]);
+        $this->assertDatabaseHas('ai_credit_transactions', ['user_id' => $customer->id, 'type' => 'admin_grant', 'topup_delta' => 30, 'reference' => 'payment:'.$payment]);
         $this->assertSame(1, DB::table('admin_audit_logs')->where('action', 'credits.admin_grant')->where('subject_id', $customer->id)->count());
         $this->get(route('admin.users.payments', $customer->id))->assertOk()->assertSee('Manual payment correction')->assertSee($payment);
     }
@@ -476,6 +477,76 @@ class AdminPortalTest extends TestCase
         $this->assertAuthenticatedAs($admin, 'admin');
         $this->post('/laravel/access-admin/2fa/verify', ['code' => $code])->assertRedirect(route('admin.dashboard'));
         $this->post('/laravel/access-admin/2fa/verify', ['code' => $code])->assertSessionHasErrors('code');
+    }
+
+    public function test_payment_corrections_reject_unverified_and_duplicate_allocations(): void
+    {
+        $admin = $this->admin();
+        $customer = User::factory()->create();
+        $planId = DB::table('subscription_plans')->where('slug', 'monthly')->value('id');
+        $this->payment($customer, $planId, 'pending', 'live', 1200);
+        $payment = DB::table('billing_payments')->where('user_id', $customer->id)->first();
+        DB::table('billing_payments')->where('id', $payment->id)->update(['kind' => 'topup', 'credits' => 30]);
+        $data = ['credits' => 30, 'reason' => 'Correct missing payment credits', 'payment_reference' => $payment->reference, 'request_id' => (string) \Illuminate\Support\Str::uuid()];
+        $this->actingAs($admin, 'admin')->withSession(['admin_2fa_verified_at' => now()->timestamp]);
+        $this->post(route('admin.users.credits', $customer->id), $data)->assertSessionHasErrors('payment_reference');
+        DB::table('billing_payments')->where('id', $payment->id)->update(['status' => 'paid', 'paid_at' => now(), 'verified_at' => now()]);
+        $this->post(route('admin.users.credits', $customer->id), $data)->assertSessionHasNoErrors();
+        $this->post(route('admin.users.credits', $customer->id), [...$data, 'request_id' => (string) \Illuminate\Support\Str::uuid()])->assertSessionHasErrors('payment_reference');
+        $this->assertDatabaseHas('ai_wallets', ['user_id' => $customer->id, 'topup_credits' => 30]);
+        app(\App\Services\AiCreditService::class)->reverseTopup($customer, 30, 'reverse:'.$payment->reference);
+        $this->assertDatabaseHas('ai_wallets', ['user_id' => $customer->id, 'topup_credits' => 0]);
+    }
+
+    public function test_profile_views_filters_and_export_are_audited(): void
+    {
+        $admin = $this->admin();
+        $customer = User::factory()->create();
+        $this->actingAs($admin, 'admin')->withSession(['admin_2fa_verified_at' => now()->timestamp]);
+        $this->get(route('admin.users.show', ['user' => $customer->id, 'tab' => 'security']))->assertOk();
+        $this->assertDatabaseHas('admin_audit_logs', ['action' => 'user.profile_viewed', 'subject_type' => 'User', 'subject_id' => (string) $customer->id]);
+        $this->get(route('admin.section', ['section' => 'accounts', 'account_status' => 'active']))->assertOk()->assertSee('name="account_status" value="active"', false)->assertSee('Free');
+        $this->get(route('admin.section', ['section' => 'accounts', 'account_status' => 'active', 'export' => 'csv']))->assertOk();
+        $export = DB::table('admin_audit_logs')->where('action', 'users.exported')->latest('id')->first();
+        $this->assertSame('active', json_decode($export->new_values, true)['account_status']);
+    }
+
+    public function test_suspension_rolls_back_when_audit_recording_fails(): void
+    {
+        $admin = $this->admin();
+        $customer = User::factory()->create();
+        $trail = \Mockery::mock(\App\Services\Admin\AdminAuditTrail::class)->makePartial();
+        $trail->shouldReceive('record')->withArgs(fn ($action) => $action === 'user.suspend')->andThrow(new \RuntimeException('Audit unavailable'));
+        $this->app->instance(\App\Services\Admin\AdminAuditTrail::class, $trail);
+        $this->actingAs($admin, 'admin')->withSession(['admin_2fa_verified_at' => now()->timestamp]);
+        $this->post(route('admin.users.action', $customer->id), ['action' => 'suspend', 'reason' => 'Account investigation'])->assertStatus(500);
+        $this->assertDatabaseHas('users', ['id' => $customer->id, 'account_status' => 'active', 'session_version' => 0]);
+    }
+
+    public function test_revoked_session_version_cannot_be_reused(): void
+    {
+        $customer = User::factory()->create();
+        $this->actingAs($customer)->withSession(['password_hash_web' => auth('web')->hashPasswordForCookie($customer->getAuthPassword()), 'account_session_version' => 0]);
+        DB::table('users')->where('id', $customer->id)->update(['session_version' => 1]);
+        auth('web')->forgetUser();
+        $this->get(route('dashboard'))->assertRedirect(route('login'));
+    }
+
+    public function test_profile_shows_spendable_balance_and_paginates_payment_reviews(): void
+    {
+        $admin = $this->admin();
+        $customer = User::factory()->create();
+        DB::table('ai_wallets')->where('user_id', $customer->id)->update(['subscription_credits' => 100, 'allocation_reference' => 'subscription:1:expired', 'expires_at' => now()->subDay()]);
+        $planId = DB::table('subscription_plans')->where('slug', 'monthly')->value('id');
+        $this->payment($customer, $planId, 'paid', 'live', 1200);
+        $paymentId = DB::table('billing_payments')->where('user_id', $customer->id)->value('id');
+        for ($i = 0; $i < 30; $i++) {
+            DB::table('billing_reviews')->insert(['billing_payment_id' => $paymentId, 'admin_id' => $admin->id, 'type' => 'refund', 'notes' => 'Review '.$i, 'created_at' => now()->subMinutes(30 - $i), 'updated_at' => now()]);
+        }
+        $this->actingAs($admin, 'admin')->withSession(['admin_2fa_verified_at' => now()->timestamp]);
+        $this->get(route('admin.users.show', ['user' => $customer->id, 'tab' => 'credits']))->assertOk()->assertSee('Available balance: 0');
+        $this->get(route('admin.users.show', ['user' => $customer->id, 'tab' => 'payments']))->assertOk()->assertSee('Review 29')->assertDontSee('Review 0');
+        $this->get(route('admin.users.show', ['user' => $customer->id, 'tab' => 'payments', 'reviews_page' => 2]))->assertOk()->assertSee('Review 0');
     }
 
     private function admin(array $attributes = []): User

@@ -233,12 +233,34 @@ class AiCreditService
                     && (int) $existing->topup_delta === $credits, 409);
                 return false;
             }
+            if ($paymentReference) {
+                $priorGrant = DB::table('admin_audit_logs')->where('action', 'credits.admin_grant')->where('subject_type', 'User')->where('subject_id', (string) $locked->id)->orderByDesc('id')->get(['new_values']);
+                foreach ($priorGrant as $entry) {
+                    $details = json_decode($entry->new_values ?? '{}', true);
+                    if (($details['request_reference'] ?? $details['credit_reference'] ?? null) === $reference) {
+                        abort_unless(($details['payment_reference'] ?? null) === $paymentReference && (int) ($details['credits'] ?? 0) === $credits, 409);
+                        return false;
+                    }
+                    if (($details['payment_reference'] ?? null) === $paymentReference) {
+                        throw ValidationException::withMessages(['payment_reference' => 'A manual grant is already linked to this payment. Review the ledger.']);
+                    }
+                }
+                $payment = DB::table('billing_payments')->where('user_id', $locked->id)->where('reference', $paymentReference)->lockForUpdate()->first();
+                if (! $payment || $payment->kind !== 'topup' || $payment->mode !== 'live' || $payment->status !== 'paid' || ! $payment->verified_at || ! $payment->paid_at || (int) $payment->credits !== $credits) {
+                    throw ValidationException::withMessages(['payment_reference' => 'Only a verified, paid live top-up can be corrected here, for its full credit amount. Use payment reconciliation for other payments.']);
+                }
+                if (DB::table('ai_credit_transactions')->where('reference', 'payment:'.$paymentReference)->exists()) {
+                    throw ValidationException::withMessages(['payment_reference' => 'Credits have already been allocated for this payment. Review the ledger before granting discretionary credits.']);
+                }
+                $requestReference = $reference;
+                $reference = 'payment:'.$paymentReference;
+            }
             $wallet = $this->syncLocked($locked);
             DB::table('ai_wallets')->where('id', $wallet->id)->increment('topup_credits', $credits, ['updated_at' => now()]);
             $this->ledger($locked->id, $reference, 'admin_grant', 0, $credits);
             app(\App\Services\Admin\AdminAuditTrail::class)->record('credits.admin_grant', 'User', $locked->id,
                 'Manual credit grant.', null, ['credits' => $credits, 'reason' => $reason,
-                    'payment_reference' => $paymentReference, 'credit_reference' => $reference]);
+                    'payment_reference' => $paymentReference, 'credit_reference' => $reference, 'request_reference' => $requestReference ?? $reference]);
             return true;
         }, 3);
     }

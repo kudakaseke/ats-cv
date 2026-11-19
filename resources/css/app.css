@@ -1023,3 +1023,7 @@ body[data-workspace] .workspace-brand .brand-logo-image { width: 126px; height: 
 .admin-profile-details { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:20px; }
 .admin-profile-details dt { color:#717983; font-size:12px; }
 .admin-profile-details dd { margin:6px 0 0; overflow-wrap:anywhere; }
+
+/* Keep the user action visible while scrolling wide account tables. */
+.admin-accounts-table th:last-child, .admin-accounts-table td:last-child { position: sticky; right: 0; background: #fff; z-index: 1; }
+.admin-accounts-table th:last-child { z-index: 2; }

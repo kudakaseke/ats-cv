@@ -14,6 +14,7 @@ class AccountSessions
     public function stamp(User $user): void
     {
         Session::put('password_hash_web', Auth::guard('web')->hashPasswordForCookie($user->getAuthPassword()));
+        Session::put('account_session_version', (int) $user->session_version);
     }
 
     public function track(Request $request): void
