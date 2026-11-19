@@ -62,4 +62,17 @@ class CvCompatibilityScoreTest extends TestCase
 
         $this->assertSame(45.25, $score->scan(['assessment' => $assessment, 'keyword_score' => null])['compatibility_score']);
     }
+
+    public function test_matching_scan_score_is_the_rewrite_original_baseline(): void
+    {
+        $score = new CvCompatibilityScore;
+        $assessment = ['original_score' => ['total' => 45], 'revamped_score' => ['total' => 50]];
+        $rewrite = $score->rewrite(['assessment' => $assessment,
+            'before' => ['keyword_score' => 40], 'after' => ['keyword_score' => 50],
+            'structure_before' => 50, 'structure_after' => 60,
+            'scan_compatibility_before' => 41.6]);
+
+        $this->assertSame(41.6, $rewrite['compatibility_before']);
+        $this->assertSame(51.0, $rewrite['compatibility_after']);
+    }
 }

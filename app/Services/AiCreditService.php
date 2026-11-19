@@ -220,6 +220,29 @@ class AiCreditService
         }, 3);
     }
 
+    public function grantAdminCredits(User $user, int $credits, string $reference, string $reason, ?string $paymentReference): bool
+    {
+        if ($credits < 1 || $credits > 100000) {
+            throw new \InvalidArgumentException('Invalid credit grant.');
+        }
+        return DB::transaction(function () use ($user, $credits, $reference, $reason, $paymentReference) {
+            $locked = User::whereKey($user->id)->where('role', 'user')->lockForUpdate()->firstOrFail();
+            $existing = DB::table('ai_credit_transactions')->where('reference', $reference)->first();
+            if ($existing) {
+                abort_unless((int) $existing->user_id === $locked->id && $existing->type === 'admin_grant'
+                    && (int) $existing->topup_delta === $credits, 409);
+                return false;
+            }
+            $wallet = $this->syncLocked($locked);
+            DB::table('ai_wallets')->where('id', $wallet->id)->increment('topup_credits', $credits, ['updated_at' => now()]);
+            $this->ledger($locked->id, $reference, 'admin_grant', 0, $credits);
+            app(\App\Services\Admin\AdminAuditTrail::class)->record('credits.admin_grant', 'User', $locked->id,
+                'Manual credit grant.', null, ['credits' => $credits, 'reason' => $reason,
+                    'payment_reference' => $paymentReference, 'credit_reference' => $reference]);
+            return true;
+        }, 3);
+    }
+
     public function reverseTopup(User $user, int $credits, string $reference): void
     {
         DB::transaction(function () use ($user, $credits, $reference) {
@@ -292,14 +315,14 @@ class AiCreditService
         }, 3);
     }
 
-    public function finish(User $user, int $operationId, ?array $result, array $usage = []): void
+    public function finish(User $user, int $operationId, ?array $result, array $usage = []): bool
     {
-        DB::transaction(function () use ($user, $operationId, $result, $usage) {
+        return DB::transaction(function () use ($user, $operationId, $result, $usage) {
             $locked = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
             $wallet = $this->syncLocked($locked);
             $operation = DB::table('ai_operations')->where('id', $operationId)->where('user_id', $user->id)->firstOrFail();
             if ($operation->status !== 'reserved') {
-                return;
+                return false;
             }
             if ($result === null) {
                 // Restore only the allocation originally charged. Expired monthly
@@ -349,6 +372,7 @@ class AiCreditService
             app(AuditTrail::class)->record($user->id, $result === null ? 'ai.failed' : 'ai.completed', 'AiOperation', $operation->id,
                 ['feature' => $operation->feature, 'credits_charged' => $result === null ? 0 : $operation->subscription_spent + $operation->topup_spent], 'ai:'.$operation->id.':finished');
 
+            return true;
         }, 3);
     }
 }

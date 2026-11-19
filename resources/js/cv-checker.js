@@ -1,6 +1,7 @@
 window.cvChecker = (boot) => ({
     step: 1, industry: '', job: '', resumeText: '', filename: '', busy: false, error: '', result: null,
     modalOpen: false, aiDraft: null, originalScore: null, dragging: false,
+    reviewPromptOpen: false,
     credits: boot.credits ?? 0, operations: {}, confirmedKeywords: [],
     processing: '', progress: 0, progressTimer: null,
     progressSteps() {
@@ -42,7 +43,7 @@ window.cvChecker = (boot) => ({
         this.error = ''; this.result = null; this.originalScore = null; this.modalOpen = false; this.confirmedKeywords = []; this.step = 2;
     },
     nextResume() {
-        if (!this.resumeText.trim()) { this.error = 'Upload your resume or paste its text first.'; return; }
+        if (!this.resumeText.trim()) { this.error = 'Upload your resume first.'; return; }
         this.error = ''; this.step = 3;
     },
     async request(url, options) {
@@ -89,7 +90,7 @@ window.cvChecker = (boot) => ({
     },
     async detect() {
         if (this.busy) return;
-        if (!this.resumeText.trim()) { this.error = 'Upload your CV or paste its text first.'; return; }
+        if (!this.resumeText.trim()) { this.error = 'Upload your CV first.'; return; }
         this.busy = true; this.error = ''; this.result = null;
         try {
             this.result = await this.request(boot.detectUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resume_text: this.resumeText }) });
@@ -114,11 +115,17 @@ window.cvChecker = (boot) => ({
             this.resumeText = text; this.result = result; this.confirmedKeywords = [];
             if (this.originalScore === null) this.originalScore = result.keyword_score;
             this.step = 4;
-            this.$nextTick(() => { this.$refs.scanDialog.showModal(); this.modalOpen = true; });
+            this.$nextTick(() => {
+                this.$refs.scanDialog.showModal(); this.modalOpen = true;
+                if (result.review_prompt_due) {
+                    this.$refs.reviewDialog.showModal(); this.reviewPromptOpen = true;
+                }
+            });
         } catch (error) { this.error = error.message; }
         finally { this.stopProgress(); this.processing = ''; this.busy = false; }
     },
     closeResults() { if (!this.busy) this.$refs.scanDialog.close(); },
+    closeReviewPrompt() { if (this.$refs.reviewDialog?.open) this.$refs.reviewDialog.close(); },
     async fix() {
         if (this.busy) return;
         if (!this.$refs.scanDialog.open) { this.$refs.scanDialog.showModal(); this.modalOpen = true; }

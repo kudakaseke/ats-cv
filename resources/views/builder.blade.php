@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Build your CV · atscvdetector</title><link rel="icon" href="{{ asset('favicon.png').'?v=minimal-cv-3' }}" type="image/png"><link rel="icon" href="{{ asset('favicon.svg').'?v=minimal-cv-3' }}" type="image/svg+xml" sizes="any">
+    <title>Build your CV · atscvdetector</title><link rel="icon" href="{{ asset('favicon.png').'?v=brand-20261119' }}" type="image/png"><link rel="icon" href="{{ asset('favicon.svg').'?v=brand-20261119' }}" type="image/svg+xml" sizes="any">
     <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>

@@ -1,0 +1,46 @@
+<x-admin-layout>
+    @php
+        $tabs = ['profile' => 'Profile', 'subscription' => 'Subscription', 'payments' => 'Payments', 'usage' => 'Usage activity', 'credits' => 'Credits', 'reviews' => 'Reviews & support', 'security' => 'Security', 'audit' => 'Audit history'];
+        $formatDate = fn ($date) => $date ? \Carbon\CarbonImmutable::parse($date, config('app.timezone'))->format('d M Y H:i T') : '—';
+    @endphp
+    <section class="admin-page-heading"><div><h1>{{ $customer->name }}</h1><p>{{ $customer->email }} · User #{{ $customer->id }}</p></div><a href="{{ route('admin.section', 'accounts') }}">Back to users</a></section>
+    <nav class="admin-profile-tabs" aria-label="User profile sections">
+        @foreach($tabs as $key => $label)<a href="{{ route('admin.users.show', ['user' => $customer->id, 'tab' => $key]) }}" @if($tab === $key) aria-current="page" @endif>{{ $label }}</a>@endforeach
+    </nav>
+    @if($tab === 'profile')
+        <section class="admin-panel admin-data-panel"><h2>Profile</h2><dl class="admin-profile-details">
+            <div><dt>User ID</dt><dd>{{ $customer->id }}</dd></div><div><dt>Name</dt><dd>{{ $customer->name }}</dd></div><div><dt>Email</dt><dd>{{ $customer->email }}</dd></div>
+            <div><dt>Registered</dt><dd>{{ $formatDate($customer->created_at) }}</dd></div><div><dt>Email verification</dt><dd>{{ $customer->email_verified_at ? 'Verified '.$formatDate($customer->email_verified_at) : 'Not verified' }}</dd></div><div><dt>Account status</dt><dd>{{ ucfirst($customer->account_status) }}</dd></div>
+        </dl></section>
+        <section class="admin-panel admin-data-panel"><h2>Account actions</h2>
+            @if($customer->account_status === 'active')
+                <form method="POST" action="{{ route('admin.users.action', $customer->id) }}" class="admin-credit-grant" onsubmit="return confirm('Suspend this account and revoke its sessions?')">@csrf<input type="hidden" name="action" value="suspend"><label>Reason <input name="reason" required maxlength="500"></label><button class="admin-danger-button">Suspend account</button></form>
+            @else
+                <form method="POST" action="{{ route('admin.users.action', $customer->id) }}" onsubmit="return confirm('Reactivate this account?')">@csrf<input type="hidden" name="action" value="restore"><button class="admin-primary-button">Reactivate account</button></form>
+            @endif
+        </section>
+    @elseif($tab === 'subscription')
+        <section class="admin-panel admin-data-panel"><h2>Current subscription</h2>
+            @if($currentSubscription)<p>{{ $currentSubscription->plan_name ?? 'Unknown plan' }} · {{ $currentSubscription->status }}</p><p>Start: {{ $formatDate($currentSubscription->starts_at) }} · Period ends: {{ $formatDate($currentSubscription->ends_at) }} · Cancelled: {{ $formatDate($currentSubscription->cancelled_at) }}</p><p>{{ $currentSubscription->auto_renew ? 'Auto-renew enabled' : 'No automatic renewal' }}</p>@else<p>No current paid subscription recorded.</p>@endif
+            <h2>Subscription history</h2><div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Plan</th><th>Status</th><th>Start</th><th>End</th><th>Cancelled</th></tr></thead><tbody>@forelse($subscriptions as $subscription)<tr><td>{{ $subscription->plan_name ?? '—' }}</td><td>{{ $subscription->status }}</td><td>{{ $formatDate($subscription->starts_at) }}</td><td>{{ $formatDate($subscription->ends_at) }}</td><td>{{ $formatDate($subscription->cancelled_at) }}</td></tr>@empty<tr><td colspan="5">No subscription history.</td></tr>@endforelse</tbody></table></div>{{ $subscriptions->links() }}
+        </section>
+    @elseif($tab === 'payments')
+        <section class="admin-panel admin-data-panel"><h2>Verified live payments</h2>@forelse($spending as $amount)<p>{{ $amount->currency }} {{ number_format($amount->cents / 100, 2) }}</p>@empty<p>No verified live payments recorded.</p>@endforelse<p>Totals reflect payments currently marked paid, before fees. Reversals are excluded.</p><a href="{{ route('admin.billing') }}">Payment reconciliation</a></section>
+        @include('admin.partials.payment-table')
+        <section class="admin-panel admin-data-panel"><h2>Refund and dispute reviews</h2><p>These are recorded reviews; they do not by themselves prove a refund was processed.</p><div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Date</th><th>Payment</th><th>Type</th><th>Notes</th></tr></thead><tbody>@forelse($reviews as $review)<tr><td>{{ $formatDate($review->created_at) }}</td><td>{{ $review->reference }}</td><td>{{ str_replace('_', ' ', $review->type) }}</td><td>{{ $review->notes }}</td></tr>@empty<tr><td colspan="4">No refund or dispute reviews recorded.</td></tr>@endforelse</tbody></table></div></section>
+    @elseif($tab === 'credits')
+        <section class="admin-panel admin-data-panel"><h2>Credit totals</h2><p>Awarded: {{ number_format($creditTotals->awarded) }} · Consumed by completed operations: {{ number_format($consumed) }} · Subscription credits expired: {{ number_format($creditTotals->expired) }}</p><p>Ledger awards include refunds and restored credits.</p></section>
+        @include('admin.partials.credit-grant')
+        @include('admin.partials.credit-ledger')
+    @elseif($tab === 'usage')
+        <section class="admin-panel admin-data-panel"><h2>Feature usage</h2><p>{{ $sessions->count() }} registered sessions · Latest activity: {{ $sessions->first() ? $formatDate(\Carbon\CarbonImmutable::createFromTimestamp((int) $sessions->first()->last_activity, config('app.timezone'))) : '—' }}</p><p>Session records show latest activity, not a complete historical session count.</p><div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Feature</th><th>Status</th><th>Requests</th></tr></thead><tbody>@forelse($usage as $item)<tr><td>{{ $item->feature }}</td><td>{{ $item->status }}</td><td>{{ $item->total }}</td></tr>@empty<tr><td colspan="3">No AI usage recorded.</td></tr>@endforelse</tbody></table></div><h2>Usage in the last 30 days</h2>@forelse($trends as $trend)<p>{{ $trend->day }}: {{ $trend->total }} requests</p>@empty<p>No requests recorded.</p>@endforelse</section>
+    @elseif($tab === 'reviews')
+        <section class="admin-panel admin-data-panel"><h2>Reviews and complaints</h2><p>Support tickets are not currently recorded separately. Feedback marked reviewed or closed is shown below.</p><div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Received</th><th>Category</th><th>Rating</th><th>Feedback</th><th>Status</th><th>Reply</th></tr></thead><tbody>@forelse($feedback as $item)<tr><td>{{ $formatDate($item->created_at) }}</td><td>{{ $item->category }}</td><td>{{ $item->rating ?? '—' }}</td><td>{{ $item->body }}</td><td>{{ ['pending' => 'Pending', 'approved' => 'Reviewed', 'rejected' => 'Closed'][$item->status] ?? $item->status }}</td><td>{{ $item->admin_reply ?? '—' }}</td></tr>@empty<tr><td colspan="6">No feedback recorded.</td></tr>@endforelse</tbody></table></div>{{ $feedback->links() }}<a href="{{ route('admin.section', 'reviews') }}">Manage feedback</a></section>
+    @elseif($tab === 'security')
+        <section class="admin-panel admin-data-panel"><h2>Security</h2><p>Authentication: {{ $customer->google_id ? ($customer->password_set_at ? 'Google and password' : 'Google') : 'Email and password' }}</p><p>{{ $sessions->count() }} registered sessions</p><p>Session records show the last activity, not complete login history. Failed customer login attempts are not currently recorded here.</p>@foreach($sessions as $session)<p>Last activity: {{ $formatDate(\Carbon\CarbonImmutable::createFromTimestamp((int) $session->last_activity, config('app.timezone'))) }}</p>@endforeach
+        <form method="POST" action="{{ route('admin.users.sessions.revoke', $customer->id) }}" class="admin-credit-grant" onsubmit="return confirm('Sign this user out of all sessions?')">@csrf<label>Reason <input name="reason" required minlength="10" maxlength="500"></label><button class="admin-danger-button">Revoke sessions</button></form>
+        <p>For password help, ask the customer to use the password-reset link on the sign-in page. Passwords cannot be viewed.</p></section>
+    @elseif($tab === 'audit')
+        <section class="admin-panel admin-data-panel"><h2>Administrative changes</h2><p>Account, payment and feedback actions linked to this user.</p><div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>When</th><th>Administrator</th><th>Action</th><th>Details</th></tr></thead><tbody>@forelse($events as $event)<tr><td>{{ $formatDate($event->created_at) }}</td><td>{{ $event->actor_name ?? ($event->actor_id ? 'Admin #'.$event->actor_id : 'Unavailable') }}</td><td>{{ $event->action }}</td><td>{{ $event->description }}@if($event->new_values) @php($changes = json_decode($event->new_values, true) ?: []) @if(!empty($changes['reason']) || !empty($changes['suspension_reason']))<br>Reason: {{ $changes['reason'] ?? $changes['suspension_reason'] }}@endif @if(!empty($changes['credits']))<br>Credits: {{ $changes['credits'] }}@endif @endif</td></tr>@empty<tr><td colspan="4">No linked administrative actions recorded.</td></tr>@endforelse</tbody></table></div>{{ $events->links() }}</section>
+    @endif
+</x-admin-layout>

@@ -16,6 +16,13 @@ class AuthenticateAccountSession extends AuthenticateSession
         Auth::shouldUse('web');
         $guard = Auth::guard('web');
         if ($request->hasSession()) {
+            $customer = $guard->user();
+            if ($customer && ($customer->role ?? 'user') === 'user' && ($customer->account_status ?? 'active') !== 'active') {
+                $guard->logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+                return redirect()->route('login')->withErrors(['email' => 'This account is currently unavailable. Please contact support.']);
+            }
             if (! $request->user() && $request->session()->has($guard->getName())) {
                 // A deleted account must not become a guest with its old CV draft.
                 $request->session()->invalidate();

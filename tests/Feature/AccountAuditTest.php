@@ -39,7 +39,7 @@ class AccountAuditTest extends TestCase
         $mine = $this->payment($owner, 'test');
         $theirs = $this->payment($other, 'test');
         $this->actingAs($owner)->get(route('account.activity'))->assertOk()
-            ->assertSee('Payment history')->assertSee('Credit ledger')->assertSee('Activity history')
+            ->assertSee('Payment history')->assertSee('Credit ledger')->assertDontSee('Activity history')
             ->assertSee($mine->reference)->assertDontSee($theirs->reference);
     }
 

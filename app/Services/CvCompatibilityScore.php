@@ -71,6 +71,13 @@ class CvCompatibilityScore
             'keyword_after' => $payload['after']['keyword_score'] ?? null,
             'structure_before' => $payload['structure_before'] ?? null,
             'structure_after' => $payload['structure_after'] ?? null]);
+        // When this is the exact CV/job pair already scanned, use the saved
+        // scan result as the original score so both screens share one baseline.
+        if (is_numeric($payload['scan_compatibility_before'] ?? null)
+            && is_finite((float) $payload['scan_compatibility_before'])
+            && $payload['scan_compatibility_before'] >= 0 && $payload['scan_compatibility_before'] <= 100) {
+            $scores['compatibility_before'] = (float) $payload['scan_compatibility_before'];
+        }
         return [...$payload, ...array_intersect_key($scores, array_flip(['compatibility_before', 'compatibility_after', 'compatibility_method']))];
     }
 }

@@ -7,6 +7,18 @@ use PHPUnit\Framework\TestCase;
 
 class CvJobRequirementsTest extends TestCase
 {
+    public function test_flattened_bullet_points_are_scored_as_separate_requirements(): void
+    {
+        $job = "Skills: \u{2022} SQL \u{2022} Python \u{2022} Excel \u{2022} Customer service Competencies: \u{2022} Teamwork \u{2022} Attention to detail";
+        $result = (new CvKeywordMatcher)->compare($job, "Skills\nSQL\nPython\nCompetencies\nTeamwork");
+        $this->assertSame(6, $result['total']);
+        $this->assertContains('SQL', $result['matched']);
+        $this->assertContains('Python', $result['matched']);
+        $this->assertContains('Teamwork', $result['matched']);
+        $this->assertContains('excel', $result['missing']);
+        $this->assertSame(50, $result['keyword_score']);
+    }
+
     public function test_negation_is_scoped_to_its_claim_and_negative_lists_stay_negative(): void
     {
         $matcher = new CvKeywordMatcher;

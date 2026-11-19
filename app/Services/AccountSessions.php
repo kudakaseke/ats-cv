@@ -18,7 +18,7 @@ class AccountSessions
 
     public function track(Request $request): void
     {
-        if ($user = $request->user()) {
+        if (! $request->routeIs('admin.*') && ($user = $request->user('web')) && ($user->role ?? 'user') === 'user') {
             DB::table('account_sessions')->upsert([[
                 'id' => $request->session()->getId(), 'user_id' => $user->id,
                 'driver' => config('session.driver'), 'last_activity' => time(),
@@ -28,6 +28,12 @@ class AccountSessions
 
     public function erase(User $user): void
     {
+        $this->revoke($user);
+        Password::broker()->deleteToken($user);
+    }
+
+    public function revoke(User $user): void
+    {
         foreach (DB::table('account_sessions')->where('user_id', $user->id)->get() as $session) {
             // Driver names originate in server configuration, never request input.
             Session::driver($session->driver)->getHandler()->destroy($session->id);
@@ -36,6 +42,5 @@ class AccountSessions
         DB::connection(config('session.connection'))->table(config('session.table', 'sessions'))
             ->where('user_id', $user->id)->delete();
         DB::table('account_sessions')->where('user_id', $user->id)->delete();
-        Password::broker()->deleteToken($user);
     }
 }

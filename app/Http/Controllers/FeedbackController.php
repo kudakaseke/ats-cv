@@ -10,10 +10,14 @@ class FeedbackController extends Controller
 {
     public function submit(Request $request, AuditTrail $audit)
     {
-        $data = $request->validate(['category' => 'required|in:cv_analysis,account,billing,complaint,suggestion,other', 'rating' => 'nullable|integer|min:1|max:5', 'body' => 'required|string|min:10|max:3000', 'testimonial_consent' => 'nullable|boolean']);
-        $id = DB::table('customer_feedback')->insertGetId(['user_id' => $request->user()->id, 'category' => $data['category'], 'rating' => $data['rating'] ?? null, 'body' => $data['body'], 'testimonial_consent' => (bool) ($data['testimonial_consent'] ?? false), 'status' => 'pending', 'created_at' => now(), 'updated_at' => now()]);
+        $data = $request->validate(['category' => 'required|in:cv_analysis,account,billing,complaint,suggestion,other', 'rating' => 'nullable|integer|min:1|max:5', 'body' => 'required|string|min:10|max:3000']);
+        $id = DB::table('customer_feedback')->insertGetId(['user_id' => $request->user()->id, 'category' => $data['category'], 'rating' => $data['rating'] ?? null, 'body' => $data['body'], 'testimonial_consent' => false, 'status' => 'pending', 'created_at' => now(), 'updated_at' => now()]);
         $audit->record($request->user()->id, 'feedback.submitted', 'CustomerFeedback', $id, ['category' => $data['category'], 'rating' => $data['rating'] ?? null]);
-        return back()->with('status', 'Thank you. Your feedback has been sent for review.');
+        $message = filled($data['rating'] ?? null)
+            ? 'Your rating was successfully sent. Thank you for your feedback.'
+            : 'Your feedback was successfully sent. Thank you.';
+
+        return back()->with('status', $message);
     }
 
     public function moderate(Request $request, int $feedback)

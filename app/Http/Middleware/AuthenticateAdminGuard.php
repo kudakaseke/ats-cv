@@ -14,7 +14,10 @@ class AuthenticateAdminGuard
         if (! Auth::guard('admin')->check()) {
             abort_if(Auth::guard('web')->check(), 403);
 
-            return redirect()->guest(route('admin.login'))
+            // Admin authentication has its own explicit post-login destination.
+            // Do not write the admin URL into Laravel's shared `url.intended`
+            // session slot, which regular customer login also consumes.
+            return redirect()->route('admin.login')
                 ->with('status', 'Sign in to continue to the Super Admin Dashboard.');
         }
         Auth::shouldUse('admin');

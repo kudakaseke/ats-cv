@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\OverviewRequest;
+use App\Models\Subscription;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -14,8 +15,9 @@ class OverviewController extends Controller
     {
         $timezone = config('app.timezone', 'UTC');
         $today = CarbonImmutable::now($timezone)->startOfDay();
-        $start = $request->filled('from') ? CarbonImmutable::parse($request->validated('from'), $timezone)->startOfDay() : $today->subDays(29);
+        $start = $request->filled('from') ? CarbonImmutable::parse($request->validated('from'), $timezone)->startOfDay() : $today;
         $end = $request->filled('to') ? CarbonImmutable::parse($request->validated('to'), $timezone)->startOfDay() : $today;
+        abort_if($start->greaterThan($end) || $start->diffInDays($end) > 365, 422, 'Choose a date range of one year or less.');
         $days = (int) $start->diffInDays($end) + 1;
         $previousStart = $start->subDays($days);
         $previousEnd = $start;
@@ -31,7 +33,14 @@ class OverviewController extends Controller
         $usageBase = DB::table('ai_usage_logs');
 
         $totalUsers = (clone $users)->count();
-        $activeSubscriptions = DB::table('subscriptions')->where('status', 'active')->count();
+        $asOf = now($timezone);
+        $activeSubscriptions = DB::table('subscriptions')
+            ->join('users', 'users.id', '=', 'subscriptions.user_id')
+            ->where('users.role', 'user')
+            ->whereIn('subscriptions.status', Subscription::availableStatuses())
+            ->where('subscriptions.starts_at', '<=', $asOf)
+            ->where(fn ($active) => $active->whereNull('subscriptions.ends_at')->orWhere('subscriptions.ends_at', '>', $asOf))
+            ->count();
         $newUsers = (clone $users)->where('created_at', '>=', $rangeStart)->where('created_at', '<', $rangeEnd)->count();
         $previousUsers = (clone $users)->where('created_at', '>=', $previousStartRange)->where('created_at', '<', $previousEndRange)->count();
         $revenueCents = (clone $revenueBase)->where('paid_at', '>=', $rangeStart)->where('paid_at', '<', $rangeEnd)->sum('amount_cents');

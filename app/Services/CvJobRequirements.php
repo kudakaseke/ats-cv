@@ -4,7 +4,7 @@ namespace App\Services;
 
 class CvJobRequirements
 {
-    public const VERSION = 'weighted-requirements-v7';
+    public const VERSION = 'weighted-requirements-v8';
     public const WEIGHTS = ['mandatory' => 3, 'required' => 2, 'preferred' => 1];
 
     public function extract(string $job, CvKeywordMatcher $matcher): array
@@ -13,6 +13,9 @@ class CvJobRequirements
         $importance = 'required';
         $excluded = false;
         $items = [];
+        // Pasting an advert can collapse line breaks while retaining bullet symbols.
+        // Split those markers before parsing so each requirement remains separate.
+        $job = preg_replace('/\s*[\x{2022}\x{25AA}\x{25CF}\x{25E6}\x{2023}\x{25A0}]\s*/u', "\n", $job);
         $job = preg_replace('/\b(?:core strengths?\s*\/\s*(?:key )?competenc(?:ies|es)|strengths?\s*\/\s*(?:key )?competenc(?:ies|es))\b/iu', 'Core competencies', $job);
         $job = preg_replace('/\b((?:(?:mandatory|required|essential|minimum|key|technical|core|preferred|desirable|optional)\s+)?(?:qualifications|skills|competencies|strengths|requirements)|mandatory|preferred|desirable|optional)\s*:/iu', "\n$1:", $job);
         foreach (preg_split('/\R/u', $job) as $line) {

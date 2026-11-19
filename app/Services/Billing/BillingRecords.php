@@ -25,17 +25,21 @@ class BillingRecords
         if ($payment->status === 'paid' && $payment->paid_at) {
             $user = User::findOrFail($payment->user_id);
             $subscription = $payment->subscription_id ? Subscription::find($payment->subscription_id) : null;
+            $productName = $payment->kind === 'topup' ? 'AI credit top-up' : $plan->name;
             DB::table('billing_receipts')->insertOrIgnore(['billing_payment_id' => $payment->id,
                 'number' => 'ATS-'.$payment->id,
                 'details' => json_encode(['business' => config('billing.business_name'), 'address' => config('billing.business_address'),
                     'customer' => $user->name, 'email' => $user->email, 'reference' => $payment->reference,
-                    'paynow_reference' => $payment->provider_reference, 'plan' => $plan->name,
+                    'paynow_reference' => $payment->provider_reference, 'plan' => $productName, 'credits' => $payment->credits,
                     'amount_cents' => $payment->amount_cents, 'currency' => $payment->currency,
                     'paid_at' => $payment->paid_at->toIso8601String(), 'starts_at' => $subscription?->starts_at?->toIso8601String(),
                     'ends_at' => $subscription?->ends_at?->toIso8601String()], JSON_THROW_ON_ERROR),
                 'created_at' => now(), 'updated_at' => now()]);
+            $purchase = $payment->kind === 'topup'
+                ? 'Your purchase includes exactly '.$payment->credits.' AI credits.'
+                : 'Your purchase includes '.$payment->credits.' AI credits for the '.$plan->name.' paid period.';
             $this->message($user->id, 'payment:'.$payment->id.':paid', 'Payment successful',
-                'Your '.$plan->name.' payment of '.$payment->currency.' '.number_format($payment->amount_cents / 100, 2).' is verified. Reference: '.$payment->reference.'. Your receipt is available on the Subscription page.');
+                'Your '.$productName.' payment of '.$payment->currency.' '.number_format($payment->amount_cents / 100, 2).' is verified. '.$purchase.' Reference: '.$payment->reference.'. Your receipt is available on the Subscription page.');
             if ($subscription) {
                 $this->message($user->id, 'subscription:'.$subscription->id.':activated', 'Subscription confirmed',
                     $plan->name.' access is confirmed from '.$subscription->starts_at->toDateString().' until '.$subscription->ends_at->toDateString().'. '

@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
 
 class CvReviewComparison
 {
-    public const VERSION = 12;
+    public const VERSION = 13;
 
     public function refreshForUser(array $comparison, ?int $userId, ?array $generated = null): array
     {
@@ -18,7 +18,9 @@ class CvReviewComparison
             && CvDocumentIdentity::same($generated['job_description'], $comparison['job_description'])) {
             $comparison['assessment'] = $generated['assessment'];
         }
-        if (($comparison['comparison_version'] ?? 0) === self::VERSION || ! isset($comparison['original_text'], $comparison['revised_text'])) {
+        if ((($comparison['comparison_version'] ?? 0) === self::VERSION
+                && ($comparison['scoring_basis'] ?? null) === CvJobRequirements::VERSION)
+            || ! isset($comparison['original_text'], $comparison['revised_text'])) {
             return $this->withExperienceAssessment($comparison);
         }
         $job = $comparison['job_description'] ?? null;
@@ -103,7 +105,8 @@ class CvReviewComparison
             }
         }
 
-        return ['comparison_version' => self::VERSION, 'job_description' => $job, 'method' => $after['method'],
+        return ['comparison_version' => self::VERSION, 'scoring_basis' => CvJobRequirements::VERSION,
+            'job_description' => $job, 'method' => $after['method'],
             'before' => $before['similarity_percent'], 'after' => $after['similarity_percent'],
             'keyword_before' => $before['keyword_score'], 'keyword_after' => $after['keyword_score'],
             'structure_before' => app(CvCompatibilityScore::class)->structureScore($original),

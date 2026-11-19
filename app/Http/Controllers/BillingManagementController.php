@@ -68,15 +68,15 @@ class BillingManagementController extends Controller
         }
 
         return view('workspace.admin-billing', ['payments' => $query->latest()->paginate(25)->withQueryString(),
-            'totals' => BillingPayment::where('provider', 'paynow')->selectRaw('status, mode, count(*) as total, sum(amount_cents) as cents')->groupBy('status', 'mode')->get(),
+            'totals' => BillingPayment::where('provider', 'paynow')->selectRaw('status, mode, currency, count(*) as total, sum(amount_cents) as cents')->groupBy('status', 'mode', 'currency')->get(),
             'subscriptions' => Subscription::selectRaw('status, count(*) as total')->groupBy('status')->get(),
-            'plans' => BillingPayment::where('provider', 'paynow')->where('mode', 'live')->where('status', 'paid')
+            'plans' => BillingPayment::where('provider', 'paynow')->where('mode', 'live')->where('status', 'paid')->whereNotNull('billing_payments.verified_at')->whereNotNull('billing_payments.paid_at')->where('billing_payments.currency', 'USD')
                 ->join('subscription_plans', 'subscription_plans.id', '=', 'billing_payments.subscription_plan_id')
                 ->selectRaw('subscription_plans.name, count(*) as total, sum(billing_payments.amount_cents) as cents, sum(billing_payments.credits) as credits')
                 ->groupBy('subscription_plans.name')->get(),
-            'monthlyRevenue' => BillingPayment::where('provider', 'paynow')->where('mode', 'live')->where('status', 'paid')
+            'monthlyRevenue' => BillingPayment::where('provider', 'paynow')->where('mode', 'live')->where('status', 'paid')->whereNotNull('billing_payments.verified_at')->whereNotNull('billing_payments.paid_at')->where('billing_payments.currency', 'USD')
                 ->where('paid_at', '>=', now()->startOfMonth())->sum('amount_cents'),
-            'annualRevenue' => BillingPayment::where('provider', 'paynow')->where('mode', 'live')->where('status', 'paid')
+            'annualRevenue' => BillingPayment::where('provider', 'paynow')->where('mode', 'live')->where('status', 'paid')->whereNotNull('billing_payments.verified_at')->whereNotNull('billing_payments.paid_at')->where('billing_payments.currency', 'USD')
                 ->where('paid_at', '>=', now()->startOfYear())->sum('amount_cents'),
             'notifications' => DB::table('payment_notifications')->whereNull('processed_at')->latest('id')->limit(25)->get(),
             'reviews' => DB::table('billing_reviews')->latest('id')->limit(25)->get()]);

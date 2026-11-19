@@ -252,6 +252,27 @@ class PaynowLifecycleTest extends TestCase
         $this->assertDatabaseCount('billing_messages', 2);
     }
 
+    public function test_verified_topup_callback_adds_exact_credits_once_and_records_clear_receipt_email(): void
+    {
+        $user = User::factory()->create();
+        $payment = $this->payment('monthly', $user);
+        $payment->update(['kind' => 'topup', 'subscription_id' => null]);
+        $purchasedCredits = $payment->credits;
+        Http::fake(['*' => Http::response($this->signed($this->payload($payment)))]);
+
+        $this->notify($payment, $this->payload($payment))->assertOk();
+        $this->notify($payment, $this->payload($payment))->assertOk();
+
+        $this->assertSame(15 + $purchasedCredits, app(AiCreditService::class)->wallet($user)['credits']);
+        $this->assertSame(1, DB::table('ai_credit_transactions')->where('reference', 'payment:'.$payment->reference)->count());
+        $receipt = json_decode(DB::table('billing_receipts')->where('billing_payment_id', $payment->id)->value('details'), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('AI credit top-up', $receipt['plan']);
+        $this->assertSame($purchasedCredits, $receipt['credits']);
+        $message = DB::table('billing_messages')->where('event_key', 'payment:'.$payment->id.':paid')->value('message');
+        $this->assertStringContainsString('exactly '.$purchasedCredits.' AI credits', $message);
+        Http::assertSentCount(1);
+    }
+
     public function test_browser_return_before_notification_and_missed_notification_are_reconciled(): void
     {
         $payment = $this->payment('pro');

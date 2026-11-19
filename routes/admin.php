@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AdminAuthController;
 use App\Http\Controllers\Admin\OverviewController;
 use App\Http\Controllers\Admin\SectionController;
+use App\Http\Controllers\Admin\UserProfileController;
 use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\BillingManagementController;
 use Illuminate\Support\Facades\Route;
@@ -20,6 +21,10 @@ Route::prefix('laravel/access-admin')->name('admin.')->middleware('admin.ip')->g
         Route::middleware('2fa.confirmed')->group(function () {
             Route::get('dashboard', OverviewController::class)->name('dashboard');
             Route::get('section/{section}', [SectionController::class, 'show'])->whereIn('section', ['users','revenue','cv','ai','credits','accounts','reviews','system'])->name('section');
+            Route::get('users/{user}', [UserProfileController::class, 'show'])->whereNumber('user')->name('users.show');
+            Route::post('users/{user}/sessions/revoke', [UserProfileController::class, 'revokeSessions'])->whereNumber('user')->middleware('throttle:6,1')->name('users.sessions.revoke');
+            Route::get('users/{user}/payments', [SectionController::class, 'paymentHistory'])->whereNumber('user')->name('users.payments');
+            Route::post('users/{user}/credits', [SectionController::class, 'grantCredits'])->whereNumber('user')->middleware('throttle:6,1')->name('users.credits');
             Route::post('users/{user}/account', [SectionController::class, 'accountAction'])->middleware('throttle:6,1')->name('users.action');
             Route::post('feedback/{feedback}/moderate', [FeedbackController::class, 'moderate'])->middleware('throttle:10,1')->name('feedback.moderate');
             Route::get('billing', [BillingManagementController::class, 'admin'])->name('billing');

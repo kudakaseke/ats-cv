@@ -25,10 +25,11 @@ class RecordAccountActivity
 
     private function record(Request $request, int $status): void
     {
-        if (! $request->user() || $request->isMethodSafe() || $request->routeIs('builder.save')) {
+        $user = $request->user('web');
+        if (! $user || ($user->role ?? 'user') !== 'user' || $request->isMethodSafe() || $request->routeIs('builder.save', 'admin.*')) {
             return;
         }
-        app(AuditTrail::class)->record($request->user()->id, 'account.request', 'Route', $request->route()?->getName() ?? 'unknown',
+        app(AuditTrail::class)->record($user->id, 'account.request', 'Route', $request->route()?->getName() ?? 'unknown',
             ['method' => $request->method(), 'http_status' => $status]);
     }
 }

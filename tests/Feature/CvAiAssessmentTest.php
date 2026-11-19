@@ -93,11 +93,12 @@ class CvAiAssessmentTest extends TestCase
                 'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => json_encode($data)]]]]]);
         });
         $input = ['job_description' => "Skills:\nmonthly reporting, SQL", 'resume_text' => "Alex Example\nPrepared monthly reports."];
-        $this->actingAs(User::factory()->create())->postJson('/checker/scan', $input)->assertOk()->assertJsonPath('compatibility_score', 49.67)->assertJsonPath('structure_score', 0);
+        $this->actingAs(User::factory()->create());
+        $scan = $this->postJson('/checker/scan', $input)->assertOk()->assertJsonPath('compatibility_score', 49.67)->assertJsonPath('structure_score', 0)->json();
         $this->assertDatabaseHas('ai_usage_logs', ['provider' => 'openai', 'model' => 'gpt-4.1',
             'cached_input_tokens' => 50, 'input_cost_micros' => 125, 'output_cost_micros' => 1600,
             'total_cost_micros' => 1725]);
-        $draft = $this->postJson('/checker/rewrite', [...$input, 'confirmed_keywords' => []])->assertOk()->assertJsonPath('original_score.total', 56.67)->assertJsonPath('revamped_score.total', 77.78)->json();
+        $draft = $this->postJson('/checker/rewrite', [...$input, 'confirmed_keywords' => []])->assertOk()->assertJsonPath('original_score.total', 56.67)->assertJsonPath('revamped_score.total', 77.78)->assertJsonPath('compatibility_before', $scan['compatibility_score'])->json();
         $this->post('/checker/edit', ['generated' => 1, 'resume_text' => str_replace("\n", "\r\n", $draft['rewritten_resume']),
             'structured_resume' => json_encode($draft['structured_resume']), 'original_resume_text' => str_replace("\n", "\r\n", $input['resume_text']),
             'job_description' => str_replace("\n", "\r\n", $input['job_description']), 'ai_changes' => $draft['changes'], 'score' => 100])->assertRedirect(route('builder.start'))
@@ -127,6 +128,47 @@ class CvAiAssessmentTest extends TestCase
             'cv_checker.generated' => ['original_text' => $original, 'job_description' => $job, 'text' => $revised, 'assessment' => $assessment],
         ])->get('/get-started')->assertOk()->assertSee('Revamped 65.88/100')->assertDontSee('Candidate Evidence Score')
             ->assertSessionHas('cv_builder.checker_result.assessment.original_score.total', 56.67);
+        Http::assertNothingSent();
+    }
+
+    public function test_old_flattened_bullet_review_is_refreshed_without_a_new_ai_request_or_credit_charge(): void
+    {
+        Http::preventStrayRequests();
+        $user = User::factory()->create();
+        $job = "Skills: \u{2022} SQL \u{2022} Python \u{2022} Excel";
+        $original = "Alex Example\nSkills\nSQL";
+        $revised = "Alex Example\nSkills\nSQL\nPython";
+        $comparison = app(\App\Services\CvReviewComparison::class)->make($job, $original, $revised);
+        $comparison['comparison_version'] = 12;
+        $comparison['keyword_before'] = 0;
+        $comparison['keyword_after'] = 0;
+        $credits = app(\App\Services\AiCreditService::class)->wallet($user)['credits'];
+        $this->actingAs($user)->withSession(['cv_builder' => [
+            'step' => 4, 'data' => ['name' => 'Alex Example'], 'checker_result' => $comparison,
+        ]])->get('/get-started')->assertOk()
+            ->assertSessionHas('cv_builder.checker_result.comparison_version', \App\Services\CvReviewComparison::VERSION)
+            ->assertSessionHas('cv_builder.checker_result.keyword_before', 33)
+            ->assertSessionHas('cv_builder.checker_result.keyword_after', 67);
+        $this->assertSame($credits, app(\App\Services\AiCreditService::class)->wallet($user)['credits']);
+        $this->assertDatabaseCount('ai_operations', 0);
+        Http::assertNothingSent();
+    }
+
+    public function test_review_refreshes_when_the_wording_scoring_method_changes(): void
+    {
+        Http::preventStrayRequests();
+        $user = User::factory()->create();
+        $comparison = app(\App\Services\CvReviewComparison::class)->make('SQL Python', "Alex Example\nSkills\nSQL", "Alex Example\nSkills\nSQL Python");
+        $comparison['scoring_basis'] = 'old-scoring-method';
+        $comparison['keyword_before'] = 0;
+        $comparison['keyword_after'] = 0;
+        $this->actingAs($user)->withSession(['cv_builder' => [
+            'step' => 4, 'data' => ['name' => 'Alex Example'], 'checker_result' => $comparison,
+        ]])->get('/get-started')->assertOk()
+            ->assertSessionHas('cv_builder.checker_result.scoring_basis', \App\Services\CvJobRequirements::VERSION)
+            ->assertSessionHas('cv_builder.checker_result.keyword_before', 50)
+            ->assertSessionHas('cv_builder.checker_result.keyword_after', 100);
+        $this->assertDatabaseCount('ai_operations', 0);
         Http::assertNothingSent();
     }
 

@@ -14,11 +14,4 @@
         @empty<tr><td colspan="6">No credit movements yet.</td></tr>@endforelse
         </tbody></table></div>{{ $credits->withQueryString()->links() }}
     </section>
-    <section class="panel audit-panel"><h2>Activity history</h2><p>Historical snapshots identify records that existed before audit recording was enabled.</p>
-        <div class="audit-table-scroll"><table class="audit-table"><thead><tr><th>Date recorded (UTC)</th><th>Event</th><th>Source</th><th>Details</th></tr></thead><tbody>
-        @forelse($events as $event)
-            <tr><td>{{ $event->created_at }}</td><td>{{ ucfirst(str_replace(['.', '_'], ' ', $event->event)) }}</td><td>{{ $event->source }}</td><td><details><summary>{{ $event->subject_type }} #{{ $event->subject_id }}</summary><pre>{{ json_encode(json_decode($event->details), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre></details></td></tr>
-        @empty<tr><td colspan="4">New account activity will appear here.</td></tr>@endforelse
-        </tbody></table></div>{{ $events->withQueryString()->links() }}
-    </section>
 </x-app-layout>

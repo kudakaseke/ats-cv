@@ -16,7 +16,6 @@ class ActivityController extends Controller
                 ->where('billing_payments.user_id', $owner)->select('billing_payments.*', 'subscription_plans.name as plan_name')
                 ->orderByDesc('billing_payments.id')->paginate(15, ['*'], 'payments'),
             'credits' => DB::table('ai_credit_transactions')->where('user_id', $owner)->orderByDesc('id')->paginate(20, ['*'], 'credits'),
-            'events' => DB::table('audit_events')->where('user_id', $owner)->orderByDesc('id')->paginate(20, ['*'], 'events'),
         ]);
     }
 }

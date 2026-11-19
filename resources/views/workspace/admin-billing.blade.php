@@ -1,5 +1,5 @@
 <x-admin-layout>
-    <div class="dashboard-heading"><div><h1>Paynow billing management</h1><p>Test payments are listed separately from live payments. Revenue below is gross verified payments, before fees.</p></div></div>
+    <div class="dashboard-heading"><div><h1>Paynow billing management</h1><p>Test payments are listed separately from live payments. Monthly, yearly and plan revenue uses verified live USD payments before fees. Payment totals include all statuses.</p></div></div>
     <x-input-error :messages="$errors->get('billing')" class="my-4" />
     @if(session('billing_status'))<p role="status">{{ session('billing_status') }}</p>@endif
     <section class="panel credit-summary"><h2>Payment totals</h2>

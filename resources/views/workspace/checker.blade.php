@@ -1,6 +1,7 @@
 <x-app-layout>
     <section class="ats-checker" x-data="cvChecker({{ Js::from(['csrf' => csrf_token(), 'scanUrl' => route('checker.scan'), 'uploadUrl' => route('checker.upload'), 'rewriteUrl' => route('checker.rewrite'), 'credits' => app(\App\Services\AiCreditService::class)->displayWallet(auth()->user())['credits']]) }})">
         <header class="scanner-compact-header"><h1>Job-to-CV ATS Detector</h1><div><span><strong x-text="credits"></strong> credits</span><a class="text-link" href="{{ route('subscription') }}#plans">View plans</a></div></header>
+        @if(session('status'))<p class="checker-feedback-status" role="status">{{ session('status') }}</p>@endif
         <p class="scanner-costs">Job-to-CV ATS Detector &middot; 5 credits <span aria-hidden="true">/</span> Revamp &middot; 10 credits</p>
         <ol class="checker-steps" aria-label="Resume scan progress">
             <template x-for="(label, index) in ['Job description', 'Upload resume', 'ATS scan', 'View results']" :key="label">
@@ -21,7 +22,6 @@
                 <button type="button" class="btn btn-primary" @click="$refs.file.click()" :disabled="busy" x-text="busy ? 'Reading resume...' : 'Upload Your Resume'"></button>
                 <p x-show="filename" x-text="filename" class="checker-filename" role="status"></p>
             </div>
-            <details class="checker-paste" :open="!!resumeText"><summary>Or paste resume text</summary><label for="checker-resume">Resume text &mdash; review or paste your CV</label><textarea id="checker-resume" x-model="resumeText" rows="12" maxlength="20000" placeholder="Paste your CV text here..."></textarea></details>
             <div class="checker-actions"><button class="btn btn-outline" @click="step = 1; error = ''" :disabled="busy">Back</button><button class="btn btn-primary" @click="nextResume()" :disabled="busy">Next: ATS scan</button></div>
         </section>
         <section x-show="step === 3" x-cloak class="checker-panel checker-scan">
@@ -88,6 +88,27 @@
             </div>
         </dialog>
         <form x-ref="generatedForm" method="POST" action="{{ route('checker.edit') }}" hidden>@csrf<input type="hidden" name="resume_text" :value="aiDraft?.rewritten_resume ?? ''"><input type="hidden" name="original_resume_text" :value="resumeText"><input type="hidden" name="job_description" :value="job"><input type="hidden" name="generated" value="1"><input type="hidden" name="structured_resume" :value="JSON.stringify(aiDraft?.structured_resume ?? null)"><template x-for="(change, index) in aiDraft?.changes ?? []" :key="index"><input type="hidden" name="ai_changes[]" :value="change"></template></form>
+        <dialog x-ref="reviewDialog" class="checker-review-dialog" aria-labelledby="checker-review-title" @close="reviewPromptOpen = false">
+            <button type="button" class="checker-dialog-close" aria-label="Close review prompt" @click="closeReviewPrompt()">&times;</button>
+            <div class="checker-review-content">
+                <span class="checker-review-icon" aria-hidden="true"><x-icon name="message-square" /></span>
+                <p class="checker-review-eyebrow">PRIVATE FEEDBACK</p>
+                <h2 id="checker-review-title">How is ATS CV Detector working for you?</h2>
+                <p>You’ve completed five CV scans. Tell us how it feels to use the app and about any challenges you’ve faced.</p>
+                <form method="POST" action="{{ route('feedback.submit') }}" class="checker-review-form">
+                    @csrf<input type="hidden" name="category" value="cv_analysis">
+                    <fieldset class="checker-review-rating"><legend>Your rating</legend><div class="checker-review-stars" role="radiogroup" aria-label="Rate your experience">
+                        @for($star = 5; $star >= 1; $star--)
+                            <input id="checker-review-rating-{{ $star }}" type="radio" name="rating" value="{{ $star }}" required><label for="checker-review-rating-{{ $star }}" aria-label="{{ $star }} {{ \Illuminate\Support\Str::plural('star', $star) }}">★</label>
+                        @endfor
+                    </div></fieldset>
+                    <label for="checker-review-body">What’s going well, or what challenges have you faced?</label>
+                    <textarea id="checker-review-body" name="body" required minlength="10" maxlength="3000" rows="4" placeholder="For example, tell us if something was confusing or didn’t work as expected."></textarea>
+                    <p class="checker-review-private-note">Your feedback is private and visible to the admin team only. It will not be published.</p>
+                    <div class="checker-review-actions"><button type="button" class="btn btn-outline" @click="closeReviewPrompt()">Cancel</button><button type="submit" class="btn btn-primary">Send private feedback</button></div>
+                </form>
+            </div>
+        </dialog>
     </section>
 </x-app-layout>
 

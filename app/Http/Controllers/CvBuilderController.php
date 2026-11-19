@@ -272,9 +272,9 @@ class CvBuilderController extends Controller
         }
     }
 
-    public function import(Request $request)
+    public function import(Request $request, int $maxFileKilobytes = 2048)
     {
-        $request->validate(['file' => ['required', 'file', 'mimetypes:application/pdf,application/zip,application/x-zip-compressed,application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'extensions:pdf,docx', 'max:2048']]);
+        $request->validate(['file' => ['required', 'file', 'mimetypes:application/pdf,application/zip,application/x-zip-compressed,application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'extensions:pdf,docx', 'max:'.$maxFileKilobytes]]);
         $file = $request->file('file');
         $temporaryArchive = null;
         try {

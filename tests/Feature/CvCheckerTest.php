@@ -82,7 +82,8 @@ class CvCheckerTest extends TestCase
         config(['services.openai.key' => 'fake-key']);
         Http::fake(['api.openai.com/*' => Http::response(['status' => 'completed', 'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => json_encode(['summary' => 'Comparison complete.', 'recommendations' => []])]]]]])]);
 
-        $this->actingAs(User::factory()->create())->get('/workspace/checker')->assertOk()->assertSee('Job-to-CV ATS Detector');
+        $this->actingAs(User::factory()->create())->get('/workspace/checker')->assertOk()
+            ->assertSee('Job-to-CV ATS Detector')->assertSee('Upload Your Resume')->assertDontSee('Or paste resume text');
         $this->postJson('/checker/scan', ['job_description' => 'PHP HTML CSS', 'resume_text' => 'C# Python', 'score' => 100])->assertOk()->assertJsonPath('score', 0)->assertJsonPath('missing', ['PHP', 'HTML', 'CSS']);
         $this->postJson('/checker/scan', ['job_description' => 'PHP HTML CSS', 'resume_text' => "C# Python\nSkills\nPHP HTML"])->assertOk()->assertJsonPath('score', 41)->assertJsonPath('keyword_score', 67);
         $this->postJson('/checker/scan', ['job_description' => 'and the', 'resume_text' => 'Python'])->assertUnprocessable()->assertJsonValidationErrors('job_description');
@@ -129,6 +130,28 @@ class CvCheckerTest extends TestCase
         $draft['data']['template'] = 'graduate';
         $this->withSession(['cv_builder' => $draft])->get('/get-started')->assertOk()
             ->assertSessionHas('cv_builder.data.template', 'graduate');
+    }
+
+    public function test_checker_accepts_docx_up_to_five_mb_while_builder_keeps_its_two_mb_limit(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'cvdocx-');
+        unlink($path);
+        $path .= '.zip';
+        try {
+            $archive = new \PharData($path, 0, null, \Phar::ZIP);
+            $archive['word/document.xml'] = '<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Sample CV with SQL experience</w:t></w:r></w:p></w:body></w:document>';
+            $archive['padding.bin'] = random_bytes(2 * 1024 * 1024 + 1024);
+            unset($archive);
+            $contents = file_get_contents($path);
+            $this->actingAs(User::factory()->create())->post('/checker/upload', [
+                'file' => UploadedFile::fake()->createWithContent('resume.docx', $contents),
+            ], ['Accept' => 'application/json'])->assertOk()->assertJsonPath('text', 'Sample CV with SQL experience');
+            $this->post('/get-started/import', [
+                'file' => UploadedFile::fake()->createWithContent('resume.docx', $contents),
+            ], ['Accept' => 'application/json'])->assertUnprocessable()->assertJsonValidationErrors('file');
+        } finally {
+            if (is_file($path)) unlink($path);
+        }
     }
 
     public function test_pdf_upload_uses_the_bounded_pymupdf_extractor(): void

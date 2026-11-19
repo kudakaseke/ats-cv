@@ -78,6 +78,22 @@ class CvAiRewriteTest extends TestCase
         $this->assertFalse(session()->has('cv_builder'));
     }
 
+    public function test_rewrite_that_drops_an_existing_qualification_match_is_rejected_and_refunded(): void
+    {
+        $this->setupProvider();
+        $user = auth()->user();
+        $draft = ['structured_resume' => $this->structured(), 'changes' => ['Reformatted the CV.'], 'unsupported_keywords' => []];
+        Http::fake(['generativelanguage.googleapis.com/*' => Http::response(['candidates' => [['finishReason' => 'STOP', 'content' => ['parts' => [['text' => json_encode($draft)]]]]]])]);
+
+        $this->postJson('/checker/rewrite', ['job_description' => "Qualifications\nBachelor of Accounting", 'resume_text' => "Alex Morgan\nEducation\nBachelor of Accounting\nExample University", 'confirmed_keywords' => []])
+            ->assertStatus(503)
+            ->assertJsonPath('message', 'The draft would reduce your original Wording Match, so it was not applied. Your credits were refunded. Please try again.')
+            ->assertJsonPath('credits_remaining', 15)
+            ->assertJsonMissingPath('rewritten_resume');
+
+        $this->assertDatabaseHas('ai_operations', ['user_id' => $user->id, 'feature' => 'revamp', 'status' => 'failed']);
+    }
+
     public function test_user_confirmed_skills_are_preserved_if_provider_omits_them_without_inventing_job_duties(): void
     {
         $this->setupProvider();
