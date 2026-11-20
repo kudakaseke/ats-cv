@@ -13,7 +13,7 @@
                         @if($plan->billing_interval === 'annually')<p class="plan-billing-note">US$47.40 billed yearly.</p>@endif
                         <a class="reference-plan-link" href="{{ $plan->price_cents === 0 ? route('builder.start', ['questions' => 1]) : route('subscription').'#plan-'.$plan->slug }}">{{ $plan->price_cents === 0 ? 'Get Started Free' : 'Choose plan' }} </a>
                         <x-plan-features :plan="$plan" />
-                        <small>{{ $plan->price_cents > 0 ? 'Credits added after successful payment.' : '15 welcome credits. No credit card required.' }}</small>
+                        <small>{{ $plan->price_cents > 0 ? 'Choose plan for automatic credit allocation after verified payment.' : '15 welcome credits. No credit card required.' }}</small>
                     </div>
                 @endforeach
             </article>

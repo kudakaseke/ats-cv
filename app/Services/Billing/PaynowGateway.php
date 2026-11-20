@@ -7,22 +7,20 @@ use App\Models\SubscriptionPlan;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Paynow\Payments\Paynow;
+use Paynow\Util\Hash;
 
 class PaynowGateway
 {
     public function signature(array $data): string
     {
-        $values = '';
         foreach ($data as $key => $value) {
             if (! is_scalar($value)) {
                 throw new \RuntimeException('Invalid Paynow data.');
             }
-            if (strtolower($key) !== 'hash') {
-                $values .= $value;
-            }
         }
 
-        return strtoupper(hash('sha512', $values.config('billing.paynow.integration_key')));
+        return Hash::make($data, (string) config('billing.paynow.integration_key'));
     }
 
     public function verify(array $data): bool
@@ -81,21 +79,30 @@ class PaynowGateway
         }
         $callback = fn (string $route, string $base) => $base === '' ? route($route, $payment->reference)
             : $base.route($route, $payment->reference, false);
+        $description = $payment->kind === 'topup' ? 'atscvdetector '.$payment->credits.' AI credits - one-time purchase'
+            : 'atscvdetector '.SubscriptionPlan::findOrFail($payment->subscription_plan_id)->name.' - '.$payment->credits.' AI credits - '.($payment->billing_interval === 'annually' ? 'one year' : 'one month').' access - one-time payment';
+        $returnUrl = $callback('billing.paynow.return', $returnBase !== '' ? $returnBase : $callbackBase);
+        $resultUrl = $callback('billing.paynow.notify', $callbackBase);
+        // Use the SDK's payment builder, while retaining the hardened HTTP client,
+        // exact cents formatting and merchant-trace recovery used by this app.
+        $sdk = new Paynow(config('billing.paynow.integration_id'), config('billing.paynow.integration_key'), $returnUrl, $resultUrl);
+        $authEmail = $payment->mode === 'test' ? config('billing.paynow.test_email') : $email;
+        $builder = $sdk->createPayment($payment->reference, $authEmail);
+        $builder->add($description, $payment->amount_cents / 100);
+        $item = $builder->toArray();
         $data = [
             'id' => config('billing.paynow.integration_id'),
-            'reference' => $payment->reference,
+            'reference' => $item['reference'],
             'amount' => number_format($payment->amount_cents / 100, 2, '.', ''),
-            'additionalinfo' => $payment->kind === 'topup' ? 'atscvdetector '.$payment->credits.' AI credits - one-time purchase'
-                : 'atscvdetector '.SubscriptionPlan::findOrFail($payment->subscription_plan_id)->name.' - '.$payment->credits.' AI credits - '.($payment->billing_interval === 'annually' ? 'one year' : 'one month').' access - one-time payment',
-            'returnurl' => $callback('billing.paynow.return', $returnBase !== '' ? $returnBase : $callbackBase),
-            'resulturl' => $callback('billing.paynow.notify', $callbackBase),
+            'additionalinfo' => rtrim($item['additionalinfo'], ', '),
+            'returnurl' => $returnUrl,
+            'resulturl' => $resultUrl,
             'status' => 'Message',
         ];
         if (app()->isProduction() && (parse_url($data['returnurl'], PHP_URL_SCHEME) !== 'https' || parse_url($data['resulturl'], PHP_URL_SCHEME) !== 'https')) {
             throw new \DomainException('Production Paynow callbacks require HTTPS.');
         }
         // Test payments can only be completed by the integration's merchant account.
-        $authEmail = $payment->mode === 'test' ? config('billing.paynow.test_email') : $email;
         if ($authEmail) {
             $data['authemail'] = $authEmail;
         }

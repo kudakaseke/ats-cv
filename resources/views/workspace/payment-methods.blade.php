@@ -11,9 +11,15 @@
                 @csrf
                 @php($credentialsPresent = config('billing.paynow.integration_id') && config('billing.paynow.integration_key'))
                 @if(app(\App\Http\Controllers\BillingController::class)->available('paynow'))
-                    <label class="billing-consent"><input type="checkbox" name="billing_consent" value="1" required> I agree to the <a href="{{ route('terms') }}">Terms</a> and <a href="{{ route('refund') }}">Refund Policy</a>. This is a one-time payment with no automatic renewal.</label>
-                    <button class="btn btn-outline" type="submit">Pay with Paynow{{ config('billing.paynow.mode') === 'test' ? ' (test)' : '' }}</button>
-                    @if(config('billing.paynow.mode') === 'test')<p>Testing only. Complete checkout using the Paynow merchant account. {{ \App\Models\Subscription::localTestCreditsEnabled() ? 'Verified test subscriptions activate a local test plan and credits only.' : 'Test payments do not activate a paid plan.' }}</p>@endif
+                    @if($plan->slug === 'monthly')
+                        <p>Review the <a href="{{ route('terms') }}">Terms</a> and <a href="{{ route('refund') }}">Refund Policy</a>. This is a one-time payment with no automatic renewal.</p>
+                        <a href="https://www.paynow.co.zw/Payment/BillPaymentLink/?q=aWQ9MjgyODQmYW1vdW50PTQuNzUmYW1vdW50X3F1YW50aXR5PTAuMDAmbD0x" target="_blank" rel="noopener noreferrer"><img src="https://www.paynow.co.zw/Content/Buttons/Medium_buttons/button_pay-now_medium.png" alt="Pay US$4.75 with Paynow" style="border:0"></a>
+                        <p>This payment is not linked to your account automatically. Contact support with your payment reference to arrange access and credits.</p>
+                    @else
+                        <label class="billing-consent"><input type="checkbox" name="billing_consent" value="1" required> I agree to the <a href="{{ route('terms') }}">Terms</a> and <a href="{{ route('refund') }}">Refund Policy</a>. This is a one-time payment with no automatic renewal.</label>
+                        <button class="btn btn-outline" type="submit">Pay with Paynow{{ config('billing.paynow.mode') === 'test' ? ' (test)' : '' }}</button>
+                    @endif
+                    @if(config('billing.paynow.mode') === 'test' && $plan->slug !== 'monthly')<p>Testing only. Complete checkout using the Paynow merchant account. {{ \App\Models\Subscription::localTestCreditsEnabled() ? 'Verified test subscriptions activate a local test plan and credits only.' : 'Test payments do not activate a paid plan.' }}</p>@endif
                 @else
                     <button class="btn btn-outline" type="button" disabled>Paynow — {{ $credentialsPresent ? 'currently disabled' : 'not configured' }}</button>
                 @endif
