@@ -56,6 +56,7 @@ class WorkspaceController extends Controller
                 ->whereNotNull('starts_at')->where('starts_at', '<=', now())
                 ->where(fn ($query) => $query->whereNull('ends_at')->orWhere('ends_at', '>', now()))->latest()->first(),
             'payments' => BillingPayment::where('user_id', $request->user()->id)
+                ->whereIn('billing_payments.status', ['paid', 'test_paid', 'reversed', 'cancelled', 'failed'])
                 ->leftJoin('subscription_plans', 'subscription_plans.id', '=', 'billing_payments.subscription_plan_id')
                 ->select('billing_payments.*', 'subscription_plans.name as plan_name')
                 ->orderByDesc('billing_payments.id')->paginate(10, ['*'], 'payments'),
@@ -87,6 +88,11 @@ class WorkspaceController extends Controller
 
     public function paymentMethods(string $plan): View
     {
+        if ($plan === 'day-test') {
+            abort_unless(app()->environment(['local', 'testing']), 404);
+
+            return view('workspace.test-day-payment');
+        }
         $plan = SubscriptionPlan::where('slug', $plan)->where('is_active', true)->whereIn('slug', ['monthly', 'pro', 'annual'])->firstOrFail();
 
         return view('workspace.payment-methods', compact('plan'));

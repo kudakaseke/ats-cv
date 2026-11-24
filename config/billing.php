@@ -11,6 +11,13 @@ return [
         'test_email' => env('PAYNOW_TEST_EMAIL'),
         'integration_id' => env(env('PAYNOW_MODE', 'test') === 'live' ? 'PAYNOW_LIVE_INTEGRATION_ID' : 'PAYNOW_TEST_INTEGRATION_ID', null) ?: env('PAYNOW_INTEGRATION_ID'),
         'integration_key' => env(env('PAYNOW_MODE', 'test') === 'live' ? 'PAYNOW_LIVE_INTEGRATION_KEY' : 'PAYNOW_TEST_INTEGRATION_KEY', null) ?: env('PAYNOW_INTEGRATION_KEY'),
+        'day_button_key' => env('PAYNOW_DAY_BUTTON_KEY'),
+        'day_site' => [
+            'integration_id' => env('PAYNOW_DAY_SITE_INTEGRATION_ID'),
+            'integration_key' => env('PAYNOW_DAY_SITE_INTEGRATION_KEY'),
+            'test_email' => env('PAYNOW_DAY_SITE_TEST_EMAIL'),
+            'callback_url' => env('PAYNOW_DAY_SITE_CALLBACK_URL'),
+        ],
         'currency' => 'USD',
         'live_currency_confirmed' => env('PAYNOW_LIVE_CURRENCY_CONFIRMED', false),
         // No proration: confirmed plan changes begin after all existing paid time.

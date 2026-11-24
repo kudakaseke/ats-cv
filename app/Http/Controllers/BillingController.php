@@ -15,6 +15,7 @@ use App\Services\Billing\PaymentService;
 use App\Services\Billing\PaynowGateway;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class BillingController extends Controller
@@ -22,10 +23,21 @@ class BillingController extends Controller
     public function start(Request $request, string $provider, string $plan)
     {
         abort_unless($provider === 'paynow', 404);
-        $offer = SubscriptionPlan::where('slug', $plan)->where('is_active', true)->whereIn('slug', ['monthly', 'pro', 'annual'])->firstOrFail();
+        if ($plan === 'day-test') {
+            abort_unless(app()->environment('local') && config('billing.paynow.mode') === 'test', 404);
+            $offer = SubscriptionPlan::firstOrCreate(['slug' => 'day-test'], ['name' => 'One-day test', 'price_cents' => 10,
+                'currency' => 'USD', 'billing_interval' => 'daily', 'is_active' => false, 'features' => []]);
+            abort_unless($offer->price_cents === 10 && $offer->currency === 'USD' && $offer->billing_interval === 'daily', 503);
+        } else {
+            $offer = SubscriptionPlan::where('slug', $plan)->where('is_active', true)->whereIn('slug', ['monthly', 'pro', 'annual'])->firstOrFail();
+        }
         abort_unless($offer->currency === 'USD' && $offer->price_cents > 0 && config('ai_credits.plans.'.$offer->slug) > 0, 503);
         $request->validate(['billing_consent' => ['accepted']]);
-        if (! $this->available($provider)) {
+        if ($plan === 'day-test' && (! config('billing.paynow.enabled') || ! config('billing.paynow.day_site.integration_id') || ! config('billing.paynow.day_site.integration_key')
+            || ! config('billing.paynow.day_site.test_email') || ! config('billing.paynow.local_test_credits'))) {
+            return to_route('subscription.payment-methods', 'day-test')->withErrors(['billing' => 'The test checkout is not configured yet.']);
+        }
+        if ($plan !== 'day-test' && ! $this->available($provider)) {
             return to_route('subscription')->withErrors(['billing' => ucfirst($provider).' checkout is not available yet.']);
         }
         if (config('billing.paynow.plan_change_policy') !== 'end_of_cycle' && $request->user()->subscriptions()->whereIn('status', Subscription::availableStatuses())->where('ends_at', '>', now())
@@ -36,7 +48,10 @@ class BillingController extends Controller
             User::whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
             if ($provider === 'paynow') {
                 $existing = BillingPayment::where('user_id', $request->user()->id)->where('provider', 'paynow')
-                    ->where('mode', config('billing.paynow.mode'))->where('status', 'pending')->where('kind', 'subscription')->lockForUpdate()->first();
+                    ->where('mode', config('billing.paynow.mode'))->where('status', 'pending')->where('kind', 'subscription')
+                    ->where('subscription_plan_id', $offer->id)->where('amount_cents', $offer->price_cents)
+                    ->where('currency', $offer->currency)->where('created_at', '>=', now()->subMinute())
+                    ->lockForUpdate()->first();
                 if ($existing) {
                     return $existing;
                 }
@@ -69,12 +84,8 @@ class BillingController extends Controller
             return to_route('subscription')->withErrors(['billing' => 'An existing subscription or prepaid renewal is still open. Contact support before starting another purchase.']);
         }
         if ($provider === 'paynow' && ! $payment->wasRecentlyCreated) {
-            if ($payment->subscription_plan_id !== $offer->id || $payment->amount_cents !== $offer->price_cents
-                || $payment->currency !== $offer->currency) {
-                $existingPlan = SubscriptionPlan::findOrFail($payment->subscription_plan_id);
-
-                return to_route('subscription.payment-methods', $offer->slug)->withErrors(['billing' => 'You have an unfinished '.$existingPlan->name.' checkout for '.$payment->currency.' '.number_format($payment->amount_cents / 100, 2).
-                    '. No '.$offer->name.' checkout was started. Review the existing checkout in Payment History, cancel it at Paynow if unwanted, and check its status before trying again.']);
+            if ($payment->checkout_url && app(PaynowGateway::class)->safeUrl($payment->checkout_url)) {
+                return redirect()->away($payment->checkout_url);
             }
 
             return to_route('billing.show', $payment->reference);
@@ -191,18 +202,27 @@ class BillingController extends Controller
     {
         abort_if(strlen($request->getContent()) > 65536, 413);
         parse_str($request->getContent(), $data);
-        abort_unless($gateway->verify($data), 400);
+        $payment = BillingPayment::where('reference', $reference)->where('provider', 'paynow')->first();
+        if (! $payment) {
+            abort_unless($gateway->verify($data), 400);
+            abort(404);
+        }
+        if (! $gateway->verify($data, $payment)) {
+            Log::warning('Paynow notification rejected: invalid signature.', ['payment_id' => $payment->id]);
+            abort(400);
+        }
         $safe = array_intersect_key(array_change_key_case($data, CASE_LOWER), array_flip(['reference', 'amount', 'paynowreference', 'status']));
         $safe = array_map(fn ($value) => is_scalar($value) ? mb_substr((string) $value, 0, 255) : '[invalid]', $safe);
         ksort($safe);
         $fingerprint = hash('sha256', json_encode($safe, JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR));
-        $payment = BillingPayment::where('reference', $reference)->where('provider', 'paynow')->first();
         $data = array_change_key_case($data, CASE_LOWER);
         abort_unless(is_string($data['reference'] ?? null) && hash_equals($reference, $data['reference']), 400);
         abort_unless($payment, 404);
         if (! $gateway->matches($payment, $data)) {
+            Log::warning('Paynow notification rejected: payment details mismatch.', ['payment_id' => $payment->id]);
             abort(400);
         }
+        Log::info('Paynow notification authenticated; verifying payment.', ['payment_id' => $payment->id]);
         DB::table('payment_notifications')->insertOrIgnore(['billing_payment_id' => $payment->id, 'fingerprint' => $fingerprint,
             'payload' => json_encode($safe, JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR), 'hash_valid' => true,
             'error' => null, 'created_at' => now(), 'updated_at' => now()]);

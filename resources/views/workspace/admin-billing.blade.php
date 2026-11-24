@@ -25,6 +25,6 @@
             </td></tr>@endforeach
         </tbody></table></div>{{ $payments->links() }}
     </section>
-    <section class="panel credit-summary"><h2>Unprocessed notifications</h2>@forelse($notifications as $notification)<p>#{{ $notification->id }} · Payment {{ $notification->billing_payment_id ?? 'Unknown' }} · {{ $notification->hash_valid ? 'Authenticated' : 'Invalid hash' }} · {{ $notification->error ?? 'Awaiting processing' }}</p>@empty<p>No unprocessed notifications.</p>@endforelse</section>
+    <section class="panel credit-summary"><h2>Unprocessed notifications</h2>@forelse($notifications as $notification)@php($notificationDetails = json_decode($notification->payload, true) ?: [])<p>#{{ $notification->id }} · Payment {{ $notification->billing_payment_id ?? 'Unknown' }}@if(($notificationDetails['type'] ?? '') === 'day_button') · Paynow reference {{ $notificationDetails['paynow_reference'] ?? 'Unknown' }} · USD {{ $notificationDetails['transaction_amount'] ?? 'Unknown' }}@endif · {{ $notification->hash_valid ? 'Authenticated' : 'Invalid hash' }} · {{ $notification->error ?? 'Awaiting processing' }}</p>@empty<p>No unprocessed notifications.</p>@endforelse</section>
     <section class="panel credit-summary"><h2>Refund and dispute reviews</h2>@forelse($reviews as $review)<p>Payment {{ $review->billing_payment_id }} · {{ $review->type }} · {{ $review->notes }}</p>@empty<p>No reviews.</p>@endforelse</section>
 </x-admin-layout>

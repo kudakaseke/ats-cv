@@ -8,7 +8,7 @@
             <h2 id="active-plan-heading">Active Plan</h2>
             <h3>{{ $currentPlan->name }}</h3>
             @if($activeSubscription)
-                <p>Billing cycle: {{ $currentPlan->billing_interval === 'annually' ? 'Annual' : 'Monthly' }}. Paid access expires {{ $activeSubscription->ends_at?->format('d M Y') }}.</p>
+                <p>Billing cycle: {{ $currentPlan->billing_interval === 'daily' ? 'One day (test)' : ($currentPlan->billing_interval === 'annually' ? 'Annual' : 'Monthly') }}. Paid access expires {{ $activeSubscription->ends_at?->format('d M Y H:i') }}.</p>
                 @if(!$activeSubscription->auto_renew && \App\Models\BillingPayment::where('subscription_id', $activeSubscription->id)->where('provider', 'paynow')->exists())
                     <p>Renew manually. No automatic Paynow deductions.</p>
                     <a class="btn btn-outline" href="{{ route('subscription.payment-methods', $currentPlan->slug) }}">Renew subscription</a>
@@ -16,7 +16,7 @@
                 @endif
                 <p>Active subscription</p>
                 <p>Started {{ $activeSubscription->starts_at->format('d M Y') }}@if($activeSubscription->ends_at) &middot; Paid access until {{ $activeSubscription->ends_at->format('d M Y') }}@endif.</p>
-                <p>{{ config('ai_credits.plans.'.$currentPlan->slug) }} credits per {{ $currentPlan->slug === 'annual' ? 'paid year' : 'monthly release' }}.</p>
+                <p>{{ config('ai_credits.plans.'.$currentPlan->slug) }} credits per {{ $currentPlan->slug === 'day-test' ? 'test day' : ($currentPlan->slug === 'annual' ? 'paid year' : 'monthly release') }}.</p>
             @else
                 <p>Free access with {{ count(config('cv_access.free_templates')) }} templates and one saved CV. Your 15 welcome credits are added once.</p>
             @endif
@@ -31,6 +31,14 @@
     </section>
     <section id="plans" class="subscription-section" aria-labelledby="plans-heading">
     <h2 id="plans-heading" class="subscription-section-heading">Plans</h2>
+    @if(app()->environment(['local', 'testing']))
+        <article class="panel credit-summary" id="plan-day-test">
+            <h3>One-day test plan</h3>
+            <p>US$0.10 for one day and 15 AI credits. For testing only.</p>
+            <p>Payments and credits require manual verification and activation.</p>
+            <a class="btn btn-primary" href="{{ route('subscription.payment-methods', 'day-test') }}">Choose test plan</a>
+        </article>
+    @endif
     <div class="pricing-grid workspace-pricing">
         @foreach ($plans->where('slug', '!=', 'pro') as $basePlan)
             <article id="plan-{{ $basePlan->slug }}" @if($basePlan->slug === 'monthly') :id="pro ? 'plan-pro' : 'plan-monthly'" @endif class="pricing-card {{ $basePlan->slug === $currentPlan->slug || ($basePlan->slug === 'monthly' && $currentPlan->slug === 'pro') ? 'featured' : '' }}" x-data="{ pro: window.location.hash === '#plan-pro' }" @hashchange.window="if (window.location.hash === '#plan-pro') pro = true; if (window.location.hash === '#plan-monthly') pro = false">
@@ -69,7 +77,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="6">No payments yet. Your payment history will appear here after checkout.</td></tr>
+                <tr><td colspan="6">No payments yet. Completed payment attempts will appear here.</td></tr>
             @endforelse
             </tbody>
         </table></div>

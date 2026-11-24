@@ -112,7 +112,7 @@ class SectionController extends Controller
                     ->select('subscription_plans.slug', DB::raw('count(distinct current_subscription.user_id) as users'))
                     ->groupBy('subscription_plans.slug')
                     ->pluck('users', 'slug');
-                $plans = DB::table('subscription_plans')->whereIn('slug', ['monthly', 'pro', 'annual'])->get()->keyBy('slug');
+                $plans = DB::table('subscription_plans')->whereIn('slug', ['monthly', 'pro', 'annual', 'day-test'])->get()->keyBy('slug');
                 $formatPlanPrice = static function (?object $plan, string $interval = ''): string {
                     if (! $plan) {
                         return 'price unavailable';
@@ -123,7 +123,7 @@ class SectionController extends Controller
 
                     return $interval === '' ? $price : $price.'/'.$interval;
                 };
-                $paidSlugs = ['monthly', 'pro', 'annual'];
+                $paidSlugs = ['monthly', 'pro', 'annual', 'day-test'];
                 $paidUsers = collect($currentPlanCounts)->except('free')->sum();
                 $otherPlanUsers = collect($currentPlanCounts)->except([...$paidSlugs, 'free'])->sum();
                 $stats = [
@@ -138,6 +138,9 @@ class SectionController extends Controller
                     ['name' => 'Pro', 'price' => $formatPlanPrice($plans->get('pro'), 'month'), 'users' => (int) ($currentPlanCounts['pro'] ?? 0)],
                     ['name' => 'Annual', 'price' => $formatPlanPrice($plans->get('annual'), 'year'), 'users' => (int) ($currentPlanCounts['annual'] ?? 0)],
                 ];
+                if ($plans->has('day-test')) {
+                    $planBreakdown[] = ['name' => 'One-day test', 'price' => $formatPlanPrice($plans->get('day-test'), 'day'), 'users' => (int) ($currentPlanCounts['day-test'] ?? 0)];
+                }
                 if ($otherPlanUsers > 0) {
                     $planBreakdown[] = ['name' => 'Other / legacy', 'price' => 'Retired or unlisted plans', 'users' => $otherPlanUsers];
                 }

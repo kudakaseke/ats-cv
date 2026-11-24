@@ -51,6 +51,24 @@ class PaymentReturnTest extends TestCase
         $this->assertDatabaseCount('subscriptions', 0);
     }
 
+    public function test_verified_cancelled_return_displays_message_and_grants_nothing(): void
+    {
+        $payment = $this->payment();
+        $this->mock(PaynowGateway::class)->shouldReceive('status')->once()->andReturn('cancelled');
+        $this->get(route('billing.paynow.return', $payment->reference))->assertOk()
+            ->assertSee('Payment cancelled')->assertSee('No access or credits were added by this attempt.');
+        $this->assertSame('cancelled', $payment->fresh()->status);
+        $this->assertDatabaseCount('subscriptions', 0);
+    }
+
+    public function test_button_cancel_page_never_grants_credits(): void
+    {
+        $this->actingAs(User::factory()->create())->get(route('billing.cancelled'))->assertOk()
+            ->assertSee('Payment cancelled')->assertSee('does not confirm a payment or add credits');
+        $this->assertDatabaseCount('subscriptions', 0);
+        $this->assertDatabaseMissing('ai_credit_transactions', ['type' => 'subscription_allocation']);
+    }
+
     public function test_polling_a_confirmed_payment_returns_dashboard_and_actual_balance(): void
     {
         $payment = $this->payment();

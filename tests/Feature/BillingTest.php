@@ -83,7 +83,14 @@ class BillingTest extends TestCase
         config(['billing.paynow.enabled' => false]);
         $this->actingAs(User::factory()->create())->get('/subscription/monthly/payment-method')->assertOk()->assertSee('Paynow — currently disabled');
         config(['billing.paynow.enabled' => true]);
-        $this->get('/subscription/monthly/payment-method')->assertOk()->assertSee('Pay with Paynow');
+        $this->get('/subscription/monthly/payment-method')->assertOk()
+            ->assertSee('Pay US$4.75 with Paynow')->assertSee('This payment is not linked to your account automatically.');
+        $this->get('/subscription/pro/payment-method')->assertOk()->assertSee('Pay US$6.50 with Paynow')
+            ->assertSee('aWQ9MjgyOTUmYW1vdW50PTYuNTAmYW1vdW50X3F1YW50aXR5PTAuMDAmbD0x')
+            ->assertSee('This payment is not linked to your account automatically.');
+        $this->get('/subscription/annual/payment-method')->assertOk()->assertSee('Pay US$47.40 with Paynow')
+            ->assertSee('aWQ9MjgzNDcmYW1vdW50PTQ3LjQwJmFtb3VudF9xdWFudGl0eT0wLjAwJmw9MQ%3D%3D')
+            ->assertSee('This payment is not linked to your account automatically.');
     }
 
     public function test_paynow_rejects_insecure_callback_override_without_contacting_provider(): void

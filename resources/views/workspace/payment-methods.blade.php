@@ -11,15 +11,20 @@
                 @csrf
                 @php($credentialsPresent = config('billing.paynow.integration_id') && config('billing.paynow.integration_key'))
                 @if(app(\App\Http\Controllers\BillingController::class)->available('paynow'))
-                    @if($plan->slug === 'monthly')
+                    @if(in_array($plan->slug, ['monthly', 'pro', 'annual'], true))
                         <p>Review the <a href="{{ route('terms') }}">Terms</a> and <a href="{{ route('refund') }}">Refund Policy</a>. This is a one-time payment with no automatic renewal.</p>
-                        <a href="https://www.paynow.co.zw/Payment/BillPaymentLink/?q=aWQ9MjgyODQmYW1vdW50PTQuNzUmYW1vdW50X3F1YW50aXR5PTAuMDAmbD0x" target="_blank" rel="noopener noreferrer"><img src="https://www.paynow.co.zw/Content/Buttons/Medium_buttons/button_pay-now_medium.png" alt="Pay US$4.75 with Paynow" style="border:0"></a>
+                        @if($plan->slug === 'monthly')
+                            <a href="https://www.paynow.co.zw/Payment/BillPaymentLink/?q=aWQ9MjgyODQmYW1vdW50PTQuNzUmYW1vdW50X3F1YW50aXR5PTAuMDAmbD0x" target="_blank" rel="noopener noreferrer"><img src="https://www.paynow.co.zw/Content/Buttons/Medium_buttons/button_pay-now_medium.png" alt="Pay US$4.75 with Paynow" style="border:0"></a>
+                        @elseif($plan->slug === 'pro')
+                            <a href="https://www.paynow.co.zw/Payment/BillPaymentLink/?q=aWQ9MjgyOTUmYW1vdW50PTYuNTAmYW1vdW50X3F1YW50aXR5PTAuMDAmbD0x" target="_blank" rel="noopener noreferrer"><img src="https://www.paynow.co.zw/Content/Buttons/Medium_buttons/button_pay-now_medium.png" alt="Pay US$6.50 with Paynow" style="border:0"></a>
+                        @else
+                            <a href="https://www.paynow.co.zw/Payment/BillPaymentLink/?q=aWQ9MjgzNDcmYW1vdW50PTQ3LjQwJmFtb3VudF9xdWFudGl0eT0wLjAwJmw9MQ%3D%3D" target="_blank" rel="noopener noreferrer"><img src="https://www.paynow.co.zw/Content/Buttons/Medium_buttons/button_pay-now_medium.png" alt="Pay US$47.40 with Paynow" style="border:0"></a>
+                        @endif
                         <p>This payment is not linked to your account automatically. Contact support with your payment reference to arrange access and credits.</p>
                     @else
                         <label class="billing-consent"><input type="checkbox" name="billing_consent" value="1" required> I agree to the <a href="{{ route('terms') }}">Terms</a> and <a href="{{ route('refund') }}">Refund Policy</a>. This is a one-time payment with no automatic renewal.</label>
                         <button class="btn btn-outline" type="submit">Pay with Paynow{{ config('billing.paynow.mode') === 'test' ? ' (test)' : '' }}</button>
                     @endif
-                    @if(config('billing.paynow.mode') === 'test' && $plan->slug !== 'monthly')<p>Testing only. Complete checkout using the Paynow merchant account. {{ \App\Models\Subscription::localTestCreditsEnabled() ? 'Verified test subscriptions activate a local test plan and credits only.' : 'Test payments do not activate a paid plan.' }}</p>@endif
                 @else
                     <button class="btn btn-outline" type="button" disabled>Paynow — {{ $credentialsPresent ? 'currently disabled' : 'not configured' }}</button>
                 @endif

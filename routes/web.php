@@ -35,6 +35,11 @@ Route::view('/privacy', 'legal.privacy')->name('privacy');
 Route::view('/terms', 'legal.terms')->name('terms');
 Route::view('/refund-policy', 'legal.refund')->name('refund');
 Route::view('/contact', 'legal.contact')->name('contact');
+Route::view('/payment/cancelled', 'workspace.checkout-cancelled')->middleware(['auth', 'verified'])->name('billing.cancelled');
+Route::post('/billing/paynow/notify/button-day', [\App\Http\Controllers\PaynowButtonNotificationController::class, 'receive'])
+    ->withoutMiddleware([ValidateCsrfToken::class, StartSession::class,
+        ShareErrorsFromSession::class, RecordAccountActivity::class])
+    ->middleware('throttle:payment-notify')->name('billing.paynow.button-day.notify');
 Route::post('/billing/paynow/notify/{reference}', [BillingController::class, 'paynowNotify'])
     ->withoutMiddleware([ValidateCsrfToken::class, StartSession::class,
         ShareErrorsFromSession::class, RecordAccountActivity::class])

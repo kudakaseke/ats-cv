@@ -87,7 +87,11 @@ class PaymentService
                 $subscription = new Subscription;
                 $subscription->forceFill(['user_id' => $locked->user_id, 'subscription_plan_id' => $locked->subscription_plan_id,
                     'status' => $sandbox ? 'sandbox_active' : 'active', 'starts_at' => $start,
-                    'ends_at' => $locked->billing_interval === 'annually' ? $start->copy()->addYearNoOverflow() : $start->copy()->addMonthNoOverflow()])->save();
+                    'ends_at' => match ($locked->billing_interval) {
+                        'daily' => $start->copy()->addDay(),
+                        'annually' => $start->copy()->addYearNoOverflow(),
+                        default => $start->copy()->addMonthNoOverflow(),
+                    }])->save();
                 $locked->subscription_id = $subscription->id;
                 $locked->paid_at = now();
                 $locked->status = $sandbox ? 'test_paid' : 'paid';

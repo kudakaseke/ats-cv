@@ -38,6 +38,8 @@ class AccountAuditTest extends TestCase
         $other = User::factory()->create();
         $mine = $this->payment($owner, 'test');
         $theirs = $this->payment($other, 'test');
+        $mine->update(['status' => 'test_paid']);
+        $theirs->update(['status' => 'test_paid']);
         $this->actingAs($owner)->get(route('account.activity'))->assertOk()
             ->assertSee('Payment history')->assertSee('Credit ledger')->assertDontSee('Activity history')
             ->assertSee($mine->reference)->assertDontSee($theirs->reference);

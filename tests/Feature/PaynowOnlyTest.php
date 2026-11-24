@@ -62,21 +62,32 @@ class PaynowOnlyTest extends TestCase
         $this->assertDatabaseCount('billing_payments', 3);
     }
 
-    public function test_pending_monthly_checkout_cannot_be_reused_as_pro_or_annual(): void
+    public function test_pending_monthly_checkout_does_not_block_other_plans(): void
     {
         $monthly = BillingPayment::create(['reference' => 'pending-monthly', 'user_id' => auth()->id(),
             'subscription_plan_id' => SubscriptionPlan::where('slug', 'monthly')->value('id'),
             'provider' => 'paynow', 'mode' => 'test', 'amount_cents' => 475, 'credits' => 150,
             'currency' => 'USD', 'billing_interval' => 'monthly']);
-        $this->mock(PaynowGateway::class)->shouldNotReceive('start');
+        $this->mock(PaynowGateway::class)->shouldReceive('start')->twice()->andReturn('https://www.paynow.co.zw/Payment/fixture');
         foreach (['pro', 'annual'] as $slug) {
             $this->post('/billing/paynow/'.$slug, ['billing_consent' => 1])
-                ->assertRedirect(route('subscription.payment-methods', $slug))->assertSessionHasErrors('billing');
+                ->assertRedirect('https://www.paynow.co.zw/Payment/fixture');
         }
-        $this->assertDatabaseCount('billing_payments', 1);
+        $this->assertDatabaseCount('billing_payments', 3);
         $this->assertSame(475, $monthly->fresh()->amount_cents);
         $this->assertSame('pending', $monthly->fresh()->status);
         Http::assertNothingSent();
+    }
+
+    public function test_old_unfinished_checkout_does_not_block_a_new_checkout_for_the_same_plan(): void
+    {
+        BillingPayment::create(['reference' => 'old-checkout', 'user_id' => auth()->id(),
+            'subscription_plan_id' => SubscriptionPlan::where('slug', 'monthly')->value('id'),
+            'provider' => 'paynow', 'mode' => 'test', 'amount_cents' => 475, 'credits' => 150,
+            'currency' => 'USD', 'billing_interval' => 'monthly'])->forceFill(['created_at' => now()->subMinutes(2)])->save();
+        $this->mock(PaynowGateway::class)->shouldReceive('start')->once()->andReturn('https://www.paynow.co.zw/Payment/fixture');
+        $this->post('/billing/paynow/monthly', ['billing_consent' => 1])->assertRedirect('https://www.paynow.co.zw/Payment/fixture');
+        $this->assertDatabaseCount('billing_payments', 2);
     }
 
     public function test_stale_jobs_and_manual_checks_do_not_requeue_retired_providers(): void

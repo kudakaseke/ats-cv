@@ -220,8 +220,8 @@ class PaynowLifecycleTest extends TestCase
     public static function statuses(): array
     {
         return [['Created', 'pending', 0], ['Sent', 'pending', 0], ['Paid', 'paid', 1],
-            ['Awaiting Delivery', 'paid', 1], ['Delivered', 'paid', 1], ['Cancelled', 'cancelled', 0],
-            ['Disputed', 'reversed', 0], ['Refunded', 'reversed', 0], ['Unexpected', 'pending', 0]];
+            ['Awaiting Delivery', 'pending', 0], ['Delivered', 'pending', 0], ['Cancelled', 'cancelled', 0],
+            ['Disputed', 'reversed', 0], ['Refunded', 'reversed', 0], ['Failed', 'failed', 0], ['Unexpected', 'pending', 0]];
     }
 
     #[DataProvider('statuses')]

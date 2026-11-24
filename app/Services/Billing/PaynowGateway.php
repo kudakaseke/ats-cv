@@ -12,7 +12,16 @@ use Paynow\Util\Hash;
 
 class PaynowGateway
 {
-    public function signature(array $data): string
+    private function credentials(?BillingPayment $payment): array
+    {
+        if ($payment && SubscriptionPlan::whereKey($payment->subscription_plan_id)->value('slug') === 'day-test') {
+            return [config('billing.paynow.day_site.integration_id'), config('billing.paynow.day_site.integration_key')];
+        }
+
+        return [config('billing.paynow.integration_id'), config('billing.paynow.integration_key')];
+    }
+
+    public function signature(array $data, ?BillingPayment $payment = null): string
     {
         foreach ($data as $key => $value) {
             if (! is_scalar($value)) {
@@ -20,10 +29,10 @@ class PaynowGateway
             }
         }
 
-        return Hash::make($data, (string) config('billing.paynow.integration_key'));
+        return Hash::make($data, (string) $this->credentials($payment)[1]);
     }
 
-    public function verify(array $data): bool
+    public function verify(array $data, ?BillingPayment $payment = null): bool
     {
         $data = array_change_key_case($data, CASE_LOWER);
 
@@ -33,15 +42,15 @@ class PaynowGateway
             }
         }
 
-        return config('billing.paynow.integration_key') && is_string($data['hash'] ?? null)
-            && hash_equals($this->signature($data), strtoupper($data['hash']));
+        return $this->credentials($payment)[1] && is_string($data['hash'] ?? null)
+            && hash_equals($this->signature($data, $payment), strtoupper($data['hash']));
     }
 
-    private function parse(string $body): array
+    private function parse(string $body, ?BillingPayment $payment = null): array
     {
         parse_str($body, $data);
         $data = array_change_key_case($data, CASE_LOWER);
-        if (! $this->verify($data)) {
+        if (! $this->verify($data, $payment)) {
             throw new \RuntimeException('Invalid Paynow signature.');
         }
 
@@ -50,13 +59,18 @@ class PaynowGateway
 
     public function start(BillingPayment $payment, string $email): string
     {
+        [$integrationId, $integrationKey] = $this->credentials($payment);
+        if (! $integrationId || ! $integrationKey) {
+            throw new \DomainException('Paynow integration is not configured.');
+        }
+        $isDayTest = SubscriptionPlan::whereKey($payment->subscription_plan_id)->value('slug') === 'day-test';
         if (! in_array($payment->mode, ['test', 'live'], true) || $payment->currency !== 'USD' || $payment->amount_cents < 1) {
             throw new \DomainException('Invalid Paynow payment configuration.');
         }
         if ($payment->mode === 'live' && ! config('billing.paynow.live_currency_confirmed')) {
             throw new \DomainException('Confirm the merchant USD currency before enabling live checkout.');
         }
-        $callbackBase = rtrim((string) config('billing.paynow.callback_url'), '/');
+        $callbackBase = rtrim((string) ($isDayTest ? config('billing.paynow.day_site.callback_url') : config('billing.paynow.callback_url')), '/');
         if ($callbackBase !== '' && (parse_url($callbackBase, PHP_URL_SCHEME) !== 'https'
             || ! parse_url($callbackBase, PHP_URL_HOST) || parse_url($callbackBase, PHP_URL_USER)
             || parse_url($callbackBase, PHP_URL_PASS) || parse_url($callbackBase, PHP_URL_QUERY)
@@ -80,18 +94,18 @@ class PaynowGateway
         $callback = fn (string $route, string $base) => $base === '' ? route($route, $payment->reference)
             : $base.route($route, $payment->reference, false);
         $description = $payment->kind === 'topup' ? 'atscvdetector '.$payment->credits.' AI credits - one-time purchase'
-            : 'atscvdetector '.SubscriptionPlan::findOrFail($payment->subscription_plan_id)->name.' - '.$payment->credits.' AI credits - '.($payment->billing_interval === 'annually' ? 'one year' : 'one month').' access - one-time payment';
+            : 'atscvdetector '.SubscriptionPlan::findOrFail($payment->subscription_plan_id)->name.' - '.$payment->credits.' AI credits - '.($isDayTest ? 'one day' : ($payment->billing_interval === 'annually' ? 'one year' : 'one month')).' access - one-time payment';
         $returnUrl = $callback('billing.paynow.return', $returnBase !== '' ? $returnBase : $callbackBase);
         $resultUrl = $callback('billing.paynow.notify', $callbackBase);
         // Use the SDK's payment builder, while retaining the hardened HTTP client,
         // exact cents formatting and merchant-trace recovery used by this app.
-        $sdk = new Paynow(config('billing.paynow.integration_id'), config('billing.paynow.integration_key'), $returnUrl, $resultUrl);
-        $authEmail = $payment->mode === 'test' ? config('billing.paynow.test_email') : $email;
+        $sdk = new Paynow($integrationId, $integrationKey, $returnUrl, $resultUrl);
+        $authEmail = $payment->mode === 'test' ? ($isDayTest ? config('billing.paynow.day_site.test_email') : config('billing.paynow.test_email')) : $email;
         $builder = $sdk->createPayment($payment->reference, $authEmail);
         $builder->add($description, $payment->amount_cents / 100);
         $item = $builder->toArray();
         $data = [
-            'id' => config('billing.paynow.integration_id'),
+            'id' => $integrationId,
             'reference' => $item['reference'],
             'amount' => number_format($payment->amount_cents / 100, 2, '.', ''),
             'additionalinfo' => rtrim($item['additionalinfo'], ', '),
@@ -109,9 +123,9 @@ class PaynowGateway
         // Persist the documented recovery identifier before sending an initialization.
         $payment->update(['merchant_trace' => substr(hash('sha256', $payment->reference), 0, 32)]);
         $data['merchanttrace'] = $payment->merchant_trace;
-        $data['hash'] = $this->signature($data);
+        $data['hash'] = $this->signature($data, $payment);
         $result = $this->parse(Http::asForm()->timeout(20)->withoutRedirecting()
-            ->post('https://www.paynow.co.zw/interface/initiatetransaction', $data)->throw()->body());
+            ->post('https://www.paynow.co.zw/interface/initiatetransaction', $data)->throw()->body(), $payment);
         if (strtolower($result['status'] ?? '') === 'error') {
             throw new \DomainException('Paynow rejected checkout initialization.');
         }
@@ -159,10 +173,10 @@ class PaynowGateway
     public function status(BillingPayment $payment): string
     {
         if (! $payment->poll_url && $payment->merchant_trace) {
-            $data = ['id' => config('billing.paynow.integration_id'), 'merchanttrace' => $payment->merchant_trace, 'status' => 'Message'];
-            $data['hash'] = $this->signature($data);
+            $data = ['id' => $this->credentials($payment)[0], 'merchanttrace' => $payment->merchant_trace, 'status' => 'Message'];
+            $data['hash'] = $this->signature($data, $payment);
             $trace = $this->parse(Http::asForm()->timeout(20)->withoutRedirecting()
-                ->post('https://www.paynow.co.zw/interface/trace', $data)->throw()->body());
+                ->post('https://www.paynow.co.zw/interface/trace', $data)->throw()->body(), $payment);
             if (strtolower($trace['status'] ?? '') === 'notfound') {
                 $payment->update(['next_check_at' => now()->addMinutes(5), 'verification_attempts' => $payment->verification_attempts + 1]);
 
@@ -183,7 +197,7 @@ class PaynowGateway
         if (! $payment->poll_url || ! $this->safePollUrl($payment->poll_url)) {
             return 'pending';
         }
-        $result = $this->parse(Http::asForm()->timeout(20)->withoutRedirecting()->post($payment->poll_url, [])->throw()->body());
+        $result = $this->parse(Http::asForm()->timeout(20)->withoutRedirecting()->post($payment->poll_url, [])->throw()->body(), $payment);
         if (! $this->matches($payment, $result)) {
             throw new \RuntimeException('Payment details do not match.');
         }
@@ -198,13 +212,15 @@ class PaynowGateway
             }
             $locked->update(['provider_reference' => $reference, 'provider_status' => $result['status'] ?? 'Unknown',
                 'verified_at' => now(), 'verification_attempts' => $locked->verification_attempts + 1,
-                'next_check_at' => now()->addMinutes(in_array(strtolower($result['status'] ?? ''), ['paid', 'awaiting delivery', 'delivered', 'refunded', 'disputed', 'cancelled'], true) ? 1440 : 5)]);
+                'next_check_at' => now()->addMinutes(in_array(strtolower($result['status'] ?? ''), ['paid', 'refunded', 'disputed', 'cancelled'], true) ? 1440 : 5)]);
         });
 
         return match (strtolower($result['status'] ?? '')) {
-            'paid', 'awaiting delivery', 'delivered' => 'paid',
+            'paid' => 'paid',
+            'awaiting delivery', 'delivered' => 'pending',
             'refunded', 'disputed' => 'reversed',
             'cancelled' => 'cancelled',
+            'failed' => 'failed',
             default => 'pending',
         };
     }
