@@ -30,7 +30,7 @@ class BillingTest extends TestCase
 
     public function test_checkout_return_rechecks_recent_pending_status_and_redirects_after_verified_payment(): void
     {
-        config(['performance.queue_payment_checks' => false]);
+        config(['performance.queue_payment_checks' => true]);
         foreach (['test', 'live'] as $mode) {
             $payment = $this->payment(mode: $mode);
             $payment->update(['verified_at' => now(), 'provider_status' => 'Created', 'credits' => 150]);
@@ -63,6 +63,29 @@ class BillingTest extends TestCase
         $this->assertDatabaseCount('subscriptions', 0);
     }
 
+    public function test_each_plan_return_verifies_and_allocates_its_own_credits_only_once(): void
+    {
+        config(['performance.queue_payment_checks' => true]);
+        foreach (['monthly' => [475, 150], 'pro' => [650, 225], 'annual' => [4740, 2400]] as $slug => [$cents, $credits]) {
+            $plan = SubscriptionPlan::where('slug', $slug)->firstOrFail();
+            $user = User::factory()->create();
+            $payment = BillingPayment::create(['reference' => (string) Str::uuid(), 'user_id' => $user->id,
+                'subscription_plan_id' => $plan->id, 'provider' => 'paynow', 'mode' => 'live',
+                'amount_cents' => $cents, 'currency' => 'USD', 'credits' => $credits,
+                'billing_interval' => $plan->billing_interval,
+                'poll_url' => 'https://www.paynow.co.zw/interface/checkpayment?guid='.$slug]);
+            Http::swap(new Factory);
+            Http::fake(['*' => Http::response($this->signed(['reference' => $payment->reference,
+                'amount' => number_format($cents / 100, 2, '.', ''), 'paynowreference' => 'PN'.$payment->id, 'status' => 'Paid']))]);
+            $url = route('billing.paynow.return', $payment->reference);
+            $this->actingAs($user)->get($url)->assertRedirect(route('dashboard'))->assertSessionHas('payment_success');
+            $this->get($url)->assertRedirect(route('dashboard'));
+            $this->assertSame($credits, app(\App\Services\AiCreditService::class)->wallet($user)['credits']);
+            $this->assertSame('paid', $payment->fresh()->status);
+            $this->assertSame(1, $user->subscriptions()->count());
+        }
+    }
+
     public function test_paynow_local_test_uses_https_callbacks_and_never_grants_live_access(): void
     {
         config(['billing.paynow.mode' => 'test', 'billing.paynow.callback_url' => 'https://example.trycloudflare.com']);
@@ -84,13 +107,11 @@ class BillingTest extends TestCase
         $this->actingAs(User::factory()->create())->get('/subscription/monthly/payment-method')->assertOk()->assertSee('Paynow — currently disabled');
         config(['billing.paynow.enabled' => true]);
         $this->get('/subscription/monthly/payment-method')->assertOk()
-            ->assertSee('Pay US$4.75 with Paynow')->assertSee('This payment is not linked to your account automatically.');
+            ->assertSee('Pay US$4.75 with Paynow')->assertSee(route('billing.start', ['provider' => 'paynow', 'plan' => 'monthly']), false)->assertDontSee('BillPaymentLink');
         $this->get('/subscription/pro/payment-method')->assertOk()->assertSee('Pay US$6.50 with Paynow')
-            ->assertSee('aWQ9MjgyOTUmYW1vdW50PTYuNTAmYW1vdW50X3F1YW50aXR5PTAuMDAmbD0x')
-            ->assertSee('This payment is not linked to your account automatically.');
+            ->assertSee(route('billing.start', ['provider' => 'paynow', 'plan' => 'pro']), false)->assertDontSee('BillPaymentLink');
         $this->get('/subscription/annual/payment-method')->assertOk()->assertSee('Pay US$47.40 with Paynow')
-            ->assertSee('aWQ9MjgzNDcmYW1vdW50PTQ3LjQwJmFtb3VudF9xdWFudGl0eT0wLjAwJmw9MQ%3D%3D')
-            ->assertSee('This payment is not linked to your account automatically.');
+            ->assertSee(route('billing.start', ['provider' => 'paynow', 'plan' => 'annual']), false)->assertDontSee('BillPaymentLink');
     }
 
     public function test_paynow_rejects_insecure_callback_override_without_contacting_provider(): void

@@ -56,6 +56,49 @@ class PaynowLocalTestCreditsTest extends TestCase
         $this->assertSame(2, DB::table('ai_credit_transactions')->where('type', 'subscription_allocation')->count());
     }
 
+    public function test_account_linked_checkout_adds_credits_once_after_verified_payment(): void
+    {
+        app()->instance('env', 'local');
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
+        config(['billing.paynow.enabled' => true, 'billing.paynow.integration_id' => 'test-id', 'billing.paynow.integration_key' => 'test-key',
+            'performance.queue_payment_checks' => false]);
+        $user = User::factory()->create();
+        $gateway = $this->app->make(PaynowGateway::class);
+        $gateway->shouldReceive('start')->once()->andReturn('https://www.paynow.co.zw/Payment/fixture');
+        $this->actingAs($user)->post('/billing/paynow/monthly', ['billing_consent' => 1])
+            ->assertRedirect('https://www.paynow.co.zw/Payment/fixture');
+        $payment = BillingPayment::where('user_id', $user->id)->sole();
+        $this->assertSame(15, app(AiCreditService::class)->wallet($user)['credits']);
+        app(PaymentService::class)->refresh($payment);
+        app(PaymentService::class)->refresh($payment->fresh());
+        $this->assertSame(150, app(AiCreditService::class)->wallet($user)['credits']);
+        $this->assertSame('test_paid', $payment->fresh()->status);
+        $this->assertDatabaseCount('subscriptions', 1);
+        $this->assertSame(1, DB::table('ai_credit_transactions')->where('type', 'subscription_allocation')->where('user_id', $user->id)->count());
+    }
+
+    public function test_one_day_test_checkout_activates_only_after_verification(): void
+    {
+        app()->instance('env', 'local');
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
+        config(['billing.paynow.enabled' => true, 'billing.paynow.day_site.integration_id' => 'test-day-id',
+            'billing.paynow.day_site.integration_key' => 'test-day-key', 'billing.paynow.day_site.test_email' => 'merchant@example.test']);
+        $user = User::factory()->create();
+        $this->app->make(PaynowGateway::class)->shouldReceive('start')->once()->andReturn('https://www.paynow.co.zw/Payment/fixture');
+        $this->actingAs($user)->post('/billing/paynow/day-test', ['billing_consent' => 1])->assertRedirect('https://www.paynow.co.zw/Payment/fixture');
+        $payment = BillingPayment::where('user_id', $user->id)->sole();
+        $this->assertSame(10, $payment->amount_cents);
+        $this->assertSame(15, $payment->credits);
+        $this->assertDatabaseCount('subscriptions', 0);
+        app(PaymentService::class)->refresh($payment);
+        app(PaymentService::class)->refresh($payment->fresh());
+        $period = Subscription::findOrFail($payment->fresh()->subscription_id);
+        $this->assertSame('sandbox_active', $period->status);
+        $this->assertSame($period->starts_at->copy()->addDay()->timestamp, $period->ends_at->timestamp);
+        $this->assertDatabaseCount('subscriptions', 1);
+        $this->assertSame(1, DB::table('ai_credit_transactions')->where('type', 'subscription_allocation')->where('user_id', $user->id)->count());
+    }
+
     public function test_next_test_subscription_adds_credits_now_without_another_grant_at_period_start(): void
     {
         app()->instance('env', 'local');

@@ -19,9 +19,12 @@ class SubscriptionSectionsTest extends TestCase
         $this->actingAs(User::factory()->create())->get('/subscription')->assertOk()
             ->assertSee('One-day test plan')->assertSee('US$0.10')->assertSee('15 AI credits');
         $this->get('/subscription/day-test/payment-method')->assertOk()
-            ->assertSee('Pay US$0.10 with Paynow')
-            ->assertSee('does not automatically add credits')
-            ->assertSee('If no payment is made, no credits are added.');
+            ->assertSee('one-day checkout is unavailable')->assertDontSee('BillPaymentLink');
+        config(['billing.paynow.enabled' => true, 'billing.paynow.mode' => 'test', 'billing.paynow.local_test_credits' => true,
+            'billing.paynow.day_site.integration_id' => '123', 'billing.paynow.day_site.integration_key' => 'fake-key', 'billing.paynow.day_site.test_email' => 'merchant@example.test']);
+        $this->get('/subscription/day-test/payment-method')->assertOk()->assertSee('Continue to Paynow')
+            ->assertSee('VISA')->assertSee('Mastercard')->assertSee('EcoCash')
+            ->assertSee('If no payment is made, no credits are added.')->assertSee(route('billing.start', ['provider' => 'paynow', 'plan' => 'day-test']), false)->assertDontSee('BillPaymentLink');
         app()->instance('env', 'production');
         $this->get('/subscription/day-test/payment-method')->assertNotFound();
     }

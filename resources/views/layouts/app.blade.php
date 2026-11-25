@@ -14,11 +14,12 @@
 </head>
 <body data-workspace>
     <a class="skip-link" href="#main">Skip to content</a>
-    <div class="workspace-shell" x-data="workspaceNavigation()" @resize.window.debounce="resize()" @keydown.window="handleKey($event)">
+    <div class="workspace-shell" x-data="workspaceNavigation()" :class="{ 'sidebar-collapsed': !mobile && desktopCollapsed }" @resize.window.debounce="resize()" @keydown.window="handleKey($event)">
         <div class="sidebar-overlay" x-cloak x-show="sidebar" @click="closeSidebar()"></div>
-        <aside x-ref="navigation" :role="mobile && sidebar ? 'dialog' : null" :aria-modal="mobile && sidebar ? 'true' : null" aria-label="Workspace menu" id="workspace-navigation" class="workspace-sidebar" :class="{ 'sidebar-open': sidebar }" :inert="mobile && !sidebar ? '' : null">
+        <aside x-ref="navigation" :role="mobile && sidebar ? 'dialog' : null" :aria-modal="mobile && sidebar ? 'true' : null" aria-label="Workspace menu" id="workspace-navigation" class="workspace-sidebar" :class="{ 'sidebar-open': sidebar }" :inert="(mobile && !sidebar) || (!mobile && desktopCollapsed) ? '' : null">
             @php($sidebarPlan = app(\App\Services\PlanService::class)->current(auth()->user()))
             <a class="workspace-brand" href="{{ route('dashboard') }}" aria-label="ATS CV Detector home"><x-logo-image /><span class="sidebar-current-plan">{{ $sidebarPlan->name }} plan</span></a>
+            <button class="desktop-sidebar-close" type="button" x-show="!mobile" @click="toggleDesktopSidebar(); $nextTick(() => $refs.desktopSidebarOpen.focus())" aria-controls="workspace-navigation" aria-label="Close sidebar" title="Close sidebar"><x-icon name="menu" /></button>
             <button type="button" class="sidebar-close-button" x-cloak x-show="mobile" @click="closeSidebar()" aria-label="Close sidebar"><x-icon name="arrow-left" />Close menu</button>
             <nav aria-label="Workspace navigation">
                 @foreach ([
@@ -43,6 +44,7 @@
         </aside>
         <div class="workspace-main" :inert="mobile && sidebar ? '' : null">
             <header class="workspace-topbar">
+                <button class="desktop-sidebar-toggle" type="button" x-ref="desktopSidebarOpen" x-cloak x-show="!mobile && desktopCollapsed" @click="toggleDesktopSidebar()" :aria-expanded="!desktopCollapsed" aria-controls="workspace-navigation" aria-label="Open sidebar" title="Open sidebar"><x-icon name="menu" /></button>
                 <button class="mobile-menu-button" x-ref="menuToggle" @click="openSidebar()" :aria-expanded="sidebar" aria-controls="workspace-navigation" aria-label="Toggle sidebar"><x-icon name="menu" /></button>
                 @php($headerWallet = app(\App\Services\AiCreditService::class)->displayWallet(auth()->user()))
                 <a class="purchased-credit-badge" href="{{ route('subscription.payment-methods', 'monthly') }}"

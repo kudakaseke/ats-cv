@@ -168,7 +168,20 @@ body[data-workspace] .ats-checker .scanner-basic-link { margin-top:12px; font-si
 @media (min-width: 901px) {
     body[data-workspace] .workspace-sidebar { transform: none; }
     body[data-workspace] .sidebar-overlay { display: none !important; }
+    body[data-workspace] .workspace-sidebar, body[data-workspace] .workspace-main { transition: transform .2s ease, margin-left .2s ease; }
+    body[data-workspace] .sidebar-collapsed .workspace-sidebar { transform: translateX(-100%); }
+    body[data-workspace] .sidebar-collapsed .workspace-main { margin-left: 0; }
 }
+body[data-workspace] .desktop-sidebar-toggle { display: inline-flex; align-items: center; justify-content: center; margin-right: auto; width: 40px; height: 40px; border: 0; border-radius: 8px; background: transparent; color: #596372; cursor: pointer; }
+body[data-workspace] .desktop-sidebar-toggle:hover { background: #f1f4f8; color: #171717; }
+body[data-workspace] .desktop-sidebar-toggle:focus-visible { outline: 3px solid #346de1; outline-offset: 2px; }
+body[data-workspace] .desktop-sidebar-toggle .icon { width: 20px; height: 20px; }
+body[data-workspace] .desktop-sidebar-close { position: absolute; top: 24px; right: 12px; display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border: 0; border-radius: 8px; background: transparent; color: #596372; cursor: pointer; }
+body[data-workspace] .desktop-sidebar-close:hover { background: #f1f4f8; color: #171717; }
+body[data-workspace] .desktop-sidebar-close:focus-visible { outline: 3px solid #346de1; outline-offset: 2px; }
+body[data-workspace] .desktop-sidebar-close .icon { width: 20px; height: 20px; }
+@media (max-width: 900px) { body[data-workspace] .desktop-sidebar-toggle { display: none; } }
+@media (prefers-reduced-motion: reduce) { body[data-workspace] .workspace-sidebar, body[data-workspace] .workspace-main { transition: none; } }
 @media (max-width: 600px) {
     body[data-workspace] .workspace-content { padding: 26px 18px 40px; }
     body[data-workspace] .workspace-topbar, body[data-workspace] .workspace-footer { padding-inline: 18px; }

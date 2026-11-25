@@ -1,7 +1,15 @@
-// The mobile drawer is modal; desktop navigation remains ordinary navigation.
+// The mobile drawer is modal; desktop navigation can be collapsed independently.
 window.workspaceNavigation = () => ({
     sidebar: false,
+    desktopCollapsed: false,
     mobile: window.innerWidth <= 900,
+    init() {
+        try { this.desktopCollapsed = localStorage.getItem('workspace-sidebar-collapsed') === 'true'; } catch {}
+    },
+    toggleDesktopSidebar() {
+        this.desktopCollapsed = !this.desktopCollapsed;
+        try { localStorage.setItem('workspace-sidebar-collapsed', String(this.desktopCollapsed)); } catch {}
+    },
     resize() {
         const wasMobile = this.mobile;
         this.mobile = window.innerWidth <= 900;

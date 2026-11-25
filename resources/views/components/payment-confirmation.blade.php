@@ -1,13 +1,10 @@
-@props(['currentPlan' => null])
 @php
     $lastPayment = \App\Models\BillingPayment::leftJoin('subscription_plans', 'subscription_plans.id', '=', 'billing_payments.subscription_plan_id')
         ->where('billing_payments.user_id', auth()->id())->whereIn('billing_payments.status', ['paid', 'test_paid'])
         ->select('billing_payments.*', 'subscription_plans.name as plan_name')->latest('billing_payments.paid_at')->latest('billing_payments.id')->first();
-    $livePlan = $currentPlan ?? app(\App\Services\PlanService::class)->current(auth()->user());
     $latestPeriod = $lastPayment?->subscription_id ? \App\Models\Subscription::find($lastPayment->subscription_id) : null;
 @endphp
-<section class="panel credit-summary" aria-label="Plan and latest payment">
-    <h2>Current plan: {{ $livePlan->name }}</h2>
+<div aria-label="Latest payment">
     @if($lastPayment)
         <p><strong>{{ $lastPayment->status === 'test_paid' ? 'Test payment confirmed' : 'Payment confirmed' }}</strong>
             &middot; {{ $lastPayment->kind === 'topup' ? 'Credit top-up' : $lastPayment->plan_name }}
@@ -27,4 +24,4 @@
         <p>No confirmed payments yet.</p>
     @endif
     <a class="text-link" href="{{ route('subscription') }}#payment-history">View payment history</a>
-</section>
+</div>

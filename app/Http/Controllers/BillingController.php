@@ -162,7 +162,7 @@ class BillingController extends Controller
         if (! $checkoutReturn && $payment->verified_at?->gt(now()->subSeconds(30))) {
             return;
         }
-        if (config('performance.queue_payment_checks')) {
+        if (! $checkoutReturn && config('performance.queue_payment_checks')) {
             RefreshPayment::dispatch($payment->id);
         } else {
             $service->refresh($payment);
