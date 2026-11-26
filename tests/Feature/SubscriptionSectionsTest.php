@@ -19,7 +19,8 @@ class SubscriptionSectionsTest extends TestCase
         $this->actingAs(User::factory()->create())->get('/subscription')->assertOk()
             ->assertSee('One-day test plan')->assertSee('US$0.10')->assertSee('15 AI credits');
         $this->get('/subscription/day-test/payment-method')->assertOk()
-            ->assertSee('one-day checkout is unavailable')->assertDontSee('BillPaymentLink');
+            ->assertSee('BillPaymentLink')->assertSee('This payment may be real')
+            ->assertSee('contact support with your Paynow payment reference');
         config(['billing.paynow.enabled' => true, 'billing.paynow.mode' => 'test', 'billing.paynow.local_test_credits' => true,
             'billing.paynow.day_site.integration_id' => '123', 'billing.paynow.day_site.integration_key' => 'fake-key', 'billing.paynow.day_site.test_email' => 'merchant@example.test']);
         $this->get('/subscription/day-test/payment-method')->assertOk()->assertSee('Continue to Paynow')

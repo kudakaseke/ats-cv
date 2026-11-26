@@ -3,6 +3,10 @@
 namespace Tests\Feature;
 
 use App\Services\Billing\PaynowGateway;
+use App\Models\BillingPayment;
+use App\Models\User;
+use App\Models\SubscriptionPlan;
+use Database\Seeders\SubscriptionPlanSeeder;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -44,6 +48,11 @@ class AuditHardeningTest extends TestCase
     {
         config(['billing.paynow.integration_key' => 'audit-secret']);
         Http::preventStrayRequests();
+        $this->seed(SubscriptionPlanSeeder::class);
+        BillingPayment::create(['user_id' => User::factory()->create()->id, 'reference' => 'different-reference',
+            'subscription_plan_id' => SubscriptionPlan::where('slug', 'monthly')->firstOrFail()->id,
+            'provider' => 'paynow', 'mode' => 'test', 'currency' => 'USD', 'amount_cents' => 100, 'credits' => 15,
+            'billing_interval' => 'monthly']);
         $data = ['reference' => 'original-reference', 'status' => 'Paid'];
         $data['hash'] = app(PaynowGateway::class)->signature($data);
         $this->call('POST', '/billing/paynow/notify/different-reference', [], [], [],
