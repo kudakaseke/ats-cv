@@ -83,7 +83,7 @@ class PaymentReturnTest extends TestCase
         $this->mock(PaynowGateway::class)->shouldReceive('status')->once()->andReturn('paid');
         $this->get(route('billing.show', $payment->reference))->assertRedirect(route('dashboard'))->assertSessionHas('payment_success', fn ($message) => str_contains($message, 'Test payment successful'));
         $this->get(route('dashboard'))->assertOk()->assertSee('Test payment successful')->assertSee('Current plan: Free');
-        $this->get(route('subscription'))->assertOk()->assertSee('Test payment confirmed')->assertSee('Monthly')->assertSee('Current plan: Free');
+        $this->get(route('subscription'))->assertOk()->assertSee('Test payment confirmed')->assertSee('Monthly')->assertSee('Your current plan is Free');
         $this->assertDatabaseCount('subscriptions', 0);
         $this->assertSame(15, app(AiCreditService::class)->wallet(User::find($payment->user_id))['credits']);
     }

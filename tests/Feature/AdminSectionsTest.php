@@ -15,6 +15,13 @@ class AdminSectionsTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_cv_analytics_distinguishes_missing_scores_from_zero(): void
+    {
+        config(['app.env' => 'local', 'admin.dashboard_preview_without_2fa' => true]);
+        $this->actingAs($this->admin(), 'admin')->get(route('admin.section', 'cv'))
+            ->assertOk()->assertSeeText('Average recorded Wording Match in selected periodNo recorded scores');
+    }
+
     public function test_local_preview_can_open_every_admin_section_and_each_has_real_section_description(): void
     {
         config(['app.env' => 'local', 'admin.dashboard_preview_without_2fa' => true]);

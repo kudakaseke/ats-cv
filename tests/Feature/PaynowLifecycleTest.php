@@ -68,6 +68,41 @@ class PaynowLifecycleTest extends TestCase
         });
     }
 
+    #[DataProvider('paidPlans')]
+    public function test_each_plan_checkout_confirms_credits_and_shows_the_customer_in_admin(string $slug, int $credits): void
+    {
+        config(['billing.paynow.callback_url' => 'https://callbacks.example.com', 'billing.paynow.return_url' => 'https://app.example.com']);
+        $customer = User::factory()->create();
+        Http::fake(function ($request) {
+            if (str_contains($request->url(), 'initiatetransaction')) {
+                return Http::response($this->signed(['status' => 'Ok', 'browserurl' => 'https://www.paynow.co.zw/Payment/Confirm',
+                    'pollurl' => 'https://www.paynow.co.zw/interface/checkpayment?guid=test']));
+            }
+            return Http::response($this->signed($this->payload(BillingPayment::sole())));
+        });
+        $this->actingAs($customer)->post('/billing/paynow/'.$slug, ['billing_consent' => 1])
+            ->assertRedirect('https://www.paynow.co.zw/Payment/Confirm');
+        $payment = BillingPayment::sole();
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'initiatetransaction')
+            && $request['returnurl'] === 'https://app.example.com/billing/paynow/return/'.$payment->reference
+            && $request['resulturl'] === 'https://callbacks.example.com/billing/paynow/notify/'.$payment->reference);
+        $this->assertSame(15, app(AiCreditService::class)->wallet($customer)['credits']);
+        $this->notify($payment, $this->payload($payment))->assertOk();
+        $this->notify($payment, $this->payload($payment))->assertOk();
+        $this->assertSame($credits, app(AiCreditService::class)->wallet($customer)['credits']);
+        $this->assertDatabaseHas('billing_payments', ['id' => $payment->id, 'user_id' => $customer->id, 'status' => 'paid', 'credits' => $credits]);
+        $this->assertDatabaseHas('ai_credit_transactions', ['user_id' => $customer->id, 'type' => 'subscription_allocation']);
+        $admin = User::factory()->create(['role' => 'super_admin', 'account_status' => 'active']);
+        $this->actingAs($admin, 'admin')->withSession(['admin_2fa_verified_at' => now()->timestamp])
+            ->get(route('admin.users.payments', $customer->id))->assertOk()->assertSee($payment->reference)
+            ->assertSee(number_format($credits))->assertSee($customer->email);
+    }
+
+    public static function paidPlans(): array
+    {
+        return [['monthly', 150], ['pro', 225], ['annual', 2400]];
+    }
+
     // Independent implementation: never use the production signer to create test responses.
     public function test_verification_does_not_hold_a_database_transaction_during_network_io(): void
     {

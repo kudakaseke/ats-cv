@@ -200,6 +200,7 @@ class SectionController extends Controller
                     ->where('created_at', '>=', $periodStart)->where('created_at', '<', $periodEnd);
                 $creationsInPeriod = DB::table('resumes')->where('source', 'created')
                     ->where('created_at', '>=', $periodStart)->where('created_at', '<', $periodEnd);
+                $averageScore = (clone $scansInPeriod)->whereNotNull('score')->avg('score');
                 $stats = [
                     'Successful signed-in CV imports in selected period' => (clone $uploadsInPeriod)->count(),
                     'Failed signed-in CV imports in selected period' => (clone $failedImports)->count(),
@@ -208,7 +209,7 @@ class SectionController extends Controller
                     'Completed ATS scans in selected period' => (clone $scansInPeriod)->count(),
                     'CV revamps in selected period' => (clone $revampsInPeriod)->count(),
                     'CV creations in selected period' => (clone $creationsInPeriod)->count(),
-                    'Average recorded Wording Match in selected period' => round((float) (clone $scansInPeriod)->whereNotNull('score')->avg('score'), 1),
+                    'Average recorded Wording Match in selected period' => $averageScore === null ? 'No recorded scores' : round((float) $averageScore, 1),
                 ];
                 $rows = DB::table('cv_analyses')->join('users', 'cv_analyses.user_id', '=', 'users.id')
                     ->leftJoin('resumes', 'cv_analyses.resume_id', '=', 'resumes.id')
@@ -367,7 +368,7 @@ class SectionController extends Controller
                     'Admin audit events in selected period' => DB::table('admin_audit_logs')->where('created_at','>=',$periodStart)->where('created_at','<',$periodEnd)->count(),
                 ];
                 $rows = DB::table('admin_audit_logs')->where('created_at','>=',$periodStart)->where('created_at','<',$periodEnd)->latest('created_at')->paginate(50)->withQueryString();
-                $columns = ['actor_id' => 'Admin user ID', 'action' => 'Action', 'subject_type' => 'Record type', 'subject_id' => 'Record ID', 'description' => 'Details', 'created_at' => 'Time'];
+                $columns = ['actor_id' => 'Admin user ID', 'actor_role' => 'Role at time', 'action' => 'Action', 'subject_type' => 'Record type', 'subject_id' => 'Record ID', 'description' => 'Details', 'created_at' => 'Time'];
                 break;
         }
         return view('admin.section', compact('section','title','description','stats','planBreakdown','creditPlanBreakdown','totalUsers','rows','columns','search','filters','incidents','period','dailyChart'));

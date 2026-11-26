@@ -55,7 +55,7 @@ class AdminPortalTest extends TestCase
             ->assertSee(substr(strrchr($admin->email, '@') ?: '', 1));
         $this->get('/laravel/access-admin/dashboard')->assertRedirect(route('admin.2fa.challenge'));
         $this->post('/laravel/access-admin/2fa/verify', ['code' => $code])->assertRedirect(route('admin.dashboard'));
-        $this->assertDatabaseHas('admin_audit_logs', ['action' => 'auth.email_code_verified', 'actor_id' => $admin->id]);
+        $this->assertDatabaseHas('admin_audit_logs', ['action' => 'auth.email_code_verified', 'actor_id' => $admin->id, 'actor_role' => 'super_admin']);
         $this->get('/laravel/access-admin/dashboard')->assertOk()->assertSee('Overview')->assertSee('Super Admin Dashboard')->assertDontSee('workspace-shell');
     }
 

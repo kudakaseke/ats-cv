@@ -25,7 +25,8 @@
                 </form>
                 <p>Test mode: no real payment is made. Credits are added only after Paynow confirms the test payment.</p>
             @else
-                <p role="status">The one-day checkout is unavailable until the Paynow test integration ID, key and merchant test email are configured and local test credits are enabled. No payment or credits are created.</p>
+                <a class="btn btn-primary day-checkout-submit" href="https://www.paynow.co.zw/Payment/BillPaymentLink/?q=aWQ9MjgzNDkmYW1vdW50PTAuMTAmYW1vdW50X3F1YW50aXR5PTAuMDAmbD0x" target="_blank" rel="noopener noreferrer">Pay with Paynow &middot; US$0.10</a>
+                <p>This payment may be real. After paying, contact support with your Paynow payment reference for manual verification and activation of your one-day access and credits.</p>
             @endif
             <p>If no payment is made, no credits are added.</p>
         </section>

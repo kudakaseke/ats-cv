@@ -13,6 +13,7 @@ class AdminAuditTrail
         $actor = Auth::guard('admin')->user();
         DB::table('admin_audit_logs')->insert([
             'actor_id' => $actor && DB::table('users')->where('id', $actor->id)->exists() ? $actor->id : null,
+            'actor_role' => $actor?->role,
             'actor_email_hash' => $email ? hash('sha256', mb_strtolower(trim($email))) : null,
             'action' => $action,
             'subject_type' => $subjectType,
