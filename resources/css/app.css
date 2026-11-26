@@ -1027,3 +1027,26 @@ body[data-workspace] .workspace-brand .brand-logo-image { width: 126px; height: 
 /* Keep the user action visible while scrolling wide account tables. */
 .admin-accounts-table th:last-child, .admin-accounts-table td:last-child { position: sticky; right: 0; background: #fff; z-index: 1; }
 .admin-accounts-table th:last-child { z-index: 2; }
+
+/* Keep action labels readable; wide tables scroll within their own panels. */
+.admin-main .admin-primary-button,
+.admin-main .admin-danger-button,
+.admin-main .admin-date-filter button,
+.admin-main .audit-table button {
+    line-height: 1.4;
+    white-space: nowrap;
+    word-break: normal;
+    overflow-wrap: normal;
+}
+.admin-main .admin-table-wrap,
+.admin-main .audit-table-scroll { max-width: 100%; }
+.admin-main .admin-table td:has(form),
+.admin-main .audit-table td:has(form) { min-width: 190px; }
+.admin-main .admin-payment-table { min-width: 1500px; }
+.admin-main .admin-payment-table td:last-child { min-width: 190px; }
+.admin-main .admin-payment-table td:last-child form { width: max-content; }
+.admin-main .admin-credit-grant input { max-width: 100%; box-sizing: border-box; }
+@media (max-width: 600px) {
+    .admin-main .admin-profile-details { grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); }
+    .admin-main .admin-credit-grant label { min-width: 0; max-width: 100%; }
+}

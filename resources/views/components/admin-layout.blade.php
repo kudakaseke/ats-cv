@@ -38,6 +38,7 @@
                 </div>
             </header>
             @if(session('status'))<p class="admin-flash" role="status">{{ session('status') }}</p>@endif
+            @if(session('billing_status'))<p class="admin-flash" role="status">{{ session('billing_status') }}</p>@endif
             @if($errors->any())<p class="admin-form-error" role="alert">{{ $errors->first() }}</p>@endif
             {{ $slot }}
             <footer class="admin-footer">Private administrator access · {{ now(config('app.timezone'))->format('d M Y H:i T') }}</footer>

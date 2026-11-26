@@ -333,7 +333,8 @@ class AdminPortalTest extends TestCase
         $this->get(route('admin.users.show', ['user' => $customer->id, 'tab' => 'credits']))
             ->assertOk()->assertSee('Customer credit correction');
         $this->get(route('admin.users.show', ['user' => $customer->id, 'tab' => 'audit']))
-            ->assertOk()->assertSee('Customer credit correction');
+            ->assertOk()->assertDontSee('Customer credit correction');
+        $this->assertDatabaseHas('admin_audit_logs', ['action' => 'credits.admin_grant', 'subject_id' => (string) $customer->id]);
     }
 
     public function test_local_read_only_preview_cannot_export_user_data_without_verification(): void
@@ -360,7 +361,8 @@ class AdminPortalTest extends TestCase
         $this->actingAs($admin, 'admin')->withSession(['admin_2fa_verified_at' => now()->timestamp]);
         $this->from($profile)->post(route('admin.users.action', $customer->id), ['action' => 'suspend', 'reason' => 'Account review requested'])
             ->assertRedirect($profile)->assertSessionHas('status', 'User account suspended. Change recorded against your super-admin account.');
-        $this->get(route('admin.users.show', ['user' => $customer->id, 'tab' => 'audit']))->assertOk()->assertSee('Account review requested');
+        $this->get($profile)->assertOk()->assertSee('Account review requested');
+        $this->assertDatabaseHas('admin_audit_logs', ['action' => 'user.suspend', 'subject_id' => (string) $customer->id]);
         $this->from($profile)->post(route('admin.users.action', $customer->id), ['action' => 'restore'])
             ->assertRedirect($profile)->assertSessionHas('status', 'User account restored. Change recorded against your super-admin account.');
         $this->assertDatabaseHas('users', ['id' => $customer->id, 'account_status' => 'active']);
@@ -390,7 +392,7 @@ class AdminPortalTest extends TestCase
             ->assertRedirect(route('admin.users.show', ['user' => $customer->id, 'tab' => 'security']));
         $this->assertDatabaseMissing('account_sessions', ['id' => 'user-profile-session']);
         $this->assertDatabaseHas('admin_audit_logs', ['actor_id' => $admin->id, 'action' => 'user.sessions_revoked', 'subject_id' => (string) $customer->id]);
-        $this->get(route('admin.users.show', ['user' => $customer->id, 'tab' => 'audit']))->assertOk()->assertSee('Customer requested sign out');
+        $this->get(route('admin.users.show', ['user' => $customer->id, 'tab' => 'audit']))->assertOk()->assertDontSee('Customer requested sign out');
     }
 
     public function test_billing_revenue_counts_only_verified_live_usd_payments(): void
@@ -547,6 +549,70 @@ class AdminPortalTest extends TestCase
         $this->get(route('admin.users.show', ['user' => $customer->id, 'tab' => 'credits']))->assertOk()->assertSee('Available balance: 0');
         $this->get(route('admin.users.show', ['user' => $customer->id, 'tab' => 'payments']))->assertOk()->assertSee('Review 29')->assertDontSee('Review 0');
         $this->get(route('admin.users.show', ['user' => $customer->id, 'tab' => 'payments', 'reviews_page' => 2]))->assertOk()->assertSee('Review 0');
+    }
+
+    public function test_user_payment_view_can_reconcile_and_shows_suspension_details(): void
+    {
+        $admin = $this->admin();
+        $customer = User::factory()->create(['account_status' => 'suspended', 'suspended_at' => now(), 'suspension_reason' => 'Account investigation']);
+        $planId = DB::table('subscription_plans')->where('slug', 'monthly')->value('id');
+        $this->payment($customer, $planId, 'pending', 'live', 1200);
+        $payment = BillingPayment::where('user_id', $customer->id)->firstOrFail();
+        $payment->update(['poll_url' => 'https://www.paynow.co.zw/interface/checkpayment?guid=test', 'provider_status' => 'Awaiting Payment']);
+        $url = route('admin.users.show', ['user' => $customer->id, 'tab' => 'payments']);
+        $action = route('admin.billing.reconcile', $payment->reference);
+
+        $this->actingAs($admin, 'admin')->get($url)->assertRedirect(route('admin.2fa.challenge'));
+        $this->post($action)->assertRedirect(route('admin.2fa.challenge'));
+        $this->withSession(['admin_2fa_verified_at' => now()->timestamp]);
+        $this->get(route('admin.users.show', $customer->id))->assertOk()->assertSee('Suspension reason')->assertSee('Account investigation')->assertSee('Suspended');
+        $this->get($url)->assertOk()->assertSee('Awaiting Payment')->assertSee('Check Paynow status')->assertSee($action);
+        $this->mock(\App\Services\Billing\PaymentService::class)->shouldReceive('refresh')->once()
+            ->withArgs(fn ($subject) => $subject->id === $payment->id);
+        $this->from($url)->post($action)->assertRedirect($url)->assertSessionHas('billing_status', 'Paynow has not confirmed this payment as paid. No credits were added by this check.');
+        $this->get($url)->assertSee('Paynow has not confirmed this payment as paid.');
+        $this->assertDatabaseHas('admin_audit_logs', ['action' => 'billing.reconciled', 'subject_id' => (string) $payment->id]);
+    }
+
+    public function test_payment_check_reports_when_paynow_cannot_locate_trace(): void
+    {
+        $admin = $this->admin();
+        $customer = User::factory()->create();
+        $this->payment($customer, DB::table('subscription_plans')->where('slug', 'monthly')->value('id'), 'pending', 'test', 475);
+        $payment = BillingPayment::where('user_id', $customer->id)->firstOrFail();
+        $payment->update(['merchant_trace' => 'test-trace']);
+        $this->mock(\App\Services\Billing\PaymentService::class)->shouldReceive('refresh')->once();
+        $this->actingAs($admin, 'admin')->withSession(['admin_2fa_verified_at' => now()->timestamp])
+            ->from(route('admin.users.show', ['user' => $customer->id, 'tab' => 'payments']))
+            ->post(route('admin.billing.reconcile', $payment->reference))
+            ->assertSessionHas('billing_status', fn ($message) => str_contains($message, 'could not locate'));
+        $this->assertDatabaseHas('billing_payments', ['id' => $payment->id, 'status' => 'pending']);
+    }
+
+    public function test_audit_history_limits_events_to_selected_users_logins_scans_and_payments(): void
+    {
+        $admin = $this->admin();
+        $customer = User::factory()->create();
+        $other = User::factory()->create();
+        $event = function ($user, $name, $details = []) {
+            DB::table('audit_events')->insert(['user_id' => $user->id, 'event' => $name,
+                'subject_type' => 'Fixture', 'subject_id' => 'fixture', 'source' => 'web',
+                'details' => json_encode($details), 'created_at' => now()]);
+        };
+        $event($customer, 'account.login');
+        $event($customer, 'ai.completed', ['feature' => 'analyse']);
+        $event($customer, 'ai.failed', ['feature' => 'analyse']);
+        $event($customer, 'payment.verified');
+        $event($customer, 'ai.completed', ['feature' => 'revamp']);
+        $event($customer, 'account.logout');
+        $event($other, 'payment.verification_failed');
+        $url = route('admin.users.show', ['user' => $customer->id, 'tab' => 'audit']);
+        $this->get($url)->assertRedirect(route('admin.login'));
+        $this->actingAs($admin, 'admin')->withSession(['admin_2fa_verified_at' => now()->timestamp]);
+        $this->get($url)->assertOk()->assertSee('Login')->assertSee('Job-to-CV ATS scan completed')
+            ->assertSee('Job-to-CV ATS scan failed')->assertSee('Payment status verified')
+            ->assertDontSee('Payment verification failed')->assertDontSee('Logout')
+            ->assertDontSee('Administrative changes')->assertDontSee('revamp');
     }
 
     private function admin(array $attributes = []): User

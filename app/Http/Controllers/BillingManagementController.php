@@ -93,12 +93,26 @@ class BillingManagementController extends Controller
         try {
             $service->refresh($payment);
         } catch (\Throwable) {
-            return back()->withErrors(['billing' => 'Provider verification unavailable. The payment remains unresolved.']);
+            return back()->withErrors(['billing' => 'Could not complete verification with Paynow. Review the recorded status and try again or contact Paynow with the payment reference.']);
         }
+        $payment->refresh();
         app(AdminAuditTrail::class)->record('billing.reconciled', 'BillingPayment', $payment->id,
-            'Payment status reconciled with the gateway.', ['status' => $oldStatus], ['status' => $payment->fresh()->status]);
+            'Payment status checked with the gateway.', ['status' => $oldStatus], ['status' => $payment->status]);
 
-        return back()->with('billing_status', 'Paynow status reconciled.');
+        if (! $payment->poll_url) {
+            return back()->with('billing_status', 'Paynow could not locate this payment yet. No new payment confirmation was obtained. Check the reference with Paynow before trying another payment.');
+        }
+        $status = match ($payment->status) {
+            'paid' => 'Paynow confirmed this live payment. Check the customer’s credit ledger for the allocation.',
+            'test_paid' => 'Paynow confirmed a test payment. Test payments do not add live credits or create live access.',
+            'pending' => 'Paynow has not confirmed this payment as paid. No credits were added by this check.',
+            'reversed' => 'Paynow reports that this payment was reversed. Review the payment and credit ledger.',
+            'cancelled' => 'Paynow reports that this payment was cancelled.',
+            'failed' => 'Paynow reports that this payment failed.',
+            default => 'The payment status was checked with Paynow. Review the recorded status below.',
+        };
+
+        return back()->with('billing_status', $status);
     }
 
     public function review(Request $request, string $reference, AuditTrail $audit)

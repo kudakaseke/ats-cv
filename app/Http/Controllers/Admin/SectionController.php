@@ -449,7 +449,8 @@ class SectionController extends Controller
             ->leftJoin('subscription_plans', 'subscription_plans.id', '=', 'billing_payments.subscription_plan_id')
             ->leftJoin('billing_receipts', 'billing_receipts.billing_payment_id', '=', 'billing_payments.id')
             ->where('billing_payments.user_id', $customer->id)
-            ->select('billing_payments.reference', 'billing_payments.status', 'billing_payments.mode',
+            ->select('billing_payments.reference', 'billing_payments.status', 'billing_payments.mode', 'billing_payments.provider',
+                'billing_payments.provider_status', 'billing_payments.failure_reason',
                 'billing_payments.amount_cents', 'billing_payments.currency', 'billing_payments.credits', 'billing_payments.created_at',
                 'billing_payments.paid_at', 'billing_payments.verified_at', 'subscription_plans.name as plan', 'billing_receipts.number as receipt_number')
             ->orderByDesc('billing_payments.created_at')->orderByDesc('billing_payments.id')

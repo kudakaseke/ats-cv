@@ -62,12 +62,15 @@ class UserProfileController extends Controller
             $data['feedback'] = DB::table('customer_feedback')->where('user_id', $user)->latest('created_at')->paginate(25)->withQueryString();
         }
         if ($tab === 'audit') {
-            $data['events'] = DB::table('admin_audit_logs')->leftJoin('users as actor', 'actor.id', '=', 'admin_audit_logs.actor_id')
-                ->where(function ($q) use ($user) {
-                    $q->where(fn ($q) => $q->where('admin_audit_logs.subject_type', 'User')->where('admin_audit_logs.subject_id', (string) $user))
-                        ->orWhere(fn ($q) => $q->where('admin_audit_logs.subject_type', 'CustomerFeedback')->whereIn('admin_audit_logs.subject_id', DB::table('customer_feedback')->where('user_id', $user)->select('id')))
-                        ->orWhere(fn ($q) => $q->where('admin_audit_logs.subject_type', 'BillingPayment')->whereIn('admin_audit_logs.subject_id', DB::table('billing_payments')->where('user_id', $user)->select('id')));
-                })->select('admin_audit_logs.*', 'actor.name as actor_name')->orderByDesc('admin_audit_logs.id')->paginate(25)->withQueryString();
+            $data['userEvents'] = DB::table('audit_events')->where('user_id', $user)
+                ->where(function ($query) {
+                    $query->whereIn('event', ['account.login', 'billingpayment.created', 'payment.verified', 'payment.verification_failed', 'payment.initialization_uncertain'])
+                        ->orWhere(function ($scan) {
+                            $scan->whereIn('event', ['ai.completed', 'ai.failed'])->where('details->feature', 'analyse');
+                        });
+                })->select('event', 'created_at')
+                ->orderByDesc('created_at')->orderByDesc('id')
+                ->paginate(25, ['*'], 'activity_page')->withQueryString();
         }
         return view('admin.user-profile', $data);
     }

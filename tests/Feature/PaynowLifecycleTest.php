@@ -103,6 +103,24 @@ class PaynowLifecycleTest extends TestCase
         return [['monthly', 150], ['pro', 225], ['annual', 2400]];
     }
 
+    public function test_admin_payment_check_verifies_and_fulfills_only_once(): void
+    {
+        $payment = $this->payment();
+        $customer = User::findOrFail($payment->user_id);
+        $admin = User::factory()->create(['role' => 'super_admin', 'is_admin' => true, 'account_status' => 'active']);
+        Http::fake(['*' => Http::response($this->signed($this->payload($payment)))]);
+        $url = route('admin.users.show', ['user' => $customer->id, 'tab' => 'payments']);
+        $this->actingAs($admin, 'admin')->withSession(['admin_2fa_verified_at' => now()->timestamp]);
+        for ($i = 0; $i < 2; $i++) {
+            $this->from($url)->post(route('admin.billing.reconcile', $payment->reference))
+                ->assertRedirect($url)->assertSessionHas('billing_status', fn ($message) => str_contains($message, 'confirmed this live payment'));
+        }
+        $this->assertSame('paid', $payment->fresh()->status);
+        $this->assertSame($payment->credits, app(AiCreditService::class)->wallet($customer)['credits']);
+        $this->assertDatabaseCount('subscriptions', 1);
+        $this->assertDatabaseCount('billing_receipts', 1);
+    }
+
     // Independent implementation: never use the production signer to create test responses.
     public function test_verification_does_not_hold_a_database_transaction_during_network_io(): void
     {

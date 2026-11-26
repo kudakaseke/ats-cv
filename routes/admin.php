@@ -9,6 +9,7 @@ use App\Http\Controllers\BillingManagementController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('laravel/access-admin')->name('admin.')->middleware('admin.ip')->group(function () {
+    Route::get('/', fn () => to_route('admin.login'))->name('entry');
     Route::get('login', [AdminAuthController::class, 'loginForm'])->name('login');
     Route::post('login', [AdminAuthController::class, 'login'])->middleware('throttle:admin-login')->name('login.store');
 
