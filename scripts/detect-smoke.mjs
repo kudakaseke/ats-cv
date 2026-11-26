@@ -15,7 +15,7 @@ try {
     await page.locator('.dashboard-tool-card').filter({ has: page.getByRole('heading', { name: 'ATS Checker', exact: true }) }).getByRole('link').click();
     await expect(page.getByRole('heading', { name: 'ATS Checker', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Check ATS readiness' }).click();
-    await expect(page.getByRole('alert')).toHaveText('Upload your CV or paste its text first.');
+    await expect(page.getByRole('alert')).toHaveText('Upload your CV first.');
     const text = `Alex Example\nalex@example.com | +27 71 123 4567\nWork Experience\nAnalyst, Example Ltd, 2020 - Present\n${'Delivered accurate financial reports and supported monthly business reporting. '.repeat(12)}\nEducation\nDegree, Example College, 2019\nTechnical Skills\nReporting, Excel`;
     await page.locator('#detect-file').setInputFiles({ name: 'example.txt', mimeType: 'text/plain', buffer: Buffer.from(text) });
     await expect(page.locator('#detect-resume')).toHaveValue(text);
