@@ -147,7 +147,7 @@ class PaynowOnlyTest extends TestCase
 
     public function test_terms_describe_the_actual_annual_allowance(): void
     {
-        $this->get('/terms')->assertOk()->assertSee('2,400 credits available when the paid year begins')
+        $this->get('/terms')->assertOk()->assertSee('2,400 credits that expires at the end of the paid year')
             ->assertDontSee('Annual plans are paid yearly with credits allocated monthly');
     }
 

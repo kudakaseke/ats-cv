@@ -73,17 +73,37 @@ class PaynowDayCheckoutTest extends TestCase
             return Http::response($this->signed(['reference' => BillingPayment::sole()->reference, 'amount' => '0.10',
                 'paynowreference' => 'DAY123', 'status' => 'Paid'], 'day-key'));
         });
-        $this->actingAs($user)->post('/billing/paynow/day-test', ['billing_consent' => 1])->assertRedirect('https://www.paynow.co.zw/Payment/test');
+        $checkoutPage = '/subscription/day-test/payment-method';
+        $this->actingAs($user)->from($checkoutPage)->post('/billing/paynow/day-test')
+            ->assertRedirect($checkoutPage)->assertSessionHasErrors('billing_consent');
+        $this->get($checkoutPage)->assertSee('Agree to the Terms and Refund Policy to continue to Paynow.');
+        $this->assertDatabaseCount('billing_payments', 0);
+        Http::assertNothingSent();
+
+        $this->post('/billing/paynow/day-test', ['billing_consent' => 1])->assertRedirect('https://www.paynow.co.zw/Payment/test');
         $payment = BillingPayment::sole();
         $this->assertSame(10, $payment->amount_cents);
         $this->assertDatabaseCount('subscriptions', 0);
         Http::assertSent(fn ($request) => $request['id'] === 'day-id' && $request['amount'] === '0.10'
             && $request['resulturl'] === 'https://callbacks.example.com/billing/paynow/notify/'.$payment->reference
             && parse_url($request['returnurl'], PHP_URL_PATH) === '/billing/paynow/return/'.$payment->reference);
+        Http::assertSent(function ($request) {
+            $fields = $request->data();
+            $order = ['id', 'reference', 'amount', 'additionalinfo', 'returnurl', 'resulturl', 'authemail', 'merchanttrace', 'status'];
+            $this->assertSame([...$order, 'hash'], array_keys($fields));
+            $this->assertSame('merchant@example.com', $fields['authemail']);
+            $this->assertStringContainsString('authemail=merchant%40example.com', $request->body());
+            $values = array_map(fn ($field) => $fields[$field], $order);
+            $this->assertSame(strtoupper(hash('sha512', implode('', $values).'day-key')), $fields['hash']);
+
+            return true;
+        });
         $payload = ['reference' => $payment->reference, 'amount' => '0.10', 'paynowreference' => 'DAY123', 'status' => 'Paid'];
         $this->call('POST', '/billing/paynow/notify/'.$payment->reference, [], [], [], [], $this->signed($payload, 'other-key'))->assertBadRequest();
         $this->assertDatabaseCount('subscriptions', 0);
         $body = $this->signed($payload, 'day-key');
+        $this->call('POST', '/billing/paynow/notify/'.$payment->reference, [], [], [], [], $body.'&STATUS=Paid')->assertBadRequest();
+        $this->assertDatabaseCount('subscriptions', 0);
         $this->call('POST', '/billing/paynow/notify/'.$payment->reference, [], [], [], [], $body)->assertOk();
         $this->call('POST', '/billing/paynow/notify/'.$payment->reference, [], [], [], [], $body)->assertOk();
         $this->assertDatabaseCount('subscriptions', 1);

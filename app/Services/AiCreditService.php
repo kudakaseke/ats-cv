@@ -33,35 +33,11 @@ class AiCreditService
             $this->ledger($user->id, 'welcome:'.$user->id, 'welcome', config('ai_credits.welcome'), 0);
             $wallet = DB::table('ai_wallets')->where('user_id', $user->id)->first();
         }
-        // An early renewal pools remaining and newly purchased credits until
-        // the end of the extended paid term. A period start never refills it.
+        // Early purchases share a balance while each funding period keeps its expiry.
         $poolPrefix = 'subscription-pool:';
         $allocation = $wallet->allocation_reference ?? '';
-        if (str_starts_with($allocation, 'expired:'.$poolPrefix) && Subscription::localTestCreditsEnabled()) {
-            $pool = substr($allocation, strlen('expired:'));
-            $end = $user->subscriptions()->where('status', 'sandbox_active')->where('ends_at', '>', now())->max('ends_at');
-            $expiry = DB::table('ai_credit_transactions')->where('user_id', $user->id)->where('type', 'subscription_expired')
-                ->where('reference', 'like', 'expire:'.$pool.':%')->latest('id')->first();
-            if (str_ends_with($pool, ':test') && $end && $expiry) {
-                $restored = array_sum(json_decode($wallet->subscription_sources ?? '{}', true));
-                $this->ledger($user->id, 'restore:'.$pool.':'.Str::uuid(), 'subscription_restored', $restored, 0);
-                DB::table('ai_wallets')->where('id', $wallet->id)->update(['subscription_credits' => $restored,
-                    'allocation_reference' => $pool, 'expires_at' => $end, 'updated_at' => now()]);
-                $wallet = DB::table('ai_wallets')->where('id', $wallet->id)->first();
-                $allocation = $pool;
-            }
-        }
-        if (str_starts_with($allocation, $poolPrefix)) {
-            $allowed = ! str_ends_with($allocation, ':test') || Subscription::localTestCreditsEnabled();
-            if ($allowed && $wallet->expires_at && Carbon::parse($wallet->expires_at)->gt(now())) {
-                return $wallet;
-            }
-            if ($wallet->subscription_credits > 0) {
-                $this->ledger($user->id, 'expire:'.$allocation.':'.Str::uuid(), 'subscription_expired', -$wallet->subscription_credits, 0);
-            }
-            DB::table('ai_wallets')->where('id', $wallet->id)->update(['subscription_credits' => 0,
-                'allocation_reference' => 'expired:'.$allocation, 'expires_at' => null, 'updated_at' => now()]);
-            $wallet = DB::table('ai_wallets')->where('id', $wallet->id)->first();
+        if (str_starts_with($allocation, $poolPrefix) || str_starts_with($allocation, 'expired:'.$poolPrefix)) {
+            $wallet = $this->syncPool($user, $wallet);
         }
         $subscription = $user->subscriptions()->join('subscription_plans', 'subscription_plans.id', '=', 'subscriptions.subscription_plan_id')
             ->whereIn('subscriptions.status', Subscription::availableStatuses())->where('subscriptions.starts_at', '<=', now())
@@ -91,9 +67,16 @@ class AiCreditService
                     // Keep in-flight refunds attached to the replacement yearly allowance.
                     (clone $previous)->where('status', 'reserved')->update(['allocation_reference' => $reference]);
                 }
-                $this->ledger($user->id, $reference, 'subscription_allocation', $credits - $wallet->subscription_credits, 0);
-                DB::table('ai_wallets')->where('id', $wallet->id)->update(['subscription_credits' => $credits,
-                    'allocation_reference' => $reference, 'expires_at' => $end, 'updated_at' => now()]);
+                $allocation = ['subscription_credits' => $credits, 'allocation_reference' => $reference, 'expires_at' => $end];
+                $pool = $poolPrefix.$user->id.($subscription->status === 'sandbox_active' ? ':test' : ':live');
+                if ($wallet->allocation_reference === $pool) {
+                    $sources = json_decode($wallet->subscription_sources, true, 512, JSON_THROW_ON_ERROR);
+                    $sources[$subscription->id] = $credits;
+                    $allocation = ['subscription_credits' => array_sum($sources), 'allocation_reference' => $pool,
+                        'expires_at' => Carbon::parse($wallet->expires_at)->max($end), 'subscription_sources' => json_encode($sources, JSON_THROW_ON_ERROR)];
+                }
+                $this->ledger($user->id, $reference, 'subscription_allocation', $allocation['subscription_credits'] - $wallet->subscription_credits, 0);
+                DB::table('ai_wallets')->where('id', $wallet->id)->update($allocation + ['updated_at' => now()]);
             } elseif (in_array($subscription->status, ['test_active', 'sandbox_active'], true) && $wallet->allocation_reference === 'expired:'.$reference) {
                 // Recover only the unspent balance if local test configuration was temporarily removed.
                 // Prior operations remain authoritative, so restoring configuration cannot refill spent credits.
@@ -119,6 +102,37 @@ class AiCreditService
         }
 
         return DB::table('ai_wallets')->where('id', $wallet->id)->first();
+    }
+
+    private function syncPool(User $user, object $wallet): object
+    {
+        $pool = str_starts_with($wallet->allocation_reference, 'expired:')
+            ? substr($wallet->allocation_reference, strlen('expired:')) : $wallet->allocation_reference;
+        $sandbox = str_ends_with($pool, ':test');
+        $sources = json_decode($wallet->subscription_sources ?? '{}', true);
+        $allowed = ! $sandbox || Subscription::localTestCreditsEnabled();
+        $periods = $user->subscriptions()->whereIn('id', array_keys($sources))
+            ->where('status', $sandbox ? 'sandbox_active' : 'active')->where('ends_at', '>', now())
+            ->toBase()->pluck('ends_at', 'id');
+        $sources = array_intersect_key($sources, $periods->all());
+        $end = $allowed ? $periods->max() : null;
+        $balance = $allowed ? array_sum($sources) : 0;
+        $allocation = $end ? $pool : 'expired:'.$pool;
+        $delta = $balance - $wallet->subscription_credits;
+        if ($delta !== 0) {
+            $type = $delta < 0 ? 'subscription_expired' : 'subscription_restored';
+            $this->ledger($user->id, $type.':'.$pool.':'.Str::uuid(), $type, $delta, 0);
+        }
+        $encoded = json_encode($sources, JSON_THROW_ON_ERROR);
+        if ($delta !== 0 || $wallet->allocation_reference !== $allocation || $wallet->expires_at !== $end
+            || $wallet->subscription_sources !== $encoded) {
+            DB::table('ai_wallets')->where('id', $wallet->id)->update(['subscription_credits' => $balance,
+                'allocation_reference' => $allocation, 'expires_at' => $end, 'subscription_sources' => $encoded, 'updated_at' => now()]);
+
+            return DB::table('ai_wallets')->where('id', $wallet->id)->first();
+        }
+
+        return $wallet;
     }
 
     // Cache presentation reads within this request only. All spending still locks
@@ -158,15 +172,17 @@ class AiCreditService
             $pool = 'subscription-pool:'.$user->id.($period->status === 'sandbox_active' ? ':test' : ':live');
             $end = $wallet->expires_at ? Carbon::parse($wallet->expires_at)->max($period->ends_at) : $period->ends_at;
             $sources = json_decode($wallet->subscription_sources ?? '{}', true);
-            if (! str_starts_with($wallet->allocation_reference ?? '', 'subscription-pool:')) {
+            if ($wallet->allocation_reference !== $pool) {
                 $sources = [];
                 if (preg_match('/^subscription:(\d+):/', $wallet->allocation_reference ?? '', $match)) {
-                    $sources[$match[1]] = $wallet->subscription_credits;
-                    DB::table('ai_operations')->where('user_id', $user->id)->where('status', 'reserved')
-                        ->where('allocation_reference', $wallet->allocation_reference)->orderBy('id')->get()->each(function ($operation) use ($match) {
-                            DB::table('ai_operations')->where('id', $operation->id)->update([
-                                'subscription_sources' => json_encode([$match[1] => $operation->subscription_spent], JSON_THROW_ON_ERROR)]);
-                        });
+                    if ($locked->subscriptions()->whereKey($match[1])->where('status', $period->status)->exists()) {
+                        $sources[$match[1]] = $wallet->subscription_credits;
+                        DB::table('ai_operations')->where('user_id', $user->id)->where('status', 'reserved')
+                            ->where('allocation_reference', $wallet->allocation_reference)->orderBy('id')->get()->each(function ($operation) use ($match) {
+                                DB::table('ai_operations')->where('id', $operation->id)->update([
+                                    'subscription_sources' => json_encode([$match[1] => $operation->subscription_spent], JSON_THROW_ON_ERROR)]);
+                            });
+                    }
                 }
             }
             $sources[$period->id] = ($sources[$period->id] ?? 0) + $credits;
@@ -354,12 +370,9 @@ class AiCreditService
                 $sources = json_decode($wallet->subscription_sources ?? '{}', true);
                 if ($subscription > 0 && str_starts_with($wallet->allocation_reference ?? '', 'subscription-pool:')) {
                     $refundable = json_decode($operation->subscription_sources ?? '{}', true);
-                    $valid = $user->subscriptions()->whereIn('id', array_keys($refundable))
-                        ->whereIn('status', array_merge(Subscription::availableStatuses(), ['expired']))->pluck('id')->all();
                     $subscription = 0;
-                    foreach ($valid as $period) {
-                        $amount = $refundable[$period] ?? 0;
-                        $sources[$period] = ($sources[$period] ?? 0) + $amount;
+                    foreach (array_intersect_key($refundable, $sources) as $period => $amount) {
+                        $sources[$period] += $amount;
                         $subscription += $amount;
                     }
                 }

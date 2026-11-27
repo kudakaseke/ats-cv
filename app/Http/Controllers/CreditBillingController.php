@@ -49,13 +49,14 @@ class CreditBillingController extends Controller
 
             return redirect()->away($gateway->start($payment, $request->user()->email));
         } catch (\Throwable $exception) {
-            if ($exception instanceof \DomainException) {
-                $payment->update(['status' => 'failed', 'failure_reason' => 'Checkout rejected by provider']);
-                app(BillingRecords::class)->record($payment);
+            $rejected = $exception instanceof \DomainException;
+            $payment->failCheckoutStart($rejected);
+            if ($rejected) {
+                app(BillingRecords::class)->record($payment->fresh());
             }
             report($exception);
 
-            return to_route('billing.show', $payment->reference)->withErrors(['billing' => 'Checkout could not be opened. No credits have been added. Check payment status before retrying.']);
+            return to_route('billing.show', $payment->reference)->withErrors(['billing' => 'Checkout could not be opened. Please start a new checkout.']);
         }
     }
 }

@@ -49,11 +49,12 @@
             <p>Paynow reports a refund or dispute. Access associated with this payment has been revoked. Contact support for a review.</p>
         @elseif($payment->status === 'failed')
             <p>Payment could not be completed. No credits were added. You can retry or contact support with your reference.</p>
-            <a class="btn btn-outline" href="{{ route('subscription') }}">Retry payment</a>
+            <a class="btn btn-outline" href="{{ $payment->billing_interval === 'daily' ? route('subscription.payment-methods', 'day-test') : route('subscription') }}">Retry payment</a>
         @elseif($payment->status === 'closed')
             <p>This local checkout was closed because its payment provider was removed. It will no longer be checked. Contact support with the reference if you paid through that provider.</p>
         @elseif($payment->status === 'abandoned')
             <p>Payment was not completed. No credits were added.</p>
+            <a class="btn btn-outline" href="{{ $payment->billing_interval === 'daily' ? route('subscription.payment-methods', 'day-test') : route('subscription') }}">Retry payment</a>
         @else
             <p>This payment is {{ $payment->status }}. Contact support if you need assistance.</p>
         @endif

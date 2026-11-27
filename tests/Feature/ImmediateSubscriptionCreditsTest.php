@@ -71,19 +71,32 @@ class ImmediateSubscriptionCreditsTest extends TestCase
         return $payment->fresh();
     }
 
-    public function test_third_purchase_adds_credits_now_and_extends_access_without_overlap_or_refill(): void
+    public function test_mixed_renewals_add_credits_now_and_each_allowance_expires_at_its_own_boundary(): void
     {
+        $this->travelTo(now()->setDate(2026, 1, 31)->startOfDay());
         $user = User::factory()->create();
         $first = $this->pay($user, 'pro');
         $second = $this->pay($user, 'monthly');
         $third = $this->pay($user, 'annual');
+        $firstPeriod = Subscription::findOrFail($first->subscription_id);
         $secondPeriod = Subscription::findOrFail($second->subscription_id);
         $thirdPeriod = Subscription::findOrFail($third->subscription_id);
+        $this->assertSame('2026-02-28', $firstPeriod->ends_at->toDateString());
+        $this->assertSame('2026-03-28', $secondPeriod->ends_at->toDateString());
+        $this->assertSame('2027-03-28', $thirdPeriod->ends_at->toDateString());
         $this->assertTrue($thirdPeriod->starts_at->equalTo($secondPeriod->ends_at));
         $this->assertSame(2775, app(AiCreditService::class)->wallet($user)['credits']);
         app(PaymentService::class)->refresh($third);
-        $this->travelTo($thirdPeriod->starts_at->copy()->addSecond());
+        $this->travelTo($firstPeriod->ends_at->copy()->subSecond());
         $this->assertSame(2775, app(AiCreditService::class)->wallet($user)['credits']);
+        $this->travelTo($firstPeriod->ends_at);
+        $this->assertSame(2550, app(AiCreditService::class)->wallet($user)['credits']);
+        $this->travelTo($secondPeriod->ends_at);
+        $this->assertSame(2400, app(AiCreditService::class)->wallet($user)['credits']);
+        $this->travelTo($thirdPeriod->ends_at->copy()->subSecond());
+        $this->assertSame(2400, app(AiCreditService::class)->wallet($user)['credits']);
+        $this->travelTo($thirdPeriod->ends_at);
+        $this->assertSame(0, app(AiCreditService::class)->wallet($user)['credits']);
         $this->assertDatabaseCount('subscriptions', 3);
     }
 
@@ -108,7 +121,26 @@ class ImmediateSubscriptionCreditsTest extends TestCase
         $this->assertSame(0, $credits->wallet($user)['credits']);
     }
 
-    public function test_failed_operations_restore_their_funding_sources_even_after_early_renewal(): void
+    public function test_deferred_allowance_is_released_with_later_prepaid_credits_in_the_wallet(): void
+    {
+        $user = User::factory()->create();
+        $this->pay($user, 'monthly');
+        config(['billing.subscription_credit_timing' => 'next_period']);
+        $deferred = $this->pay($user, 'pro');
+        config(['billing.subscription_credit_timing' => 'immediate']);
+        $this->pay($user, 'annual');
+
+        $credits = app(AiCreditService::class);
+        $period = Subscription::findOrFail($deferred->subscription_id);
+        $this->assertSame(2550, $credits->wallet($user)['credits']);
+        $this->travelTo($period->starts_at);
+        $this->assertSame(2625, $credits->wallet($user)['credits']);
+        $this->assertSame(2625, $credits->wallet($user)['credits']);
+        $this->travelTo($period->ends_at);
+        $this->assertSame(2400, $credits->wallet($user)['credits']);
+    }
+
+    public function test_failed_operations_restore_only_unexpired_funding_sources_after_early_renewal(): void
     {
         $user = User::factory()->create();
         $this->pay($user, 'pro');
@@ -122,7 +154,7 @@ class ImmediateSubscriptionCreditsTest extends TestCase
         $period = Subscription::findOrFail($next->subscription_id);
         $this->travelTo($period->starts_at->copy()->addSecond());
         $credits->finish($user, $operation->id, null);
-        $this->assertSame(375, $credits->wallet($user)['credits']);
+        $this->assertSame(150, $credits->wallet($user)['credits']);
         $credits->topup($user, 50, 'independent-purchased-credits');
         $this->travelTo($period->ends_at->copy()->addSecond());
         $this->assertSame(50, $credits->wallet($user)['credits']);

@@ -88,10 +88,13 @@ class BillingTest extends TestCase
 
     public function test_paynow_local_test_uses_https_callbacks_and_never_grants_live_access(): void
     {
-        config(['billing.paynow.mode' => 'test', 'billing.paynow.callback_url' => 'https://example.trycloudflare.com']);
+        config(['billing.paynow.mode' => 'test', 'billing.paynow.callback_url' => 'https://example.trycloudflare.com',
+            'billing.paynow.test_email' => 'merchant@example.test']);
         Http::fake(['*' => Http::response($this->signed(['status' => 'Ok', 'browserurl' => 'https://www.paynow.co.zw/Payment/test', 'pollurl' => 'https://www.paynow.co.zw/interface/checkpayment?guid=test']))]);
         $this->actingAs(User::factory()->create())->post('/billing/paynow/monthly', ['billing_consent' => 1])->assertRedirect('https://www.paynow.co.zw/Payment/test');
-        Http::assertSent(fn ($request) => str_starts_with($request['resulturl'], 'https://example.trycloudflare.com/billing/paynow/notify/') && str_starts_with($request['returnurl'], 'https://example.trycloudflare.com/billing/paynow/return/') && ! isset($request['authemail']));
+        Http::assertSent(fn ($request) => str_starts_with($request['resulturl'], 'https://example.trycloudflare.com/billing/paynow/notify/')
+            && str_starts_with($request['returnurl'], 'https://example.trycloudflare.com/billing/paynow/return/')
+            && $request['authemail'] === 'merchant@example.test');
         $payment = BillingPayment::sole();
         $this->assertSame('test', $payment->mode);
         Http::swap(new Factory);
@@ -106,12 +109,13 @@ class BillingTest extends TestCase
         config(['billing.paynow.enabled' => false]);
         $this->actingAs(User::factory()->create())->get('/subscription/monthly/payment-method')->assertOk()->assertSee('Paynow — currently disabled');
         config(['billing.paynow.enabled' => true]);
-        $this->get('/subscription/monthly/payment-method')->assertOk()
-            ->assertSee('Pay US$4.75 with Paynow')->assertSee(route('billing.start', ['provider' => 'paynow', 'plan' => 'monthly']), false)->assertDontSee('BillPaymentLink');
-        $this->get('/subscription/pro/payment-method')->assertOk()->assertSee('Pay US$6.50 with Paynow')
-            ->assertSee(route('billing.start', ['provider' => 'paynow', 'plan' => 'pro']), false)->assertDontSee('BillPaymentLink');
-        $this->get('/subscription/annual/payment-method')->assertOk()->assertSee('Pay US$47.40 with Paynow')
-            ->assertSee(route('billing.start', ['provider' => 'paynow', 'plan' => 'annual']), false)->assertDontSee('BillPaymentLink');
+        foreach (['monthly' => '4.75', 'pro' => '6.50', 'annual' => '47.40'] as $plan => $price) {
+            $this->get('/subscription/'.$plan.'/payment-method')->assertOk()
+                ->assertHeader('Content-Security-Policy', "base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self' https://www.paynow.co.zw https://paynow.co.zw")
+                ->assertSee('Pay US$'.$price.' with Paynow')
+                ->assertSee(route('billing.start', ['provider' => 'paynow', 'plan' => $plan]), false)
+                ->assertDontSee('BillPaymentLink');
+        }
     }
 
     public function test_paynow_rejects_insecure_callback_override_without_contacting_provider(): void

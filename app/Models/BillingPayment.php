@@ -6,9 +6,19 @@ use Illuminate\Database\Eloquent\Model;
 
 class BillingPayment extends Model
 {
+    public const CHECKOUT_START_FAILED = 'Checkout could not be opened';
+
     protected $guarded = ['id'];
 
     protected $hidden = ['poll_url', 'checkout_url'];
+
+    public function failCheckoutStart(bool $rejected): void
+    {
+        self::whereKey($this->id)->where('status', 'pending')->whereNull('checkout_url')->update([
+            'status' => 'failed',
+            'failure_reason' => $rejected ? 'Checkout rejected by provider' : self::CHECKOUT_START_FAILED,
+        ]);
+    }
 
     protected function casts(): array
     {

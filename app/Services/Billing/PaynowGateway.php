@@ -29,6 +29,8 @@ class PaynowGateway
             }
         }
 
+        // Paynow signs the original values in wire order. Form encoding happens
+        // during transport. The SDK skips the hash field and appends the raw key.
         return Hash::make($data, (string) $this->credentials($payment)[1]);
     }
 
@@ -43,14 +45,33 @@ class PaynowGateway
         }
 
         return $this->credentials($payment)[1] && is_string($data['hash'] ?? null)
+            && preg_match('/\A[0-9a-f]{128}\z/i', $data['hash'])
             && hash_equals($this->signature($data, $payment), strtoupper($data['hash']));
+    }
+
+    public function decodeForm(string $body): ?array
+    {
+        $data = [];
+        foreach (explode('&', $body) as $pair) {
+            $parts = explode('=', $pair, 2);
+            if (count($parts) !== 2 || preg_match('/%(?![0-9a-f]{2})/i', $pair)) {
+                return null;
+            }
+            $name = strtolower(urldecode($parts[0]));
+            if (! preg_match('/\A[a-z][a-z0-9_]*\z/', $name) || array_key_exists($name, $data)) {
+                return null;
+            }
+            // Decode once, preserving value bytes and the sender's field order.
+            $data[$name] = urldecode($parts[1]);
+        }
+
+        return $data;
     }
 
     private function parse(string $body, ?BillingPayment $payment = null): array
     {
-        parse_str($body, $data);
-        $data = array_change_key_case($data, CASE_LOWER);
-        if (! $this->verify($data, $payment)) {
+        $data = $this->decodeForm($body);
+        if ($data === null || ! $this->verify($data, $payment)) {
             throw new \RuntimeException('Invalid Paynow signature.');
         }
 
@@ -101,6 +122,9 @@ class PaynowGateway
         // exact cents formatting and merchant-trace recovery used by this app.
         $sdk = new Paynow($integrationId, $integrationKey, $returnUrl, $resultUrl);
         $authEmail = $payment->mode === 'test' ? ($isDayTest ? config('billing.paynow.day_site.test_email') : config('billing.paynow.test_email')) : $email;
+        if ($isDayTest && ! filter_var($authEmail, FILTER_VALIDATE_EMAIL)) {
+            throw new \DomainException('Paynow test checkout requires the merchant email.');
+        }
         $builder = $sdk->createPayment($payment->reference, $authEmail);
         $builder->add($description, $payment->amount_cents / 100);
         $item = $builder->toArray();
@@ -111,7 +135,6 @@ class PaynowGateway
             'additionalinfo' => rtrim($item['additionalinfo'], ', '),
             'returnurl' => $returnUrl,
             'resulturl' => $resultUrl,
-            'status' => 'Message',
         ];
         if (app()->isProduction() && (parse_url($data['returnurl'], PHP_URL_SCHEME) !== 'https' || parse_url($data['resulturl'], PHP_URL_SCHEME) !== 'https')) {
             throw new \DomainException('Production Paynow callbacks require HTTPS.');
@@ -123,6 +146,7 @@ class PaynowGateway
         // Persist the documented recovery identifier before sending an initialization.
         $payment->update(['merchant_trace' => substr(hash('sha256', $payment->reference), 0, 32)]);
         $data['merchanttrace'] = $payment->merchant_trace;
+        $data['status'] = 'Message';
         $data['hash'] = $this->signature($data, $payment);
         $result = $this->parse(Http::asForm()->timeout(20)->withoutRedirecting()
             ->post('https://www.paynow.co.zw/interface/initiatetransaction', $data)->throw()->body(), $payment);

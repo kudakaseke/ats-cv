@@ -1,5 +1,9 @@
 <?php
 
+$dayIntegrationId = env('PAYNOW_DAY_SITE_INTEGRATION_ID');
+$dayIntegrationKey = env('PAYNOW_DAY_SITE_INTEGRATION_KEY');
+$hasDedicatedDayIntegration = $dayIntegrationId || $dayIntegrationKey;
+
 return [
     // Enable only after confirming the merchant currency and public callback URL.
     'paynow' => [
@@ -13,8 +17,8 @@ return [
         'integration_key' => env(env('PAYNOW_MODE', 'test') === 'live' ? 'PAYNOW_LIVE_INTEGRATION_KEY' : 'PAYNOW_TEST_INTEGRATION_KEY', null) ?: env('PAYNOW_INTEGRATION_KEY'),
         'day_button_key' => env('PAYNOW_DAY_BUTTON_KEY'),
         'day_site' => [
-            'integration_id' => env('PAYNOW_DAY_SITE_INTEGRATION_ID'),
-            'integration_key' => env('PAYNOW_DAY_SITE_INTEGRATION_KEY'),
+            'integration_id' => $hasDedicatedDayIntegration ? $dayIntegrationId : env('PAYNOW_TEST_INTEGRATION_ID'),
+            'integration_key' => $hasDedicatedDayIntegration ? $dayIntegrationKey : env('PAYNOW_TEST_INTEGRATION_KEY'),
             'test_email' => env('PAYNOW_DAY_SITE_TEST_EMAIL'),
             'callback_url' => env('PAYNOW_DAY_SITE_CALLBACK_URL'),
         ],

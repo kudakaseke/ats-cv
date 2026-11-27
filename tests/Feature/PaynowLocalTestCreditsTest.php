@@ -124,7 +124,7 @@ class PaynowLocalTestCreditsTest extends TestCase
         app(AiCreditService::class)->finish($user, $operation->id, null);
         $this->travelTo($period->starts_at->copy()->addSecond());
         app(PaymentService::class)->refresh($next->fresh());
-        $this->assertSame(375, app(AiCreditService::class)->wallet($user)['credits']);
+        $this->assertSame(150, app(AiCreditService::class)->wallet($user)['credits']);
         $this->assertSame(1, DB::table('ai_credit_transactions')->where('type', 'subscription_upfront')->count());
     }
 

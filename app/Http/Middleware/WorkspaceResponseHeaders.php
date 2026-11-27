@@ -19,7 +19,12 @@ class WorkspaceResponseHeaders
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
         $response->headers->set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
         // Compatible with Alpine/Livewire; do not claim a strict script policy.
-        $response->headers->set('Content-Security-Policy', "base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'");
+        $formTargets = "'self'";
+        if ($request->routeIs('subscription.payment-methods') && $response->isSuccessful()) {
+            // Chrome applies form-action to the checkout POST's redirect as well.
+            $formTargets .= ' https://www.paynow.co.zw https://paynow.co.zw';
+        }
+        $response->headers->set('Content-Security-Policy', "base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action ".$formTargets);
         if ($request->isSecure() && app()->environment('production')) {
             $response->headers->set('Strict-Transport-Security', 'max-age=31536000');
         }

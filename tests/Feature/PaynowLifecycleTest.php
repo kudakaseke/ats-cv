@@ -441,7 +441,7 @@ class PaynowLifecycleTest extends TestCase
         $this->assertSame(1, DB::table('ai_credit_transactions')->where('type', 'subscription_allocation')->count());
         $this->assertSame($credits * 2, app(AiCreditService::class)->wallet($user)['credits']);
         $this->travelTo($end->copy()->addSecond());
-        $this->assertSame($credits * 2, app(AiCreditService::class)->wallet($user)['credits']);
+        $this->assertSame($credits, app(AiCreditService::class)->wallet($user)['credits']);
         $this->assertSame(1, DB::table('ai_credit_transactions')->where('type', 'subscription_allocation')->count());
         $this->assertSame(1, DB::table('ai_credit_transactions')->where('type', 'subscription_upfront')->count());
     }
@@ -525,14 +525,15 @@ class PaynowLifecycleTest extends TestCase
         $this->assertDatabaseCount('subscriptions', 0);
     }
 
-    public function test_initialization_timeout_does_not_create_another_attempt_on_retry(): void
+    public function test_initialization_timeout_fails_and_allows_a_fresh_attempt(): void
     {
         Http::fake(fn () => throw new ConnectionException('Timeout'));
         $this->actingAs(User::factory()->create())->post('/billing/paynow/monthly', ['billing_consent' => 1])->assertSessionHasErrors('billing');
         $payment = BillingPayment::sole();
-        $this->assertSame('pending', $payment->status);
-        $this->post('/billing/paynow/monthly', ['billing_consent' => 1])->assertRedirect(route('billing.show', $payment->reference));
-        $this->assertDatabaseCount('billing_payments', 1);
+        $this->assertSame('failed', $payment->status);
+        $this->post('/billing/paynow/monthly', ['billing_consent' => 1])->assertSessionHasErrors('billing');
+        $this->assertDatabaseCount('billing_payments', 2);
+        $this->assertSame(0, BillingPayment::where('status', 'pending')->count());
     }
 
     public function test_untrusted_initialization_response_cannot_redirect_to_checkout(): void
@@ -607,7 +608,7 @@ class PaynowLifecycleTest extends TestCase
         $this->assertTrue(Subscription::findOrFail($payment->fresh()->subscription_id)->starts_at->equalTo($end));
         $this->assertSame(2625, app(AiCreditService::class)->wallet($user)['credits']);
         $this->travelTo($end->copy()->addSecond());
-        $this->assertSame(2625, app(AiCreditService::class)->wallet($user)['credits']);
+        $this->assertSame(225, app(AiCreditService::class)->wallet($user)['credits']);
     }
 
     public function test_unconfirmed_live_currency_cannot_contact_paynow(): void

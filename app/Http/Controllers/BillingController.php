@@ -32,7 +32,9 @@ class BillingController extends Controller
             $offer = SubscriptionPlan::where('slug', $plan)->where('is_active', true)->whereIn('slug', ['monthly', 'pro', 'annual'])->firstOrFail();
         }
         abort_unless($offer->currency === 'USD' && $offer->price_cents > 0 && config('ai_credits.plans.'.$offer->slug) > 0, 503);
-        $request->validate(['billing_consent' => ['accepted']]);
+        $request->validate(['billing_consent' => ['accepted']], [
+            'billing_consent.accepted' => 'Agree to the Terms and Refund Policy to continue to Paynow.',
+        ]);
         if ($plan === 'day-test' && (! config('billing.paynow.enabled') || ! config('billing.paynow.day_site.integration_id') || ! config('billing.paynow.day_site.integration_key')
             || ! config('billing.paynow.day_site.test_email') || ! config('billing.paynow.local_test_credits'))) {
             return to_route('subscription.payment-methods', 'day-test')->withErrors(['billing' => 'The test checkout is not configured yet.']);
@@ -95,15 +97,15 @@ class BillingController extends Controller
 
             return redirect()->away($gateway->start($payment, $request->user()->email));
         } catch (\Throwable $exception) {
-            if ($provider === 'paynow' && $exception instanceof \DomainException) {
-                $payment->update(['status' => 'failed', 'failure_reason' => 'Checkout rejected by provider']);
-                app(BillingRecords::class)->record($payment);
+            $rejected = $exception instanceof \DomainException;
+            $payment->failCheckoutStart($rejected);
+            if ($rejected) {
+                app(BillingRecords::class)->record($payment->fresh());
             }
             app(AuditTrail::class)->record($payment->user_id, 'payment.initialization_uncertain', 'BillingPayment', $payment->id,
                 ['reference' => $payment->reference, 'provider' => $payment->provider]);
 
-            // A timed-out request might exist at the provider. Keep the reference for reconciliation.
-            return to_route('billing.show', $payment->reference)->withErrors(['billing' => 'Checkout could not be opened. No access has been activated. Contact support with the payment reference if you were charged.']);
+            return to_route('billing.show', $payment->reference)->withErrors(['billing' => 'Checkout could not be opened. Please start a new checkout.']);
         }
     }
 
@@ -201,7 +203,7 @@ class BillingController extends Controller
     public function paynowNotify(Request $request, string $reference, PaynowGateway $gateway, PaymentService $service)
     {
         abort_if(strlen($request->getContent()) > 65536, 413);
-        parse_str($request->getContent(), $data);
+        $data = $gateway->decodeForm($request->getContent()) ?? [];
         $payment = BillingPayment::where('reference', $reference)->where('provider', 'paynow')->first();
         if (! $payment) {
             abort_unless($gateway->verify($data), 400);
@@ -211,11 +213,10 @@ class BillingController extends Controller
             Log::warning('Paynow notification rejected: invalid signature.', ['payment_id' => $payment->id]);
             abort(400);
         }
-        $safe = array_intersect_key(array_change_key_case($data, CASE_LOWER), array_flip(['reference', 'amount', 'paynowreference', 'status']));
+        $safe = array_intersect_key($data, array_flip(['reference', 'amount', 'paynowreference', 'status']));
         $safe = array_map(fn ($value) => is_scalar($value) ? mb_substr((string) $value, 0, 255) : '[invalid]', $safe);
         ksort($safe);
         $fingerprint = hash('sha256', json_encode($safe, JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR));
-        $data = array_change_key_case($data, CASE_LOWER);
         abort_unless(is_string($data['reference'] ?? null) && hash_equals($reference, $data['reference']), 400);
         abort_unless($payment, 404);
         if (! $gateway->matches($payment, $data)) {

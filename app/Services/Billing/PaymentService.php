@@ -62,6 +62,9 @@ class PaymentService
             if (in_array($locked->status, ['paid', 'test_paid'], true) && in_array($status, ['pending', 'cancelled', 'failed'], true)) {
                 return;
             }
+            if ($status === 'pending' && in_array($locked->status, ['failed', 'abandoned'], true)) {
+                return;
+            }
             $sandbox = $locked->mode === 'test' && $locked->kind === 'subscription' && Subscription::localTestCreditsEnabled();
             if ($sandbox && Subscription::where('user_id', $locked->user_id)->where('status', 'active')
                 ->where(fn ($query) => $query->whereNull('ends_at')->orWhere('ends_at', '>', now()))->exists()) {

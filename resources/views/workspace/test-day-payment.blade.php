@@ -18,10 +18,17 @@
             <p>Card details and mobile-money authorization are handled by Paynow. Available methods depend on your Paynow configuration.</p>
             <x-input-error :messages="$errors->get('billing')" class="my-4" />
             @if(config('billing.paynow.enabled') && config('billing.paynow.mode') === 'test' && config('billing.paynow.day_site.integration_id') && config('billing.paynow.day_site.integration_key') && config('billing.paynow.day_site.test_email') && config('billing.paynow.local_test_credits'))
-                <form method="POST" action="{{ route('billing.start', ['provider' => 'paynow', 'plan' => 'day-test']) }}">
+                <form method="POST" action="{{ route('billing.start', ['provider' => 'paynow', 'plan' => 'day-test']) }}" novalidate
+                    x-data="{ submitting: false }" @submit="submitting = true" @pageshow.window="submitting = false">
                     @csrf
-                    <label class="billing-consent"><input type="checkbox" name="billing_consent" value="1" required> I agree to the <a href="{{ route('terms') }}">Terms</a> and <a href="{{ route('refund') }}">Refund Policy</a>.</label>
-                    <button class="btn btn-primary day-checkout-submit" type="submit">Continue to Paynow &middot; US$0.10</button>
+                    <label class="billing-consent">
+                        <input type="checkbox" name="billing_consent" value="1" required
+                            @error('billing_consent') aria-invalid="true" aria-describedby="day-checkout-consent-error" @enderror>
+                        I agree to the <a href="{{ route('terms') }}">Terms</a> and <a href="{{ route('refund') }}">Refund Policy</a>.
+                    </label>
+                    <x-input-error id="day-checkout-consent-error" role="alert" :messages="$errors->get('billing_consent')" />
+                    <button class="btn btn-primary day-checkout-submit" type="submit" :disabled="submitting"
+                        x-text="submitting ? 'Opening Paynow…' : 'Continue to Paynow · US$0.10'">Continue to Paynow &middot; US$0.10</button>
                 </form>
                 <p>Test mode: no real payment is made. Credits are added only after Paynow confirms the test payment.</p>
             @else

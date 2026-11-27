@@ -10,27 +10,30 @@
                 <p class="checkout-price-note">One-time payment &middot; {{ $plan->billing_interval === 'annually' ? '1 year' : '1 month' }} of access</p>
                 <div class="checkout-order-line"><div><strong>{{ $plan->name }} plan</strong><small>{{ number_format(config('ai_credits.plans.'.$plan->slug)) }} AI credits</small></div><strong>${{ number_format($plan->price_cents / 100, 2) }}</strong></div>
                 <div class="checkout-total"><span>Total due</span><strong>US${{ number_format($plan->price_cents / 100, 2) }}</strong></div>
-                @if(config('billing.paynow.plan_change_policy') === 'end_of_cycle')<p class="checkout-detail">If you already have paid access, this purchase starts after your existing paid period. Repeat-purchase credits are added immediately and remain valid until the extended paid term ends.</p>@endif
+                @if(config('billing.paynow.plan_change_policy') === 'end_of_cycle')<p class="checkout-detail">If you already have paid access, this purchase starts after your existing paid period. @if(config('billing.subscription_credit_timing') === 'immediate') Newly purchased credits are available immediately. @endif Each credit allowance expires at the end of the period it pays for.</p>@endif
             </section>
             <section class="checkout-payment" aria-labelledby="checkout-payment-heading">
                 <p class="checkout-kicker">PAYMENT</p>
                 <h2 id="checkout-payment-heading">Choose Payment Method</h2>
                 <p class="checkout-intro">Pay securely with Paynow. Renew manually whenever you need more access.</p>
                 <div class="checkout-provider"><div><strong>Paynow</strong><span>Secure payment</span></div><h2 class="sr-only">Paynow</h2><img class="checkout-paynow-logo payment-provider-paynow" src="{{ asset('images/payment-providers/paynow.svg') }}" alt="" width="88" height="19"></div>
-                <form method="POST" action="{{ route('billing.start', ['provider' => 'paynow', 'plan' => $plan->slug]) }}">
+                <form method="POST" action="{{ route('billing.start', ['provider' => 'paynow', 'plan' => $plan->slug]) }}" novalidate
+                    x-data="{ submitting: false }" @submit="submitting = true" @pageshow.window="submitting = false">
                     @csrf
                     @php($credentialsPresent = config('billing.paynow.integration_id') && config('billing.paynow.integration_key'))
                     @if(app(\App\Http\Controllers\BillingController::class)->available('paynow'))
-                        @if(in_array($plan->slug, ['monthly', 'pro', 'annual'], true))
-                            <label class="billing-consent"><input type="checkbox" name="billing_consent" value="1" required> I agree to the <a href="{{ route('terms') }}">Terms</a> and <a href="{{ route('refund') }}">Refund Policy</a>. This is a one-time payment with no automatic renewal.</label>
-                            <div class="checkout-paynow-button">
-                                <button type="submit" style="padding:0;border:0;background:transparent;cursor:pointer"><img src="https://www.paynow.co.zw/Content/Buttons/Medium_buttons/button_pay-now_medium.png" alt="Pay US${{ number_format($plan->price_cents / 100, 2) }} with Paynow" style="border:0"></button>
-                            </div>
-                            <p class="checkout-notice">Credits are added after Paynow confirms your payment. If you cancel, no credits are added.</p>
-                        @else
-                            <label class="billing-consent"><input type="checkbox" name="billing_consent" value="1" required> I agree to the <a href="{{ route('terms') }}">Terms</a> and <a href="{{ route('refund') }}">Refund Policy</a>. This is a one-time payment with no automatic renewal.</label>
-                            <button class="btn btn-outline" type="submit">Pay with Paynow{{ config('billing.paynow.mode') === 'test' ? ' (test)' : '' }}</button>
-                        @endif
+                        <label class="billing-consent">
+                            <input type="checkbox" name="billing_consent" value="1" required
+                                @error('billing_consent') aria-invalid="true" aria-describedby="checkout-consent-error" @enderror>
+                            I agree to the <a href="{{ route('terms') }}">Terms</a> and <a href="{{ route('refund') }}">Refund Policy</a>. This is a one-time payment with no automatic renewal.
+                        </label>
+                        <x-input-error id="checkout-consent-error" role="alert" :messages="$errors->get('billing_consent')" />
+                        <div class="checkout-paynow-button">
+                            <button type="submit" class="btn btn-primary" :disabled="submitting"
+                                x-text="submitting ? 'Opening Paynow…' : $el.dataset.label"
+                                data-label="Pay US${{ number_format($plan->price_cents / 100, 2) }} with Paynow">Pay US${{ number_format($plan->price_cents / 100, 2) }} with Paynow</button>
+                        </div>
+                        <p class="checkout-notice">Credits are added after Paynow confirms your payment. If you cancel, no credits are added.</p>
                     @else
                         <button class="btn btn-outline" type="button" disabled>Paynow — {{ $credentialsPresent ? 'currently disabled' : 'not configured' }}</button>
                     @endif
